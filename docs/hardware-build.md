@@ -13,13 +13,13 @@ The project began as a personal learning initiative focused on gaining hands-on 
 ## Core Components
 
 - Intel Core i5-9600KF
-- MSI Z390 GAMING PRO CARBON motherboard
-- PNY XLR8 16GB (2x8GB) RAM DDR3 1866MHz
+- MSI Z390 GAMING PRO CARBON
+- XPG 16GB (2x8GB) DDR4-3200
 - NVIDIA GTX 1060
-- NZXT H500i White RGB ATX Mid Tower Case
-- Western Digital Blue Desktop Hard Drive 1TB 3.5"
-- Thermalright Assassin X120 Refined SE CPU Air Cooler
-- Corsair CX500 500W Power Supply
+- NZXT H500 ATX Mid Tower Case
+- Western Digital Blue 1TB HDD
+- Thermalright Assassin X120 Refined SE
+- Corsair CX500 500W PSU
 
 ---
 
