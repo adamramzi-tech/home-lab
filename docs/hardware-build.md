@@ -1,153 +1,241 @@
-# Hardware Build
+# Hardware Build and System Preparation
 
 ## Objective
 
-The goal of this project was to repurpose existing desktop hardware into a dedicated Linux-based homelab server for learning practical IT infrastructure, systems administration, networking, Docker, and remote server management.
+The goal of this project was to repurpose existing consumer desktop hardware into a dedicated Linux-based homelab server for learning practical systems administration, networking, Docker, Linux server management, and infrastructure troubleshooting.
 
-The project began as a personal learning initiative focused on gaining hands-on experience rather than relying solely on theoretical study.
+This project was built primarily as a hands-on learning environment to develop real operational experience beyond theoretical coursework and certifications.
+
+While this is not an ideal or power-efficient enterprise server configuration, the decision to reuse existing hardware was intentional. The focus was to maximize available resources, gain practical deployment experience, and build a functional infrastructure platform using equipment already on hand.
 
 ---
 
-# Hardware Used
+# Server Hardware
 
 ## Core Components
 
 - Intel Core i5-9600KF
-- MSI Z390 GAMING PRO CARBON
-- XPG 16GB (2x8GB) DDR4-3200
+- MSI Z390 GAMING PRO CARBON motherboard
+- XPG 16GB (2x8GB) DDR4 3200MHz RAM
 - NVIDIA GTX 1060
-- NZXT H500 ATX Mid Tower Case
+- NZXT H500 White ATX Mid Tower Case
 - Western Digital Blue 1TB HDD
-- Thermalright Assassin X120 Refined SE
-- Corsair CX500 500W PSU
+- Thermalright Assassin X120 Refined SE CPU Cooler
+- Corsair CX500 500W Power Supply
 
 ---
 
-# Physical Assembly
+# Project Context
 
 ## Repurposing Existing Hardware
 
-The server was built using a combination of existing desktop components and a newly purchased CPU cooler. The objective was to create a stable and efficient machine capable of running 24/7 Linux server workloads.
+The server originated from older desktop gaming hardware that was no longer being actively used. Instead of allowing the components to sit idle, the system was converted into a dedicated Linux server environment.
+
+Although the hardware is somewhat oversized for lightweight server workloads and not optimized for power efficiency, repurposing existing equipment provided several advantages:
+
+- reduced initial infrastructure costs
+- immediate access to physical hardware
+- practical exposure to server deployment workflows
+- hands-on troubleshooting experience
+- the ability to experiment freely without production risk
+
+This approach prioritized learning, experimentation, and operational familiarity over enterprise-grade optimization.
+
+---
+
+# Hardware Preparation
+
+## Motherboard and CPU Preparation
+
+Initial preparation included reinstalling and validating core hardware components before deployment.
+
+Tasks completed:
+- CPU installation verification
+- motherboard inspection
+- cooler mounting preparation
+- memory installation
+- power connection verification
+- storage reconnection
+
+![Motherboard Preparation](../screenshots/hardware-build/01-motherboard-preparation.jpeg)
 
 ---
 
 ## CPU Cooler Installation
 
-A new CPU cooler was installed before deployment to improve thermal performance and long-term stability.
+A new Thermalright Assassin X120 Refined SE CPU cooler was installed before deployment to improve thermal performance and long-term stability.
 
 Steps completed:
-- Removed the previous cooler
-- Cleaned old thermal paste from the CPU
-- Applied fresh thermal paste
-- Mounted the new CPU cooler securely
-- Connected CPU fan headers
-- Verified cooler clearance inside the case
+- removed the previous cooler
+- cleaned old thermal paste from the CPU
+- applied fresh thermal paste
+- installed new mounting hardware
+- mounted the CPU cooler securely
+- connected CPU fan headers
+- verified cooler clearance and airflow direction
 
-This was one of the most important hardware preparation steps because the system would eventually operate continuously as a server.
+![CPU Cooler Installation](../screenshots/hardware-build/02-cpu-cooler-installation.jpeg)
 
----
-
-## Internal System Preparation
-
-Additional setup included:
-- reconnecting storage drives
-- reseating hardware where necessary
-- verifying RAM placement
-- organizing cables for airflow
-- checking fan operation
-
-The machine was prepared with long-term stability and airflow in mind rather than gaming-oriented aesthetics.
+Proper cooling was treated as a critical requirement because the system would eventually operate continuously as a 24/7 Linux server.
 
 ---
 
-# Initial Boot and BIOS Verification
+# System Assembly and Validation
 
-## POST Verification
+## Initial Assembly
 
-After assembly, the system was powered on and tested to confirm:
-- successful POST
+After hardware preparation, the system was fully assembled inside the NZXT H500 chassis and powered on for validation testing.
+
+Initial checks included:
+- successful POST verification
 - CPU detection
-- memory detection
-- storage detection
+- RAM detection
+- storage recognition
 - fan operation
+- thermal monitoring
 
-This verified that the hardware was functioning correctly before installing the operating system.
+![Initial BIOS Validation](../screenshots/hardware-build/03-bios-validation.jpeg)
 
----
-
-## BIOS Access and Configuration
-
-The motherboard BIOS was accessed to:
-- confirm hardware recognition
-- verify CPU temperatures
-- inspect boot devices
-- review fan operation
-- prepare the machine for Linux installation
+This confirmed that the hardware platform was stable before beginning operating system deployment.
 
 ---
 
-## BIOS Update
+## BIOS Configuration and Firmware Update
 
-The BIOS was updated before deploying the server operating system.
+The MSI BIOS interface was accessed to:
+- verify hardware recognition
+- inspect system temperatures
+- review storage devices
+- confirm boot device priority
+- prepare the system for Linux installation
+
+The BIOS was also updated using MSI M-Flash before deploying Ubuntu Server.
 
 Reasons for updating:
 - improve system stability
-- ensure compatibility
-- apply firmware improvements
-- reduce potential hardware issues later
+- apply firmware fixes
+- improve hardware compatibility
+- reduce potential deployment issues later
 
-This step reinforced the importance of firmware maintenance as part of infrastructure preparation.
+Firmware maintenance was treated as part of the infrastructure preparation process rather than an afterthought.
 
 ---
 
-# Thermal Validation
+# Temporary Workstation Setup
 
-## Temperature Checks
+## Makeshift Deployment Environment
 
-After installation of the new CPU cooler, temperatures were monitored to verify proper mounting and airflow.
+Before the server could operate headlessly, the system required a temporary physical workstation setup for BIOS configuration, operating system installation, and initial networking configuration.
 
-The system maintained stable idle temperatures and operated normally after extended runtime testing.
+A basic deployment environment was assembled using:
+- temporary monitor placement
+- wired keyboard and mouse
+- direct physical console access
+- USB installation media
+- a nearby Windows workstation for downloads and documentation
+
+![Temporary Physical Setup](../screenshots/hardware-build/04-temporary-setup.jpeg)
+
+Because the Intel i5-9600KF does not include integrated graphics, the NVIDIA GTX 1060 remains installed in the system to provide video output and allow the machine to POST successfully.
+
+At this stage, the setup was intentionally functional rather than elegant. The priority was establishing a working Linux server foundation before transitioning to remote administration.
+
+---
+
+# Legacy Windows Installation
+
+## Existing Windows Boot Issues
+
+During early testing, the system still contained an older broken Windows installation from its previous use as a desktop machine.
+
+Boot attempts occasionally produced Windows recovery errors before the system was fully repurposed for Linux.
+
+![Legacy Windows Recovery Screen](../screenshots/hardware-build/05-windows-recovery.jpeg)
+
+While unintended, this became part of the transition process from a consumer desktop environment into a dedicated Linux server platform.
+
+Ultimately, the previous operating system was completely replaced during Ubuntu Server deployment.
+
+---
+
+# Headless Transition
+
+## Moving Toward Remote Administration
+
+Once Ubuntu Server and SSH access were configured successfully, the server no longer required a permanent monitor, keyboard, or mouse.
+
+This reduced reliance on direct physical access and more closely mirrored real-world Linux server administration workflows.
+
+Administration shifted toward:
+- SSH remote access
+- Windows Terminal
+- VS Code remote workflows
+- browser-based management interfaces
+- remote Docker management
+- Git-based documentation workflows
+
+This marked the transition from a temporary physical deployment setup into a functional headless Linux server environment.
 
 ---
 
 # Lessons Learned
 
-## Hardware Reliability Matters
+## Repurposed Hardware Still Has Value
 
-One major takeaway from the hardware phase was that infrastructure projects begin long before software installation. Proper cooling, hardware validation, and firmware updates contribute significantly to long-term reliability.
-
----
-
-## Repurposed Hardware Can Still Be Valuable
-
-This project demonstrated that older desktop hardware can still serve effectively as a dedicated Linux server for:
-- virtualization
+One major takeaway from this project was that older consumer desktop hardware can still function effectively as a capable Linux server for:
 - Docker workloads
-- monitoring stacks
 - networking labs
+- monitoring systems
+- remote administration practice
 - infrastructure experimentation
+- Linux troubleshooting
+
+The project reinforced the idea that practical experience matters more than having perfect hardware at the beginning.
 
 ---
 
-## Incremental Troubleshooting Is Critical
+## Infrastructure Starts Before Software
 
-The hardware build process reinforced the importance of:
-- testing incrementally
-- validating hardware before software deployment
-- checking temperatures early
-- verifying firmware and BIOS stability
+Another important lesson was that server deployment begins long before installing Linux.
 
-These habits later became extremely valuable during Linux and Docker troubleshooting.
+Hardware preparation, cooling, firmware maintenance, and stability validation all directly impact long-term reliability.
+
+Tasks such as:
+- thermal management
+- BIOS updates
+- cable organization
+- hardware verification
+- incremental troubleshooting
+
+became foundational habits throughout the rest of the homelab project.
+
+---
+
+## Practical Troubleshooting Is Essential
+
+The process also reinforced the importance of iterative troubleshooting and adaptability.
+
+Unexpected issues encountered during deployment included:
+- firmware updates
+- temporary Windows boot failures
+- hardware validation
+- deployment staging
+- networking preparation
+- transitioning from local to headless management
+
+Working through these issues provided significantly more practical understanding than theoretical study alone.
 
 ---
 
 # Outcome
 
-At the completion of the hardware phase:
+At the completion of the hardware preparation phase:
 - the server successfully POSTed
 - temperatures were stable
-- BIOS was updated
-- all hardware was recognized correctly
-- the machine was ready for Ubuntu Server installation
+- BIOS firmware was updated
+- hardware components were verified
+- Ubuntu Server installation media was prepared
+- the system was ready for Linux deployment
+- the environment was positioned for eventual headless operation
 
 This established the foundation for the remainder of the homelab infrastructure project.
