@@ -14,11 +14,12 @@ The project began as a personal learning initiative focused on gaining hands-on 
 
 - Intel Core i5-9600KF
 - MSI Z390 GAMING PRO CARBON motherboard
-- 16 GB RAM
+- PNY XLR8 16GB (2x8GB) RAM DDR3 1866MHz
 - NVIDIA GTX 1060
-- Existing ATX tower case
-- Existing storage drives
-- New aftermarket CPU cooler
+- NZXT H500i White RGB ATX Mid Tower Case
+- Western Digital Blue Desktop Hard Drive 1TB 3.5"
+- Thermalright Assassin X120 Refined SE CPU Air Cooler
+- Corsair CX500 500W Power Supply
 
 ---
 
