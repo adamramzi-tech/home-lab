@@ -57,7 +57,7 @@ Tasks completed:
 - power connection verification
 - storage reconnection
 
-![Motherboard Preparation](../screenshots/hardware-build/01-motherboard-preparation.jpeg)
+![Motherboard Preparation](../images/hardware-build/01-motherboard-preparation.jpeg)
 
 ---
 
@@ -74,7 +74,7 @@ Steps completed:
 - connected CPU fan headers
 - verified cooler clearance and airflow direction
 
-![CPU Cooler Installation](../screenshots/hardware-build/02-cpu-cooler-installation.jpeg)
+![CPU Cooler Installation](../images/hardware-build/02-cpu-cooler-installation.jpeg)
 
 Proper cooling was treated as a critical requirement because the system would eventually operate continuously as a 24/7 Linux server.
 
@@ -94,30 +94,9 @@ Initial checks included:
 - fan operation
 - thermal monitoring
 
-![Initial BIOS Validation](../screenshots/hardware-build/03-bios-validation.jpeg)
+![Initial BIOS Validation](../images/hardware-build/03-bios-validation.jpeg)
 
 This confirmed that the hardware platform was stable before beginning operating system deployment.
-
----
-
-## BIOS Configuration and Firmware Update
-
-The MSI BIOS interface was accessed to:
-- verify hardware recognition
-- inspect system temperatures
-- review storage devices
-- confirm boot device priority
-- prepare the system for Linux installation
-
-The BIOS was also updated using MSI M-Flash before deploying Ubuntu Server.
-
-Reasons for updating:
-- improve system stability
-- apply firmware fixes
-- improve hardware compatibility
-- reduce potential deployment issues later
-
-Firmware maintenance was treated as part of the infrastructure preparation process rather than an afterthought.
 
 ---
 
@@ -134,11 +113,11 @@ A basic deployment environment was assembled using:
 - USB installation media
 - a nearby Windows workstation for downloads and documentation
 
-![Temporary Physical Setup](../screenshots/hardware-build/04-temporary-setup.jpeg)
-
 Because the Intel i5-9600KF does not include integrated graphics, the NVIDIA GTX 1060 remains installed in the system to provide video output and allow the machine to POST successfully.
 
 At this stage, the setup was intentionally functional rather than elegant. The priority was establishing a working Linux server foundation before transitioning to remote administration.
+
+![Temporary Physical Setup](../images/hardware-build/04-temporary-setup.jpeg)
 
 ---
 
@@ -150,7 +129,7 @@ During early testing, the system still contained an older broken Windows install
 
 Boot attempts occasionally produced Windows recovery errors before the system was fully repurposed for Linux.
 
-![Legacy Windows Recovery Screen](../screenshots/hardware-build/05-windows-recovery.jpeg)
+![Legacy Windows Recovery Screen](../images/hardware-build/05-windows-recovery.jpeg)
 
 While unintended, this became part of the transition process from a consumer desktop environment into a dedicated Linux server platform.
 
@@ -174,11 +153,34 @@ This configuration allows both systems to maintain wired connectivity while bene
 
 ---
 
+## BIOS Configuration and Firmware Update
+
+The MSI BIOS interface was accessed to:
+- verify hardware recognition
+- inspect system temperatures
+- review storage devices
+- confirm boot device priority
+- prepare the system for Linux installation
+
+The BIOS was also updated using MSI M-Flash before deploying Ubuntu Server.
+
+Reasons for updating:
+- improve system stability
+- apply firmware fixes
+- improve hardware compatibility
+- reduce potential deployment issues later
+
+Firmware maintenance was treated as part of the infrastructure preparation process rather than an afterthought.
+
+![BIOS Firmware Update](../images/hardware-build/06-bios-firmware-update.jpeg)
+
+---
+
 # Headless Transition
 
 ## Moving Toward Remote Administration
 
-Once Ubuntu Server and SSH access were configured successfully, the server no longer required a permanent monitor, keyboard, or mouse.
+Once I completed the [Ubuntu Server Installation](docs/ubuntu-server-install.md) and successfully configured [Remote Access and SSH](docs/remote-access-and-ssh.md), the server no longer required a permanent monitor, keyboard, or mouse. I went ahead and placed the physical machine under my desk where I have my main Windows 11 machine that will be the primary client for this home lab.
 
 This reduced reliance on direct physical access and more closely mirrored real-world Linux server administration workflows.
 
@@ -191,6 +193,8 @@ Administration shifted toward:
 - Git-based documentation workflows
 
 This marked the transition from a temporary physical deployment setup into a functional headless Linux server environment.
+
+![Headless Server Setup](../images/hardware-build/07-headless-server-setup.jpeg)
 
 ---
 
