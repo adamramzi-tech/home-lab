@@ -158,6 +158,22 @@ Ultimately, the previous operating system was completely replaced during Ubuntu 
 
 ---
 
+## Physical Network Connectivity
+
+The server is connected through a Google Fiber home network deployment using a WiFi 6E mesh configuration.
+
+### Network Layout
+
+- Google Fiber connection from exterior fiber jack
+- Primary WiFi 6E router
+- Mesh extender positioned near workstation/server environment
+- Dedicated Cat6 Ethernet connection to Windows 11 client machine
+- Separate dedicated Cat6 Ethernet connection to Ubuntu Server machine
+
+This configuration allows both systems to maintain wired connectivity while benefiting from strong wireless backhaul performance between the mesh node and primary router.
+
+---
+
 # Headless Transition
 
 ## Moving Toward Remote Administration
