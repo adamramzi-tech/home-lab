@@ -178,7 +178,7 @@ The project emphasizes iterative learning, troubleshooting discipline, and opera
 ## Additional Directories
 
 - `diagrams/` → infrastructure and network diagrams
-- `screenshots/` → visual documentation and deployment screenshots
+- `images/` → visual documentation and deployment screenshots
 - `docker/` → Docker Compose files and container configurations
 - `notes/` → operational notes and planning
 
