@@ -57,7 +57,13 @@ Tasks completed:
 - power connection verification
 - storage reconnection
 
-![Motherboard Preparation](../images/hardware-build/01-motherboard-preparation.jpeg)
+<p align="center">
+  <img src="../images/hardware-build/01-motherboard-preparation.jpeg" width="450">
+</p>
+
+<p align="center">
+  <em>MSI Z390 Gaming Pro Carbon motherboard with CPU installed.</em>
+</p>
 
 ---
 
@@ -74,7 +80,13 @@ Steps completed:
 - connected CPU fan headers
 - verified cooler clearance and airflow direction
 
-![CPU Cooler Installation](../images/hardware-build/02-cpu-cooler-installation.jpeg)
+<p align="center">
+  <img src="../images/hardware-build/02-cpu-cooler-installation.jpeg" width="450">
+</p>
+
+<p align="center">
+  <em>Thermalright Assassin X120 Refined SE cooler installed during initial hardware assembly.</em>
+</p>
 
 Proper cooling was treated as a critical requirement because the system would eventually operate continuously as a 24/7 Linux server.
 
@@ -94,9 +106,16 @@ Initial checks included:
 - fan operation
 - thermal monitoring
 
-![Initial BIOS Validation](../images/hardware-build/03-bios-validation.jpeg)
-
 This confirmed that the hardware platform was stable before beginning operating system deployment.
+
+<p align="center">
+  <img src="../images/hardware-build/03-bios-validation.jpeg" height="450">
+</p>
+
+<p align="center">
+  <em>Quick makeshift setup to test the system before moving it over to the workstation.</em>
+</p>
+
 
 ---
 
@@ -117,7 +136,13 @@ Because the Intel i5-9600KF does not include integrated graphics, the NVIDIA GTX
 
 At this stage, the setup was intentionally functional rather than elegant. The priority was establishing a working Linux server foundation before transitioning to remote administration.
 
-![Temporary Physical Setup](../images/hardware-build/04-temporary-setup.jpeg)
+<p align="center">
+  <img src="../images/hardware-build/04-temporary-setup.jpeg" width="700">
+</p>
+
+<p align="center">
+  <em>Temporary workstation setup used for BIOS configuration, operating system installation, and initial deployment tasks.</em>
+</p>
 
 ---
 
@@ -129,7 +154,13 @@ During early testing, the system still contained an older broken Windows install
 
 Boot attempts occasionally produced Windows recovery errors before the system was fully repurposed for Linux.
 
-![Legacy Windows Recovery Screen](../images/hardware-build/05-windows-recovery.jpeg)
+<p align="center">
+  <img src="../images/hardware-build/05-windows-recovery.jpeg" width="700">
+</p>
+
+<p align="center">
+  <em>Windows recovery screen encountered during early transition from desktop environment to dedicated Linux server deployment.</em>
+</p>
 
 While unintended, this became part of the transition process from a consumer desktop environment into a dedicated Linux server platform.
 
@@ -172,7 +203,13 @@ Reasons for updating:
 
 Firmware maintenance was treated as part of the infrastructure preparation process rather than an afterthought.
 
-![BIOS Firmware Update](../images/hardware-build/06-bios-firmware-update.jpeg)
+<p align="center">
+  <img src="../images/hardware-build/06-bios-firmware-update.jpeg" width="700">
+</p>
+
+<p align="center">
+  <em>M-Flash BIOS update using a flashdrive.</em>
+</p>
 
 ---
 
@@ -194,7 +231,13 @@ Administration shifted toward:
 
 This marked the transition from a temporary physical deployment setup into a functional headless Linux server environment.
 
-![Headless Server Setup](../images/hardware-build/07-headless-server-setup.jpeg)
+<p align="center">
+  <img src="../images/hardware-build/07-headless-server-setup.jpeg" width="700">
+</p>
+
+<p align="center">
+  <em>Completed server machine deployed after transitioning to fully headless remote administration workflows.</em>
+</p>
 
 ---
 
