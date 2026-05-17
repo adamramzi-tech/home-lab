@@ -236,7 +236,7 @@ This marked the transition from a temporary physical deployment setup into a fun
 </p>
 
 <p align="center">
-  <em>Completed server machine deployed after transitioning to fully headless remote administration workflows.</em>
+  <em>The physical server was relocated beneath the primary workstation after remote administration workflows were fully operational.</em>
 </p>
 
 ---

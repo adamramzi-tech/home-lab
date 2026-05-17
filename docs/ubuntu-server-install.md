@@ -13,7 +13,13 @@ Deploy Ubuntu Server 26.04 LTS onto repurposed hardware to establish the foundat
 - Downloaded Ubuntu Server 26.04 LTS ISO
 - Verified correct server image selection
 
-![Ubuntu Download](../screenshots/ubuntu-server-install/01-ubuntu-download.jpeg)
+<p align="center">
+  <img src="../images/ubuntu-server-install/01-ubuntu-download.jpeg" width="700">
+</p>
+
+<p align="center">
+  <em>Ubuntu Server 26.04 LTS download page used to obtain the installation ISO.</em>
+</p>
 
 ---
 
@@ -26,7 +32,13 @@ Configuration used:
 - Target system: UEFI (non-CSM)
 - File system: FAT32
 
-![Rufus Configuration](../screenshots/ubuntu-server-install/02-rufus-usb.jpeg)
+<p align="center">
+  <img src="../images/ubuntu-server-install/02-rufus-usb.jpeg" width="400">
+</p>
+
+<p align="center">
+  <em>Rufus configuration used to create UEFI-compatible Ubuntu Server installation media.</em>
+</p>
 
 ---
 
@@ -34,9 +46,17 @@ Configuration used:
 
 ## BIOS Update
 
-The motherboard BIOS was updated before OS deployment to improve hardware compatibility and long-term stability.
+Prior to Ubuntu Server deployment, the motherboard BIOS was updated to improve hardware compatibility, system stability, and long-term reliability.
 
-![BIOS Update](../screenshots/ubuntu-server-install/03-bios-update.jpeg)
+<p align="center">
+  <img src="../images/ubuntu-server-install/03-bios-firmware-update.jpeg" width="600">
+</p>
+
+<p align="center">
+  <em>Motherboard BIOS update completed prior to Linux deployment to improve system stability and compatibility.</em>
+</p>
+
+Detailed hardware preparation steps are documented in the [Hardware Build](./hardware-build.md) section.
 
 ---
 
@@ -46,7 +66,13 @@ The motherboard BIOS was updated before OS deployment to improve hardware compat
 
 The system successfully booted into the Ubuntu Server installer environment.
 
-![Installer Language Selection](../screenshots/ubuntu-server-install/04-language-selection.jpeg)
+<p align="center">
+  <img src="../images/ubuntu-server-install/04-language-selection.jpeg" width="700">
+</p>
+
+<p align="center">
+  <em>Ubuntu Server installer environment during initial deployment and language selection.</em>
+</p>
 
 ---
 
@@ -54,7 +80,13 @@ The system successfully booted into the Ubuntu Server installer environment.
 
 The standard Ubuntu Server installation option was selected.
 
-![Installation Type](../screenshots/ubuntu-server-install/05-installation-type.jpeg)
+<p align="center">
+  <img src="../images/ubuntu-server-install/05-installation-type.jpeg" width="700">
+</p>
+
+<p align="center">
+  <em>Ubuntu Server installation type selection during operating system deployment.</em>
+</p>
 
 ---
 
@@ -62,7 +94,13 @@ The standard Ubuntu Server installation option was selected.
 
 The initial hostname, username, and authentication credentials were configured during installation.
 
-![Profile Configuration](../screenshots/ubuntu-server-install/06-profile-configuration.jpeg)
+<p align="center">
+  <img src="../images/ubuntu-server-install/06-profile-configuration.jpeg" width="700">
+</p>
+
+<p align="center">
+  <em>Initial server hostname, user profile, and authentication configuration during setup.</em>
+</p>
 
 ---
 
@@ -70,7 +108,13 @@ The initial hostname, username, and authentication credentials were configured d
 
 Ubuntu Server packages and OpenSSH components were installed.
 
-![Package Installation](../screenshots/ubuntu-server-install/07-installation-process.jpeg)
+<p align="center">
+  <img src="../images/ubuntu-server-install/07-installation-process.jpeg" width="600">
+</p>
+
+<p align="center">
+  <em>Ubuntu Server package installation and OpenSSH deployment process.</em>
+</p>
 
 ---
 
@@ -80,7 +124,13 @@ Ubuntu Server packages and OpenSSH components were installed.
 
 After installation completed, the server initialized cloud-init services and generated SSH host keys.
 
-![Cloud Init](../screenshots/ubuntu-server-install/08-cloud-init.jpeg)
+<p align="center">
+  <img src="../images/ubuntu-server-install/08-cloud-init.jpeg" width="600">
+</p>
+
+<p align="center">
+  <em>Initial cloud-init services and SSH host key generation during first boot.</em>
+</p>
 
 ---
 
@@ -90,7 +140,13 @@ After installation completed, the server initialized cloud-init services and gen
 
 The first successful SSH session was established from the Windows 11 client workstation using Windows Terminal.
 
-![SSH Session](../screenshots/ubuntu-server-install/09-first-ssh.jpeg)
+<p align="center">
+  <img src="../images/ubuntu-server-install/09-first-ssh.jpeg" width="600">
+</p>
+
+<p align="center">
+  <em>First successful SSH connection established from the Windows 11 workstation using Windows Terminal.</em>
+</p>
 
 ---
 
