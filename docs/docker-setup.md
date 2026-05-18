@@ -2,91 +2,66 @@
 
 ## Overview
 
-After establishing stable remote administration through SSH and Tailscale, the next major step in the home lab deployment was containerization using Docker.
+After Ubuntu Server deployment and remote administration were fully operational, the next phase of the home lab focused on containerization using Docker.
 
-Docker was installed to provide:
+Docker was selected to provide:
+
 - Isolated application environments
 - Simplified service deployment
-- Easier infrastructure management
-- Reproducible configurations
-- Reduced dependency conflicts
-- Scalable self-hosted service deployment
+- Reproducible infrastructure
+- Easier dependency management
+- Scalable self-hosted service architecture
+- Cleaner operational workflows
 
-Portainer was later deployed as a web-based Docker management interface to simplify container administration and visualization.
+Portainer Community Edition was later deployed to provide a centralized graphical interface for Docker administration and container visibility.
 
-The entire Docker installation and configuration process was performed remotely through SSH using PowerShell on the Windows 11 workstation.
+All installation and configuration steps were performed remotely over SSH from the Windows 11 workstation.
+
+---
 
 ## Goals
 
-- Learn containerization fundamentals
-- Deploy Docker Engine manually
-- Understand Linux package repositories
-- Validate Docker functionality
-- Deploy a web-based container management platform
+- Learn Docker fundamentals
+- Configure Docker using the official repository
+- Understand Linux package repository management
+- Validate Docker Engine functionality
+- Deploy a graphical container management platform
 - Establish a scalable self-hosting foundation
-- Prepare infrastructure for future services and stacks
+- Prepare infrastructure for future services and automation
 
-## Updating the System
-
-Before installing Docker, the Ubuntu Server system was fully updated using APT.
-
-Commands used:
-
-```bash
-sudo apt update && sudo apt upgrade -y
-```
-
-This ensured:
-- Current package indexes
-- Updated system packages
-- Improved compatibility
-- Latest security patches
-
-![System Update Process](images/docker/system-update.jpeg)
-
-## Installing Fastfetch
-
-An attempt was initially made to install Neofetch for system information display, but the package was unavailable in the repository configuration being used.
-
-```bash
-sudo apt install neofetch -y
-```
-
-Because of this, Fastfetch was installed instead.
-
-```bash
-sudo apt install fastfetch -y
-```
-
-Fastfetch provided:
-- System hardware summaries
-- Operating system information
-- Resource visibility
-- Cleaner terminal presentation
-
-This also introduced package troubleshooting and repository awareness during the Linux learning process.
-
-![Fastfetch Installation](images/docker/fastfetch-install.jpeg)
+---
 
 ## Preparing Docker Repository Dependencies
 
-Before adding Docker's official repository, several required packages were installed.
+Before Docker could be installed, several prerequisite packages were installed to support secure repository communication and package verification.
 
-Commands used:
+Command used:
 
 ```bash
+sudo apt update
 sudo apt install ca-certificates curl gnupg -y
 ```
 
-These packages enabled:
-- Secure HTTPS repository communication
-- GPG key management
-- Package verification
-- Secure repository authentication
+These packages provided:
 
-## Adding Docker's Official GPG Key
+- HTTPS repository communication
+- GPG signature verification
+- Secure package authentication
+- Repository key management
 
-Docker's official repository signing key was then downloaded and configured.
+<p align="center">
+  <img src="../images/docker-setup/01-sudo-update-and-install-ca-certificates.jpeg" width="700">
+</p>
+
+<p align="center">
+  <em>Installing prerequisite packages required for secure Docker repository configuration.</em>
+</p>
+
+---
+
+## Adding Docker's Official Repository
+
+Docker's official GPG signing key was downloaded and configured to allow Ubuntu to validate packages from Docker's repository.
 
 Commands used:
 
@@ -103,11 +78,7 @@ sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
 sudo chmod a+r /etc/apt/keyrings/docker.gpg
 ```
 
-This allowed Ubuntu to securely verify Docker packages from Docker's official repository.
-
-## Adding Docker Repository
-
-Docker's repository was then added to the system's APT sources list.
+Docker's stable repository was then added to the system's APT sources list.
 
 Command used:
 
@@ -120,19 +91,27 @@ $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
 sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 ```
 
-After adding the repository, package indexes were refreshed:
+After the repository was added, package indexes were refreshed:
 
 ```bash
 sudo apt update
 ```
 
-This configured the server to pull Docker packages directly from Docker's official repositories rather than Ubuntu's default repositories.
+This ensured Docker packages would be pulled directly from Docker's official repositories rather than Ubuntu's default package repositories.
 
-![Docker Repository Setup](images/docker/docker-repository-setup.jpeg)
+<p align="center">
+  <img src="../images/docker-setup/02-docker-gpg-key.jpeg" width="700">
+</p>
+
+<p align="center">
+  <em>Docker repository signing key and official Docker APT repository configured on Ubuntu Server.</em>
+</p>
+
+---
 
 ## Installing Docker Engine
 
-Docker Engine and related components were then installed.
+Docker Engine and related runtime components were then installed.
 
 Command used:
 
@@ -142,19 +121,28 @@ docker-buildx-plugin docker-compose-plugin -y
 ```
 
 Installed components included:
+
 - Docker Engine
 - Docker CLI
 - Containerd runtime
 - Docker Buildx
-- Docker Compose Plugin
+- Docker Compose plugin
 
-This established the complete Docker runtime environment on the Ubuntu Server system.
+This established the complete container runtime environment on the Ubuntu Server host.
 
-![Docker Engine Installation](images/docker/docker-installation.jpeg)
+<p align="center">
+  <img src="../images/docker-setup/03-installing-docker-engine.jpeg" width="700">
+</p>
 
-## Verifying Docker Installation
+<p align="center">
+  <em>Installation of Docker Engine, Docker CLI, containerd, and Docker Compose components.</em>
+</p>
 
-After installation completed, Docker functionality was verified.
+---
+
+## Verifying Docker Functionality
+
+After installation completed, Docker functionality was validated.
 
 Docker version check:
 
@@ -168,48 +156,63 @@ Test container execution:
 sudo docker run hello-world
 ```
 
-The successful "Hello from Docker!" output confirmed:
+The successful output confirmed:
+
 - Docker daemon functionality
 - Internet connectivity
-- Image pulling capability
-- Container execution capability
-- Functional Docker runtime installation
+- Image download capability
+- Functional container execution
+- Proper runtime installation
 
-![Docker Hello World Verification](images/docker/docker-hello-world.jpeg)
+<p align="center">
+  <img src="../images/docker-setup/04-docker-hello-world.jpeg" width="700">
+</p>
+
+<p align="center">
+  <em>Successful Docker runtime validation using the official hello-world test container.</em>
+</p>
+
+---
 
 ## Why Docker Was Important
 
-Docker fundamentally changed how services could be deployed within the home lab.
+Docker fundamentally changed how infrastructure and services could be deployed within the home lab.
 
-Instead of:
-- Manually configuring applications directly on the host operating system
-- Managing conflicting dependencies
-- Risking host system instability
+Instead of manually configuring applications directly on the host operating system, services could now operate inside isolated containers with independent environments and standardized deployment workflows.
 
-Services could now run inside isolated containers with:
-- Independent environments
-- Simplified deployment
+Benefits included:
+
+- Simplified deployments
+- Reduced dependency conflicts
 - Easier troubleshooting
-- Better portability
+- Improved portability
+- Faster service recovery
 - Cleaner infrastructure management
 
-Docker effectively became the foundation for future self-hosted services.
+Docker became the operational foundation for future self-hosted applications and services.
+
+---
 
 ## Deploying Portainer
 
-After Docker was functioning properly, Portainer Community Edition was deployed.
+After Docker was functioning correctly, Portainer Community Edition was deployed to provide graphical container management.
+
+Portainer introduced a graphical management layer on top of the Docker Engine API, simplifying operational visibility and container lifecycle management.
 
 Portainer provided:
-- Web-based Docker management
-- Container visualization
+
+- Web-based Docker administration
+- Container visibility
 - Volume management
 - Network management
 - Stack deployment
-- Easier administration for future services
+- Simplified operational monitoring
 
-## Creating Portainer Volume
+---
 
-A persistent Docker volume was created to store Portainer data.
+## Creating Persistent Portainer Storage
+
+A persistent Docker volume was created to store Portainer configuration data.
 
 Command used:
 
@@ -217,14 +220,9 @@ Command used:
 sudo docker volume create portainer_data
 ```
 
-This ensured Portainer configuration data would persist across:
-- Container restarts
-- Reboots
-- Image updates
+The Portainer container was then deployed.
 
-## Running the Portainer Container
-
-The Portainer container was deployed using the following command:
+Command used:
 
 ```bash
 sudo docker run -d \
@@ -237,17 +235,26 @@ sudo docker run -d \
 portainer/portainer-ce:lts
 ```
 
-Key configuration details:
-- Port 9443 used for secure HTTPS web access
-- Docker socket mounted for Docker management access
-- Persistent volume mounted for configuration storage
-- Automatic restart policy enabled
+Key configuration details included:
 
-![Portainer Deployment](images/docker/portainer-deployment.jpeg)
+- HTTPS web access through port 9443
+- Persistent configuration storage
+- Docker socket access for container management
+- Automatic restart policy
+
+<p align="center">
+  <img src="../images/docker-setup/05-creating-portainer-volume.jpeg" width="700">
+</p>
+
+<p align="center">
+  <em>Creation of persistent Portainer storage and deployment of the Portainer Community Edition container.</em>
+</p>
+
+---
 
 ## Accessing Portainer
 
-After deployment, Portainer became accessible through the browser using:
+After deployment, Portainer became accessible through a web browser using:
 
 ```text
 https://server-ip:9443
@@ -260,100 +267,134 @@ https://192.168.x.x:9443
 ```
 
 Initial setup included:
+
 - Administrator account creation
 - Local Docker environment selection
 - Environment initialization
 
-Once configured, Portainer successfully connected to the local Docker environment.
+Once configured, Portainer successfully connected to the local Docker Engine instance.
+
+---
 
 ## Portainer Dashboard
 
 The Portainer dashboard provided centralized visibility into:
-- Containers
-- Images
+
+- Running containers
+- Docker images
 - Volumes
-- Resource usage
+- Resource utilization
 - Docker environments
+- Container networking
 
 This became the primary graphical management interface for the server's container infrastructure.
 
-The dashboard displayed:
-- Active Docker containers
-- Docker Engine version
-- System resource availability
-- Storage usage
-- Networking information
+<p align="center">
+  <img src="../images/docker-setup/06-portainer-dashboard.jpeg" width="900">
+</p>
 
-![Portainer Dashboard](images/docker/portainer-dashboard.png)
+<p align="center">
+  <em>Portainer dashboard connected to the local Docker environment and displaying active container infrastructure.</em>
+</p>
 
-## Docker Architecture Concepts Learned
+---
 
-During this process, several important Docker concepts were introduced:
+## Docker Concepts Introduced
 
 ### Images
 
 Read-only templates used to create containers.
 
-Examples:
+Examples included:
+
 - `hello-world`
 - `ubuntu`
 - `portainer/portainer-ce`
 
 ### Containers
 
-Running instances of Docker images.
+Running instances of Docker images that provide isolated application environments.
 
-Containers provide:
-- Isolation
+Containers simplify:
+
+- Deployment
 - Portability
-- Process encapsulation
+- Dependency management
+- Operational consistency
 
 ### Volumes
 
-Persistent storage locations outside container lifecycle management.
+Persistent storage locations managed independently from container lifecycle operations.
 
 Volumes prevent data loss during:
+
 - Container recreation
 - Updates
 - Restarts
+- Image replacement
 
 ### Container Networking
 
-Docker automatically creates internal networking for communication between containers and external services.
+Docker automatically provisions virtual bridge networking that allows containers to communicate internally while selectively exposing services externally through mapped ports.
 
 ### Docker Daemon
 
 The background service responsible for:
+
 - Pulling images
 - Running containers
-- Managing networking
 - Managing storage
+- Managing networking
+- Handling container lifecycle operations
+
+---
 
 ## Security Considerations
 
-Current Docker deployment uses:
+The current Docker deployment utilized:
+
 - Official Docker repositories
+- Repository signature validation
 - HTTPS-secured Portainer access
 - Persistent container storage
-- Controlled local network access
+- Local network administrative access
 
 Future improvements may include:
+
 - Reverse proxy integration
 - SSL certificate management
-- Container segmentation
-- Non-root Docker administration
 - Firewall hardening
+- Non-root Docker administration
+- Container segmentation
 - Access control improvements
 
-## Lessons Learned
+---
 
-- Docker installation is heavily repository and dependency driven
-- Linux package management becomes much more important when deploying infrastructure software
-- Containerization dramatically simplifies service deployment
-- Docker images make application deployment highly reproducible
-- Portainer significantly improves visibility and management usability
-- Persistent volumes are essential for stateful applications
-- The Docker ecosystem introduces many new infrastructure concepts quickly
-- Containerization forms the foundation for modern self-hosting environments
-- Remote SSH administration integrates naturally with Docker workflows
-- Small successful deployments compound confidence for larger infrastructure projects
+# Outcome
+
+At completion:
+
+- Docker Engine was successfully deployed
+- Official Docker repositories were configured
+- Container execution was validated
+- Portainer was operational
+- Persistent Docker storage was configured
+- Web-based container administration was functional
+- The infrastructure foundation for self-hosted services was established
+
+---
+
+# Lessons Learned
+
+Key takeaways included:
+
+- Docker installation relies heavily on repository and package management fundamentals
+- Containerization significantly simplifies service deployment workflows
+- Linux package repository trust and GPG verification are critical infrastructure concepts
+- Docker images enable highly reproducible deployments
+- Persistent storage management is essential for stateful services
+- Portainer improves operational visibility and container management usability
+- Containerization introduces modular infrastructure design principles
+- Remote SSH administration integrates naturally with Docker-based workflows
+- Modern self-hosting environments are heavily container driven
+- Small successful deployments compound operational confidence and troubleshooting ability
