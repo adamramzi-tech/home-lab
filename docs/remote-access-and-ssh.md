@@ -1,268 +1,214 @@
 # Remote Access and SSH
 
-## Overview
+## Objective
 
-This document covers the remote access, SSH, networking, and Wake-on-LAN configuration used to manage the home lab server.
+Establish secure remote administration capabilities for the Ubuntu Server environment using OpenSSH, Windows Terminal, Tailscale, and Wake-on-LAN functionality.
 
-The server is primarily administered remotely from a Windows 11 workstation using PowerShell as the primary terminal environment.
+---
 
-Remote management capabilities were progressively expanded throughout deployment and infrastructure setup, including:
+## OpenSSH Installation
 
-- OpenSSH Server deployment
-- Remote administration through PowerShell
-- Reserved local IP addressing
-- Secure remote access through Tailscale
-- BIOS-level Wake-on-LAN configuration
-- Mobile Wake-on-LAN management
+### OpenSSH Server Deployment
 
-The overall goal was to create a flexible and remotely manageable server environment without relying on direct physical access.
+During Ubuntu Server installation, the OpenSSH server package was enabled to allow secure remote administration immediately after deployment.
 
-## Goals
+<p align="center">
+  <img src="../images/remote-access-and-ssh/01-openssh-installation.jpeg" width="700">
+</p>
 
-- Enable secure remote server administration
-- Minimize dependence on physical access
-- Learn Linux server management from a Windows environment
-- Maintain reliable network connectivity
-- Establish persistent remote access workflows
-- Implement remote power management
-- Improve long-term infrastructure flexibility
+<p align="center">
+  <em>OpenSSH server installation enabled during Ubuntu Server deployment.</em>
+</p>
 
-## Administration Workstation
+This configuration allowed the server to accept inbound SSH connections after the operating system installation completed.
 
-The primary client machine used for remote administration is a Windows 11 desktop workstation.
+Additional Ubuntu installation details are documented in the [Ubuntu Server Installation](./ubuntu-server-install.md) section.
 
-PowerShell was used as the primary terminal environment for:
-- SSH connectivity
-- Linux server administration
-- Remote management testing
-- Reboot and connectivity validation
+---
 
-This workflow provided:
-- Native SSH support within Windows
-- Cross-platform administration between Windows and Linux
-- Convenient remote terminal access
-- Familiar tooling while learning Linux server administration
+## Initial System Validation
 
-Initial SSH testing and infrastructure management tasks were performed entirely from the Windows workstation.
+### First Boot Verification
 
-## Initial Bare-Metal Deployment
+After installation completed, the system successfully booted into Ubuntu Server and initialized core services.
 
-Ubuntu Server was deployed directly onto the server hardware using a bootable installation USB.
+<p align="center">
+  <img src="../images/remote-access-and-ssh/02-first-boot.jpeg" width="450">
+</p>
 
-The server initially operated using direct local access before transitioning to fully remote administration.
+<p align="center">
+  <em>Initial Ubuntu Server boot confirmation following operating system deployment.</em>
+</p>
 
-![Initial Bare-Metal Deployment](images/networking/initial-local-setup.jpeg)
+Validation performed:
+- verified successful operating system deployment
+- confirmed network interface initialization
+- verified OpenSSH availability
+- confirmed system resource visibility
+- validated hostname configuration
 
-## OpenSSH Server Installation
+---
 
-OpenSSH Server was installed during the Ubuntu Server installation process.
+## Remote SSH Administration
 
-This enabled SSH connectivity immediately after deployment without requiring additional package installation later.
+### First SSH Connection
 
-![Ubuntu Server Installation Process](images/ubuntu-install/ubuntu-install-process.jpeg)
+The first remote SSH session was established from a Windows 11 workstation using Windows Terminal and OpenSSH client utilities.
 
-## Featured Server Snaps
+<p align="center">
+  <img src="../images/remote-access-and-ssh/03-first-ssh-session.jpeg" width="700">
+</p>
 
-During installation, Ubuntu Server presented several optional server snaps and infrastructure-related packages.
+<p align="center">
+  <em>First successful SSH connection established from the Windows 11 administrative workstation.</em>
+</p>
 
-No additional snaps were selected during initial deployment in order to keep the base operating system lightweight and minimal.
+The initial connection process included:
+- host authenticity verification
+- ED25519 fingerprint validation
+- known_hosts registration
+- password authentication testing
+- remote shell validation
 
-![Ubuntu Server Featured Snaps](images/ubuntu-install/installer-featured-snaps.jpeg)
+This transition marked the movement from direct physical console management to remote Linux server administration workflows.
 
-## SSH Host Key Generation
+---
 
-SSH host keys were automatically generated during installation.
+## SSH Key Generation
 
-This prepared the server for encrypted remote communication immediately after deployment.
+### Generating ED25519 SSH Keys
 
-![SSH Key Generation](images/ubuntu-install/ssh-key-generation.jpeg)
+SSH key infrastructure was prepared on the Windows workstation using the built-in OpenSSH utilities within PowerShell.
 
-## Initial Network Configuration
+<p align="center">
+  <img src="../images/remote-access-and-ssh/04-ssh-keygen.jpeg" width="650">
+</p>
 
-After installation completed, the server received a local IP address through DHCP from the router.
+<p align="center">
+  <em>Generating ED25519 SSH authentication keys from the Windows administrative workstation.</em>
+</p>
 
-This local IP address was then used for initial SSH connectivity testing from the Windows workstation.
+Key generation objectives:
+- prepare for passwordless authentication
+- improve remote administration security
+- support future infrastructure automation
+- establish persistent trusted administrative access
 
-## Initial SSH Connection Attempt
+---
 
-The first SSH connection attempt was initiated through Windows PowerShell.
+## Tailscale Remote Connectivity
 
-While learning SSH command syntax and remote administration workflow, several initial command formatting errors were encountered before successfully establishing a connection.
+### Tailscale Mesh VPN Integration
 
-This process helped reinforce:
-- SSH command structure
-- User and host formatting
-- Basic networking concepts
-- Remote troubleshooting workflow
-- Client-to-server connectivity validation
+Tailscale was deployed to provide secure remote access to the homelab environment without exposing SSH services directly to the public internet.
 
-![Initial SSH Attempt](images/ssh/first-powershell-connection.jpeg)
+<p align="center">
+  <img src="../images/remote-access-and-ssh/05-tailscale-connection.jpeg" width="700">
+</p>
 
-## Successful Remote Login
+<p align="center">
+  <em>Tailscale status output showing active mesh VPN connectivity between infrastructure devices.</em>
+</p>
 
-After correcting the SSH syntax, remote login to the Ubuntu Server system was successful.
+Connected devices included:
+- Ubuntu Server host
+- Windows administrative workstation
+- iPhone mobile client
 
-This confirmed:
-- OpenSSH Server functionality
-- Local network connectivity
-- Proper user authentication
-- Functional remote administration capability
+This provided:
+- encrypted remote connectivity
+- simplified remote administration
+- private mesh networking
+- secure access without traditional port forwarding exposure
 
-SSH sessions were established using:
+---
 
-```bash
-ssh username@server-ip
-```
+## Static Addressing
 
-Example:
+### Reserved Local IP Configuration
 
-```bash
-ssh adam@192.168.x.x
-```
+A reserved local IPv4 address was configured through the router management interface to ensure stable infrastructure addressing.
 
-![Successful SSH Login](images/ssh/successful-ssh-login.jpeg)
+<p align="center">
+  <img src="../images/remote-access-and-ssh/06-reserved-ip.jpeg" width="450">
+</p>
 
-## Remote Shutdown and Reconnection Testing
+<p align="center">
+  <em>Reserved local IPv4 assignment configured for consistent infrastructure connectivity.</em>
+</p>
 
-A remote shutdown test was performed to validate remote management behavior and reconnection workflow.
+Benefits of reserved addressing:
+- stable SSH connection targets
+- predictable infrastructure management
+- simplified service configuration
+- consistent DNS and routing behavior
 
-The server was remotely powered down using:
-
-```bash
-sudo shutdown now
-```
-
-As expected, the SSH session disconnected immediately after shutdown.
-
-![Remote Shutdown Test](images/ssh/remote-shutdown.jpeg)
-
-After rebooting the server, SSH connectivity was successfully restored.
-
-This validated:
-- Stable networking
-- Persistent SSH functionality
-- Reliable remote administration capability
-- Proper system recovery behavior
-
-![SSH Reconnection Test](images/ssh/ssh-reconnect-after-reboot.jpeg)
-
-## Reserved IP Address Configuration
-
-To improve long-term reliability, the server was assigned a reserved IP address through the router's DHCP reservation settings.
-
-This ensured the server consistently received the same local IP address after:
-- Reboots
-- Network reconnects
-- Power cycles
-
-Using a reserved IP simplified:
-- SSH administration
-- Wake-on-LAN configuration
-- Service access
-- Remote troubleshooting
-- Infrastructure documentation
-
-The reserved local IP became the primary address used for server administration tasks.
-
-## SSH Encryption and Security
-
-SSH provides encrypted communication between the Windows workstation and the Ubuntu Server environment using secure cryptographic protocols.
-
-Current remote access configuration includes:
-- Encrypted SSH sessions
-- Non-root user authentication
-- Local network administration
-- Remote access through Tailscale
-
-The SSH server configuration file is located at:
-
-```bash
-/etc/ssh/sshd_config
-```
-
-## Tailscale Remote Access
-
-Tailscale was later integrated to provide secure remote connectivity outside the local network.
-
-This enabled remote SSH administration without exposing ports directly to the public internet.
-
-Tailscale simplified secure connectivity while improving overall security posture by reducing public attack surface exposure.
-
-Benefits included:
-- Secure off-site access
-- Simplified VPN functionality
-- Device-to-device encrypted connectivity
-- Improved remote administration flexibility
+---
 
 ## Wake-on-LAN Configuration
 
-Wake-on-LAN (WoL) was later configured to allow the server to be powered on remotely over the network.
+### BIOS Wake-on-LAN Enablement
 
-This required returning to the motherboard BIOS configuration and enabling several hardware and power management settings.
+Wake-on-LAN related firmware settings were enabled through the motherboard BIOS configuration interface.
 
-Configured BIOS settings included:
-- Resume By PCI-E Device
-- Resume By Onboard Intel LAN
-- Restore After AC Power Loss
-- Smart Fan Control adjustments
+<p align="center">
+  <img src="../images/remote-access-and-ssh/07-wake-on-lan.jpeg" width="500">
+</p>
 
-Additional fan curve tuning and power behavior changes were also configured while inside BIOS.
+<p align="center">
+  <em>BIOS-level Wake-on-LAN and power recovery configuration adjustments.</em>
+</p>
 
-![BIOS Wake-on-LAN Configuration](images/networking/wake-on-lan-bios.jpeg)
+Configured features included:
+- PCI-E wake support
+- onboard LAN wake capability
+- automatic power recovery behavior
+- fan control optimization
 
-## Mobile Wake-on-LAN Management
+This enabled remote power management functionality for the server environment.
 
-After BIOS configuration was completed, Wake-on-LAN functionality was tested using a mobile application.
+---
 
-The server was added using:
-- Hostname
-- MAC address
-- Reserved local IP address
-- Broadcast subnet information
+## Mobile Wake-on-LAN Testing
 
-![Wake-on-LAN Mobile Application](images/networking/wol-mobile-app.jpeg)
+Wake-on-LAN functionality was validated using a mobile client application on the local network.
 
-![Wake-on-LAN Device Setup](images/networking/wol-device-setup.png)
+<p align="center">
+  <img src="../images/remote-access-and-ssh/08-mobile-wol.jpeg" width="350">
+</p>
 
-Successful Wake-on-LAN testing confirmed:
-- Proper BIOS configuration
-- Functional network adapter wake support
-- Correct MAC address targeting
-- Reliable remote startup capability
+<p align="center">
+  <em>Successful Wake-on-LAN packet transmission from mobile client to Ubuntu Server host.</em>
+</p>
 
-![Wake-on-LAN Successful Test](images/networking/wol-success.png)
+Validation confirmed:
+- successful magic packet delivery
+- correct MAC addressing configuration
+- operational remote power-on capability
+- functional local subnet broadcast behavior
 
-## Why Wake-on-LAN Was Useful
+---
 
-Wake-on-LAN improved overall flexibility by allowing the server to remain powered off when not actively needed while still maintaining remote accessibility.
+# Outcome
 
-This enabled:
-- Remote startup without physical access
-- Reduced unnecessary power consumption
-- More flexible server management
-- Easier recovery after shutdowns
-- Improved convenience for remote administration
+At completion:
+- OpenSSH remote administration was operational
+- Windows Terminal administration workflow was established
+- SSH authentication infrastructure was initialized
+- Tailscale remote connectivity was functional
+- Reserved local addressing was configured
+- Wake-on-LAN remote power management was operational
 
-## Future Security Improvements
+---
 
-Planned future improvements include:
-- SSH key-only authentication
-- Disabling password authentication
-- Fail2ban intrusion prevention
-- UFW firewall configuration
-- VLAN segmentation
-- Additional monitoring and logging
-- Reverse proxy integration
+# Lessons Learned
 
-## Lessons Learned
-
-- SSH dramatically improves server administration workflow
-- Cross-platform administration between Windows and Linux is highly practical
-- PowerShell provides an effective SSH management environment on Windows
-- Reserved IP addressing greatly simplifies infrastructure management
-- Wake-on-LAN requires both BIOS and network-level configuration
-- Remote administration quickly becomes essential in a homelab environment
-- Tailscale significantly simplified secure remote connectivity
-- Reboot and reconnection testing helped validate system stability
-- Encrypted remote administration is foundational for modern infrastructure management
-- Small infrastructure improvements compound into a much more manageable environment over time
+Key takeaways included:
+- OpenSSH deployment workflows
+- SSH trust and fingerprint verification
+- remote Linux administration fundamentals
+- ED25519 key generation
+- mesh VPN networking concepts
+- persistent infrastructure addressing
+- Wake-on-LAN configuration and testing
+- transitioning from local to remote server operations

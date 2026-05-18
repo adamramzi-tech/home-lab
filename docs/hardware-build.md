@@ -10,9 +10,9 @@ While this is not an ideal or power-efficient enterprise server configuration, t
 
 ---
 
-# Server Hardware
+## Server Hardware
 
-## Core Components
+### Core Components
 
 - Intel Core i5-9600KF
 - MSI Z390 GAMING PRO CARBON motherboard
@@ -25,9 +25,9 @@ While this is not an ideal or power-efficient enterprise server configuration, t
 
 ---
 
-# Project Context
+## Project Context
 
-## Repurposing Existing Hardware
+### Repurposing Existing Hardware
 
 The server originated from older desktop gaming hardware that was no longer being actively used. Instead of allowing the components to sit idle, the system was converted into a dedicated Linux server environment.
 
@@ -43,9 +43,9 @@ This approach prioritized learning, experimentation, and operational familiarity
 
 ---
 
-# Hardware Preparation
+## Hardware Preparation
 
-## Motherboard and CPU Preparation
+### Motherboard and CPU Preparation
 
 Initial preparation included reinstalling and validating core hardware components before deployment.
 
@@ -67,7 +67,7 @@ Tasks completed:
 
 ---
 
-## CPU Cooler Installation
+### CPU Cooler Installation
 
 A new Thermalright Assassin X120 Refined SE CPU cooler was installed before deployment to improve thermal performance and long-term stability.
 
@@ -92,9 +92,9 @@ Proper cooling was treated as a critical requirement because the system would ev
 
 ---
 
-# System Assembly and Validation
+## System Assembly and Validation
 
-## Initial Assembly
+### Initial Assembly
 
 After hardware preparation, the system was fully assembled inside the NZXT H500 chassis and powered on for validation testing.
 
@@ -119,9 +119,9 @@ This confirmed that the hardware platform was stable before beginning operating 
 
 ---
 
-# Temporary Workstation Setup
+## Temporary Workstation Setup
 
-## Makeshift Deployment Environment
+### Makeshift Deployment Environment
 
 Before the server could operate headlessly, the system required a temporary physical workstation setup for BIOS configuration, operating system installation, and initial networking configuration.
 
@@ -146,9 +146,9 @@ At this stage, the setup was intentionally functional rather than elegant. The p
 
 ---
 
-# Legacy Windows Installation
+## Legacy Windows Installation
 
-## Existing Windows Boot Issues
+### Existing Windows Boot Issues
 
 During early testing, the system still contained an older broken Windows installation from its previous use as a desktop machine.
 
@@ -213,9 +213,9 @@ Firmware maintenance was treated as part of the infrastructure preparation proce
 
 ---
 
-# Headless Transition
+## Headless Transition
 
-## Moving Toward Remote Administration
+### Moving Toward Remote Administration
 
 Once I completed the [Ubuntu Server Installation](docs/ubuntu-server-install.md) and successfully configured [Remote Access and SSH](docs/remote-access-and-ssh.md), the server no longer required a permanent monitor, keyboard, or mouse. I went ahead and placed the physical machine under my desk where I have my main Windows 11 machine that will be the primary client for this home lab.
 

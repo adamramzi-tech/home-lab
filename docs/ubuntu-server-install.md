@@ -6,9 +6,9 @@ Deploy Ubuntu Server 26.04 LTS onto repurposed hardware to establish the foundat
 
 ---
 
-# Preparing Installation Media
+## Preparing Installation Media
 
-## Downloading Ubuntu Server
+### Downloading Ubuntu Server
 
 - Downloaded Ubuntu Server 26.04 LTS ISO
 - Verified correct server image selection
@@ -23,7 +23,7 @@ Deploy Ubuntu Server 26.04 LTS onto repurposed hardware to establish the foundat
 
 ---
 
-## Creating Bootable USB Media
+### Creating Bootable USB Media
 
 Rufus was used on a Windows 11 workstation to create a bootable Ubuntu Server installation drive.
 
@@ -42,9 +42,9 @@ Configuration used:
 
 ---
 
-# BIOS Preparation
+## BIOS Preparation
 
-## BIOS Update
+### BIOS Update
 
 Prior to Ubuntu Server deployment, the motherboard BIOS was updated to improve hardware compatibility, system stability, and long-term reliability.
 
@@ -60,9 +60,9 @@ Detailed hardware preparation steps are documented in the [Hardware Build](./har
 
 ---
 
-# Ubuntu Server Installation
+## Ubuntu Server Installation
 
-## Installer Boot
+### Installer Boot
 
 The system successfully booted into the Ubuntu Server installer environment.
 
@@ -76,7 +76,7 @@ The system successfully booted into the Ubuntu Server installer environment.
 
 ---
 
-## Installation Type
+### Installation Type
 
 The standard Ubuntu Server installation option was selected.
 
@@ -90,7 +90,7 @@ The standard Ubuntu Server installation option was selected.
 
 ---
 
-## System Profile Configuration
+### System Profile Configuration
 
 The initial hostname, username, and authentication credentials were configured during installation.
 
@@ -104,7 +104,7 @@ The initial hostname, username, and authentication credentials were configured d
 
 ---
 
-## Package Installation
+### Package Installation
 
 Ubuntu Server packages and OpenSSH components were installed.
 
@@ -118,9 +118,9 @@ Ubuntu Server packages and OpenSSH components were installed.
 
 ---
 
-# First Boot and Initialization
+## First Boot and Initialization
 
-## Cloud-Init and SSH Key Generation
+### Cloud-Init and SSH Key Generation
 
 After installation completed, the server initialized cloud-init services and generated SSH host keys.
 
@@ -134,9 +134,9 @@ After installation completed, the server initialized cloud-init services and gen
 
 ---
 
-# Remote Administration
+## Remote Administration
 
-## First SSH Connection
+### First SSH Connection
 
 The first successful SSH session was established from the Windows 11 client workstation using Windows Terminal.
 
