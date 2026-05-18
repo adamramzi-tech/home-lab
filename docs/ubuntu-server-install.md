@@ -150,6 +150,113 @@ The first successful SSH session was established from the Windows 11 client work
 
 ---
 
+## Initial System Updates
+
+Immediately after deployment, the server package repositories were refreshed and the operating system was updated to establish a stable baseline before infrastructure services were installed.
+
+Commands used:
+
+```bash
+sudo apt update && sudo apt upgrade -y
+```
+<p align="center">
+  <img src="../images/ubuntu-server-install/10-system-update.jpeg" width="700">
+</p>
+
+<p align="center">
+  <em>Initial Ubuntu Server package update and system upgrade performed after deployment.</em>
+</p>
+
+---
+
+## Installing Basic Administrative Utilities
+
+Basic command-line utilities were installed to simplify system administration, hardware validation, and operational monitoring during the early deployment phase.
+
+### Fastfetch Installation
+
+Fastfetch was installed to provide quick visibility into hardware, operating system, and runtime environment details.
+
+Command used:
+
+```bash
+sudo apt install fastfetch -y
+```
+
+<p align="center">
+  <img src="../images/ubuntu-server-install/11-fastfetch-install.jpeg" width="700">
+</p>
+
+<p align="center">
+  <em>Installation of Fastfetch utility for quick system and hardware identification.</em>
+</p>
+
+---
+
+### Speedtest-cli Installation
+
+The `speedtest-cli` utility was installed to validate WAN connectivity and throughput directly from the Ubuntu Server environment.
+
+Command used:
+
+```bash
+sudo apt install speedtest-cli -y
+```
+
+<p align="center">
+  <img src="../images/ubuntu-server-install/12-speedtest-cli-install.jpeg" width="700">
+</p>
+
+<p align="center">
+  <em>Installation of speedtest-cli utility for network throughput validation.</em>
+</p>
+
+---
+
+### Internet Connectivity Validation
+
+Internet connectivity and throughput performance were validated directly from the Ubuntu Server environment.
+
+Command used:
+
+```bash
+speedtest
+```
+
+<p align="center">
+  <img src="../images/ubuntu-server-install/13-speedtest.jpeg" width="600">
+</p>
+
+<p align="center">
+  <em>Network throughput validation performed directly from the Ubuntu Server host.</em>
+</p>
+
+---
+
+### Network Interface Verification
+
+The onboard Intel network interface was validated to confirm negotiated link speed, duplex operation, and Wake-on-LAN capability.
+
+Command used:
+
+```bash
+sudo ethtool eno2
+```
+
+Verified:
+- 1000Mb/s link negotiation
+- full duplex operation
+- Wake-on-LAN support
+- active physical link state
+
+<p align="center">
+  <img src="../images/ubuntu-server-install/14-ethtool-validation.jpeg" width="650">
+</p>
+
+<p align="center">
+  <em>Network interface validation using ethtool showing active gigabit connectivity and Wake-on-LAN capability.</em>
+</p>
+
 # Outcome
 
 At completion:
