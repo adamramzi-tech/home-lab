@@ -260,19 +260,23 @@ Verified:
 # Outcome
 
 At completion:
-- Ubuntu Server was successfully deployed
-- OpenSSH was operational
-- Remote administration was functional
-- The server was ready for Docker and infrastructure services
+- Ubuntu Server was successfully deployed and updated
+- OpenSSH remote administration was operational
+- Remote access workflows were validated from Windows 11 clients
+- Network connectivity and throughput were verified
+- Intel NIC functionality and Wake-on-LAN support were confirmed
+- Basic administrative utilities were installed
+- The server was prepared for containerized infrastructure deployment
 
 ---
 
 # Lessons Learned
 
 Key takeaways included:
-- boot media preparation
-- UEFI/GPT installation workflows
-- BIOS firmware management
-- Linux server deployment
-- remote administration fundamentals
-- SSH-based operational workflows
+- bootable media preparation and UEFI/GPT installation workflows
+- BIOS firmware configuration and hardware initialization
+- Linux server deployment and post-install system validation
+- OpenSSH configuration and remote administration fundamentals
+- command-line package management and system maintenance
+- network interface validation and throughput testing
+- foundational infrastructure preparation for Docker-based services
