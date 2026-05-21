@@ -20,8 +20,9 @@ Thumbs.db
 .vscode/
 
 # Docker persistent data
-grafana-data/
-prometheus-data/
+*/grafana-data/
+*/prometheus-data/
+*/data/
 
 # Temporary files
 tmp/

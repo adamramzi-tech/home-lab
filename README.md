@@ -157,11 +157,11 @@ This server environment was built primarily using repurposed consumer desktop ha
 # Repository Structure
 
 ```text
-docs/        → project documentation and deployment walkthroughs
-images/      → deployment screenshots and visual documentation
-docker/      → Docker Compose files and service configurations
-diagrams/    → network and systems diagrams
-notes/       → operational notes and planning
+home-lab/
+├── docs/            → deployment walkthroughs, operational notes, and lab documentation
+├── images/          → screenshots, diagrams, and visual references
+├── infrastructure/  → Docker Compose files and service configurations
+└── README.md        → project overview and repository navigation
 ```
 
 ---
