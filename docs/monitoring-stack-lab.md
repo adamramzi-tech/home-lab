@@ -485,58 +485,6 @@ The redeployment recreated the containers while preserving persistent applicatio
 
 ---
 
-### Restricting Node Exporter Exposure
-
-After validating the monitoring stack deployment, I realized Node Exporter was still exposing port `9100` to the local network through Docker port publishing.
-
-The original configuration looked like this:
-
-```yaml
-node-exporter:
-  ports:
-    - "9100:9100"
-```
-
-This configuration allowed external access to the Node Exporter metrics endpoint.
-
-Because Prometheus already communicated with Node Exporter internally through the shared Docker bridge network using Docker DNS, exposing the exporter to the LAN was unnecessary.
-
-The external port mapping was removed and the service was restricted to internal container networking only.
-
-The updated configuration looked like this:
-
-```yaml
-node-exporter:
-  image: prom/node-exporter:latest
-  container_name: node-exporter
-  networks:
-    - monitoring
-```
-
-<p align="center">
-  <img src="../images/monitoring-stack-lab/11-restricting-node-exporter.jpeg" width="800">
-</p>
-
-<p align="center">
-  <em>Removing unnecessary external port exposure from the Node Exporter service.</em>
-</p>
-
-This improved the deployment by:
-- reducing unnecessary network exposure
-- limiting access to internal monitoring services
-- reinforcing internal service isolation
-- aligning the stack with least-exposure infrastructure practices
-
-Prometheus continued scraping metrics successfully through internal Docker networking using:
-
-```yaml
-targets: ["node-exporter:9100"]
-```
-
-This demonstrated how containerized infrastructure services can communicate securely without requiring public port exposure.
-
----
-
 ### Verifying Persistent Volumes
 
 Docker volumes were inspected to confirm successful creation of persistent storage resources.
