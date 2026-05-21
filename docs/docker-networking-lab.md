@@ -38,6 +38,98 @@ The primary goals of this lab were to:
 
 ---
 
+## Core Technologies
+
+### Docker Bridge Networking
+
+Docker bridge networks provide isolated virtual networks that allow containers to communicate securely with one another.
+
+In this project, the custom bridge network:
+- enabled internal container communication
+- isolated application traffic from unrelated containers
+- provided automatic internal DNS resolution
+- allowed services to communicate by container name rather than IP address
+
+Docker Compose automatically provisioned the bridge network during deployment.
+
+---
+
+### NGINX
+
+NGINX is a high-performance web server and reverse proxy commonly used for frontend traffic management and load balancing.
+
+In this project, NGINX:
+- served as the frontend application layer
+- accepted inbound HTTP traffic on port 8080
+- proxied requests to the backend container
+- demonstrated reverse proxy functionality inside a containerized environment
+
+The NGINX container communicated with the backend container entirely through the internal Docker network.
+
+---
+
+### HashiCorp HTTP Echo
+
+HashiCorp HTTP Echo is a lightweight HTTP testing container used for validating networking and application routing behavior.
+
+In this project, the backend container:
+- responded to HTTP requests with static text
+- acted as the application backend service
+- validated successful reverse proxy forwarding
+- demonstrated container-to-container communication
+
+The container listened internally on port 5678 and was accessible to the frontend container through Docker networking.
+
+---
+
+### Docker Compose
+
+Docker Compose is a container orchestration tool used to define and manage multi-container Docker applications using declarative YAML configuration files.
+
+In this project, Docker Compose:
+- deployed the frontend and backend containers
+- provisioned the custom bridge network
+- managed service configuration
+- simplified multi-container orchestration
+- enabled repeatable infrastructure deployment
+
+---
+
+## Network Architecture
+
+The Docker networking lab implemented a multi-container application architecture using Docker Compose bridge networking.
+
+The environment consisted of:
+- an NGINX frontend container
+- a backend application container
+- a shared Docker bridge network for internal communication
+
+The deployment demonstrated:
+- container-to-container communication
+- Docker bridge networking
+- internal DNS-based service discovery
+- reverse proxy forwarding
+- service isolation through custom networks
+
+Application flow:
+
+```text
+Client Browser
+      ↓
+NGINX Frontend Container
+      ↓
+Docker Bridge Network
+      ↓
+Backend Application Container
+```
+
+In this deployment:
+- NGINX acted as the frontend reverse proxy
+- the backend container served application responses
+- Docker Compose created and managed the internal bridge network
+- containers communicated internally using Docker DNS service discovery
+
+
 ## Project Directory Creation
 
 A dedicated infrastructure directory structure was created to organize Docker networking labs and future containerized services.
@@ -444,6 +536,14 @@ The final architecture demonstrated:
 Only the frontend container was externally accessible.
 
 The backend service remained isolated within the internal Docker bridge network and was not directly exposed to the local network.
+
+---
+
+# Security Considerations
+
+The backend service was intentionally isolated from the local network and exposed only through the NGINX reverse proxy container.
+
+This design reduced direct attack surface exposure while maintaining internal service communication through the Docker bridge network.
 
 ---
 
