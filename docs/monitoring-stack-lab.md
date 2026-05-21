@@ -383,17 +383,29 @@ After initial authentication:
 After validating the monitoring stack deployment, I realized the services were still operating as stateless containers.
 
 This meant:
-- Grafana dashboards and configuration would be lost if the container was recreated
+- Grafana dashboards and configuration would be lost if containers were recreated
 - Prometheus metrics history would reset during redeployment
 - the deployment behaved more like a temporary demo environment than a realistic monitoring stack
 
-To address this, persistent Docker volumes were added to the Docker Compose configuration.
+During this review process, I also realized Node Exporter was unnecessarily exposing port `9100` to the local network through Docker port publishing.
 
-The compose file was updated to include persistent storage for:
-- Prometheus metrics data
-- Grafana dashboards and application data
+The original Node Exporter configuration looked like this:
 
-The updated configuration looked like this:
+```yaml
+node-exporter:
+  ports:
+    - "9100:9100"
+```
+
+Because Prometheus already communicated with Node Exporter internally through the shared Docker bridge network using Docker DNS and service discovery, external exposure of the metrics endpoint was unnecessary.
+
+The deployment was refined to:
+- add persistent Docker volumes
+- remove unnecessary external Node Exporter exposure
+- improve internal service isolation
+- reduce unnecessary network exposure
+
+The updated compose configuration looked like this:
 
 ```yaml
 services:
@@ -411,8 +423,6 @@ services:
   node-exporter:
     image: prom/node-exporter:latest
     container_name: node-exporter
-    ports:
-      - "9100:9100"
     networks:
       - monitoring
 
@@ -435,14 +445,20 @@ volumes:
   grafana-data:
 ```
 
-<p align="center"> <img src="../images/monitoring-stack-lab/10-persistent-storage.jpeg" width="800"> </p> <p align="center"> 
-<em>Docker Compose configuration updated with persistent Docker volumes for Prometheus and Grafana.</em> </p>
+<p align="center">
+  <img src="../images/monitoring-stack-lab/10-persistent-storage.jpeg" width="800">
+</p>
 
-Persistent storage is important because:
-- Grafana dashboards are lost if containers are recreated
-- Prometheus metrics history resets during redeployment
-- monitoring platforms require long-term metric retention
-- persistent volumes create more realistic operational deployments
+<p align="center">
+  <em>Docker Compose configuration updated with persistent Docker volumes and improved internal service isolation.</em>
+</p>
+
+These changes improved the deployment by:
+- preserving Prometheus metrics history
+- persisting Grafana dashboards and configuration
+- reducing unnecessary service exposure
+- reinforcing internal container-based communication
+- creating a more realistic operational monitoring environment
 
 ---
 
@@ -466,6 +482,58 @@ docker compose up -d
 </p>
 
 The redeployment recreated the containers while preserving persistent application data through Docker volumes.
+
+---
+
+### Restricting Node Exporter Exposure
+
+After validating the monitoring stack deployment, I realized Node Exporter was still exposing port `9100` to the local network through Docker port publishing.
+
+The original configuration looked like this:
+
+```yaml
+node-exporter:
+  ports:
+    - "9100:9100"
+```
+
+This configuration allowed external access to the Node Exporter metrics endpoint.
+
+Because Prometheus already communicated with Node Exporter internally through the shared Docker bridge network using Docker DNS, exposing the exporter to the LAN was unnecessary.
+
+The external port mapping was removed and the service was restricted to internal container networking only.
+
+The updated configuration looked like this:
+
+```yaml
+node-exporter:
+  image: prom/node-exporter:latest
+  container_name: node-exporter
+  networks:
+    - monitoring
+```
+
+<p align="center">
+  <img src="../images/monitoring-stack-lab/11-restricting-node-exporter.jpeg" width="800">
+</p>
+
+<p align="center">
+  <em>Removing unnecessary external port exposure from the Node Exporter service.</em>
+</p>
+
+This improved the deployment by:
+- reducing unnecessary network exposure
+- limiting access to internal monitoring services
+- reinforcing internal service isolation
+- aligning the stack with least-exposure infrastructure practices
+
+Prometheus continued scraping metrics successfully through internal Docker networking using:
+
+```yaml
+targets: ["node-exporter:9100"]
+```
+
+This demonstrated how containerized infrastructure services can communicate securely without requiring public port exposure.
 
 ---
 
