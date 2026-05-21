@@ -168,7 +168,7 @@ The project emphasizes iterative learning, troubleshooting discipline, and opera
 - [Ubuntu Server Installation](docs/ubuntu-server-install.md)
 - [Remote Access and SSH](docs/remote-access-and-ssh.md)
 - [Docker Setup](docs/docker-setup.md)
-- [Docker Networking](docs/docker-networking.md)
+- [Docker Networking Lab](docs/docker-networking-lab.md)
 - [Monitoring and System Tools](docs/monitoring-and-system-tools.md)
 - [VPN Container Networking](docs/vpn-container-networking.md)
 - [Troubleshooting](docs/troubleshooting.md)
