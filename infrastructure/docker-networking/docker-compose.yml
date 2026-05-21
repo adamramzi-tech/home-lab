@@ -1,0 +1,21 @@
+services:
+  frontend:
+    image: nginx:latest
+    container_name: frontend
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - lab-network
+
+  backend:
+    image: hashicorp/http-echo
+    container_name: backend
+    command: ["-text=Backend container responding"]
+    networks:
+      - lab-network
+
+networks:
+  lab-network:
+    driver: bridge
