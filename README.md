@@ -13,8 +13,6 @@ The project is focused on developing practical hands-on experience with:
 - Documentation workflows
 - Modern operational concepts
 
-The homelab functions as both a long-term technical learning platform and a systems administration portfolio project.
-
 ---
 
 # Purpose
@@ -275,15 +273,3 @@ This homelab will continue evolving into a broader systems administration and pl
 - operational best practices
 
 The long-term objective is to continue developing practical real-world experience through iterative hands-on learning and operational problem solving.
-
----
-
-# Purpose of This Repository
-
-This repository is intended to function as:
-- a technical learning journal
-- a systems administration portfolio
-- a documentation repository
-- a long-term homelab project
-
-The primary goal is to demonstrate practical technical growth through hands-on implementation, troubleshooting, documentation, and continuous improvement.
