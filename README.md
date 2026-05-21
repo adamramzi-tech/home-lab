@@ -15,12 +15,6 @@ The project is focused on developing practical hands-on experience with:
 
 ---
 
-# Purpose
-
-This homelab was built to develop practical systems administration and platform engineering experience through hands-on deployment, troubleshooting, documentation, and iterative learning using self-hosted Linux and Docker-based environments.
-
----
-
 # Infrastructure Overview
 
 ```text
