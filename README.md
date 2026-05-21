@@ -166,6 +166,32 @@ notes/       → operational notes and planning
 
 ---
 
+# Documentation Workflow
+
+This repository is maintained using a documentation-first workflow during deployment, testing, and systems administration tasks.
+
+Operational changes are typically performed in the following order:
+1. deploy or modify services and configurations
+2. validate functionality and troubleshoot issues
+3. capture screenshots and relevant command output
+4. document deployment procedures and architecture decisions
+5. commit updates incrementally through Git and GitHub
+
+Most administration and documentation tasks are performed remotely from the Windows 11 workstation using:
+- SSH through Windows Terminal
+- VS Code remote workflows
+- Git and GitHub for version control
+
+The goal of this workflow is to reinforce:
+- operational documentation habits
+- troubleshooting discipline
+- change tracking
+- reproducible deployment workflows
+- technical communication skills
+- remote systems administration practices
+
+---
+
 # Operational Challenges and Lessons Learned
 
 Some of the most valuable learning experiences throughout this project have involved:
