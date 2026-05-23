@@ -4,7 +4,7 @@
 
 This repository documents the deployment, administration, and ongoing development of a Linux-based homelab environment built on repurposed consumer desktop hardware.
 
-The lab is a hands-on systems administration portfolio built through real deployment, troubleshooting, and iteration — not guided tutorials. Each project documents the full workflow: planning, deployment, validation, and lessons learned.
+Each project documents the full workflow: planning, deployment, validation, and lessons learned.
 
 Current focus areas:
 - Linux systems administration
