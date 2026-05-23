@@ -58,7 +58,7 @@ Tasks completed:
 - storage reconnection
 
 <p align="center">
-  <img src="../images/hardware-build/01-motherboard-preparation.jpeg" width="450">
+  <img src="../images/linux-infrastructure/hardware-build/01-motherboard-preparation.jpeg" width="450">
 </p>
 
 <p align="center">
@@ -81,7 +81,7 @@ Steps completed:
 - verified cooler clearance and airflow direction
 
 <p align="center">
-  <img src="../images/hardware-build/02-cpu-cooler-installation.jpeg" width="450">
+  <img src="../images/linux-infrastructure/hardware-build/02-cpu-cooler-installation.jpeg" width="450">
 </p>
 
 <p align="center">
@@ -109,7 +109,7 @@ Initial checks included:
 This confirmed that the hardware platform was stable before beginning operating system deployment.
 
 <p align="center">
-  <img src="../images/hardware-build/03-bios-validation.jpeg" height="450">
+  <img src="../images/linux-infrastructure/hardware-build/03-bios-validation.jpeg" height="450">
 </p>
 
 <p align="center">
@@ -137,7 +137,7 @@ Because the Intel i5-9600KF does not include integrated graphics, the NVIDIA GTX
 At this stage, the setup was intentionally functional rather than elegant. The priority was establishing a working Linux server foundation before transitioning to remote administration.
 
 <p align="center">
-  <img src="../images/hardware-build/04-temporary-setup.jpeg" width="700">
+  <img src="../images/linux-infrastructure/hardware-build/04-temporary-setup.jpeg" width="700">
 </p>
 
 <p align="center">
@@ -155,7 +155,7 @@ During early testing, the system still contained an older broken Windows install
 Boot attempts occasionally produced Windows recovery errors before the system was fully repurposed for Linux.
 
 <p align="center">
-  <img src="../images/hardware-build/05-windows-recovery.jpeg" width="700">
+  <img src="../images/linux-infrastructure/hardware-build/05-windows-recovery.jpeg" width="700">
 </p>
 
 <p align="center">
@@ -204,7 +204,7 @@ Reasons for updating:
 Firmware maintenance was treated as part of the infrastructure preparation process rather than an afterthought.
 
 <p align="center">
-  <img src="../images/hardware-build/06-bios-firmware-update.jpeg" width="700">
+  <img src="../images/linux-infrastructure/hardware-build/06-bios-firmware-update.jpeg" width="700">
 </p>
 
 <p align="center">
@@ -232,7 +232,7 @@ Administration shifted toward:
 This marked the transition from a temporary physical deployment setup into a functional headless Linux server environment.
 
 <p align="center">
-  <img src="../images/hardware-build/07-headless-server-setup.jpeg" width="700">
+  <img src="../images/linux-infrastructure/hardware-build/07-headless-server-setup.jpeg" width="700">
 </p>
 
 <p align="center">
