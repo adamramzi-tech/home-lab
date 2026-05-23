@@ -398,3 +398,34 @@ Key takeaways included:
 - Remote SSH administration integrates naturally with Docker-based workflows
 - Modern self-hosting environments are heavily container driven
 - Small successful deployments compound operational confidence and troubleshooting ability
+
+---
+
+## Later Infrastructure Changes
+
+As the homelab environment evolved, Portainer was later migrated behind a centralized reverse proxy architecture using NGINX Proxy Manager.
+
+The original deployment exposed:
+- port 9443
+- port 8000
+
+directly to the local network.
+
+During the [Reverse Proxy Lab](reverse-proxy-lab.md), Portainer was:
+- attached to a shared Docker ingress network
+- migrated to internal-only service architecture
+- redeployed without direct LAN port exposure
+- accessed through hostname-based reverse proxy routing
+
+Final access was centralized through:
+
+```text
+http://portainer.local
+```
+
+This improved:
+
+- ingress centralization
+- service isolation
+- attack surface reduction
+- infrastructure segmentation

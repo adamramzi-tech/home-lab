@@ -558,6 +558,8 @@ At completion:
 - backend service isolation was maintained
 - internal traffic flow concepts were successfully validated
 
+The Docker networking and reverse proxy concepts demonstrated in this lab later became foundational to the centralized ingress architecture implemented in the [Reverse Proxy Lab](reverse-proxy-lab.md).
+
 ---
 
 # Lessons Learned

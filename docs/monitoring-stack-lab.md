@@ -725,3 +725,27 @@ This deployment demonstrated how observability platforms provide visibility into
 - operational telemetry
 
 These capabilities are foundational to modern infrastructure administration, monitoring, and troubleshooting workflows.
+
+---
+
+## Architectural Evolution
+
+This monitoring stack was later integrated into the centralized reverse proxy architecture documented in the [Reverse Proxy Lab](reverse-proxy-lab.md).
+
+After implementing NGINX Proxy Manager:
+- Grafana and Prometheus were migrated to internal-only services
+- direct LAN exposure was removed
+- hostname-based reverse proxy routing was implemented
+- services communicated through a shared ingress network using Docker DNS service discovery
+
+The updated architecture centralized access through:
+- `grafana.local`
+- `prometheus.local`
+
+rather than direct port exposure.
+
+This architectural transition improved:
+- service isolation
+- ingress management
+- internal network segmentation
+- overall infrastructure organization
