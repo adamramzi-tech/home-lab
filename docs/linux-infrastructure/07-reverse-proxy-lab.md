@@ -1,4 +1,4 @@
-# Reverse Proxy Lab
+# 07 - Reverse Proxy Lab
 
 ## Overview
 
@@ -173,7 +173,7 @@ cd ~/infrastructure/reverse-proxy-lab
 ```
 
 <p align="center">
-  <img src="../../images/linux-infrastructure/reverse-proxy-lab/01-making-project-directories.jpeg" width="700">
+  <img src="../../images/linux-infrastructure/07-reverse-proxy-lab/01-making-project-directories.jpeg" width="700">
 </p>
 
 <p align="center">
@@ -223,7 +223,7 @@ volumes:
 ```
 
 <p align="center">
-  <img src="../../images/linux-infrastructure/reverse-proxy-lab/02-creating-docker-compose-file.jpeg" width="800">
+  <img src="../../images/linux-infrastructure/07-reverse-proxy-lab/02-creating-docker-compose-file.jpeg" width="800">
 </p>
 
 <p align="center">
@@ -243,7 +243,7 @@ docker compose up -d
 ```
 
 <p align="center">
-  <img src="../../images/linux-infrastructure/reverse-proxy-lab/03-deploying-nginx-proxy-manager.jpeg" width="800">
+  <img src="../../images/linux-infrastructure/07-reverse-proxy-lab/03-deploying-nginx-proxy-manager.jpeg" width="800">
 </p>
 
 <p align="center">
@@ -263,7 +263,7 @@ docker ps
 ```
 
 <p align="center">
-  <img src="../../images/linux-infrastructure/reverse-proxy-lab/04-validating-running-containers.jpeg" width="900">
+  <img src="../../images/linux-infrastructure/07-reverse-proxy-lab/04-validating-running-containers.jpeg" width="900">
 </p>
 
 <p align="center">
@@ -287,7 +287,7 @@ http://192.168.1.226:81
 The login interface loaded successfully.
 
 <p align="center">
-  <img src="../../images/linux-infrastructure/reverse-proxy-lab/05-nginx-proxy-manager-interface.jpeg" width="800">
+  <img src="../../images/linux-infrastructure/07-reverse-proxy-lab/05-nginx-proxy-manager-interface.jpeg" width="800">
 </p>
 
 <p align="center">
@@ -347,7 +347,7 @@ volumes:
 ```
 
 <p align="center">
-  <img src="../../images/linux-infrastructure/reverse-proxy-lab/06-updating-monitoring-services-for-proxy-network.jpeg" width="900">
+  <img src="../../images/linux-infrastructure/07-reverse-proxy-lab/06-updating-monitoring-services-for-proxy-network.jpeg" width="900">
 </p>
 
 <p align="center">
@@ -367,7 +367,7 @@ docker compose config
 ```
 
 <p align="center">
-  <img src="../../images/linux-infrastructure/reverse-proxy-lab/07-validating-updated-compose-stack.jpeg" width="900">
+  <img src="../../images/linux-infrastructure/07-reverse-proxy-lab/07-validating-updated-compose-stack.jpeg" width="900">
 </p>
 
 <p align="center">
@@ -388,7 +388,7 @@ docker compose up -d
 ```
 
 <p align="center">
-  <img src="../../images/linux-infrastructure/reverse-proxy-lab/08-redeploying-monitoring-stack.jpeg" width="900">
+  <img src="../../images/linux-infrastructure/07-reverse-proxy-lab/08-redeploying-monitoring-stack.jpeg" width="900">
 </p>
 
 <p align="center">
@@ -410,7 +410,7 @@ docker ps
 The deployment confirmed that the monitoring services were now communicating internally through Docker networking rather than being treated as individually exposed services.
 
 <p align="center">
-  <img src="../../images/linux-infrastructure/reverse-proxy-lab/09-validating-internal-only-monitoring-services.jpeg" width="1000">
+  <img src="../../images/linux-infrastructure/07-reverse-proxy-lab/09-validating-internal-only-monitoring-services.jpeg" width="1000">
 </p>
 
 <p align="center">
@@ -460,7 +460,7 @@ docker run -d \
 ```
 
 <p align="center">
-  <img src="../../images/linux-infrastructure/reverse-proxy-lab/10-redeploying-portainer-as-internal-service.jpeg" width="900">
+  <img src="../../images/linux-infrastructure/07-reverse-proxy-lab/10-redeploying-portainer-as-internal-service.jpeg" width="900">
 </p>
 
 <p align="center">
@@ -501,7 +501,7 @@ npm.local → nginx-proxy-manager:81
 ```
 
 <p align="center">
-  <img src="../../images/linux-infrastructure/reverse-proxy-lab/11-configured-reverse-proxy-hosts.jpeg" width="1000">
+  <img src="../../images/linux-infrastructure/07-reverse-proxy-lab/11-configured-reverse-proxy-hosts.jpeg" width="1000">
 </p>
 
 <p align="center">
@@ -532,7 +532,7 @@ Entries added:
 This allowed the Windows management workstation to resolve the custom infrastructure hostnames locally.
 
 <p align="center">
-  <img src="../../images/linux-infrastructure/reverse-proxy-lab/12-hosts-file-configuration.jpeg" width="900">
+  <img src="../../images/linux-infrastructure/07-reverse-proxy-lab/12-hosts-file-configuration.jpeg" width="900">
 </p>
 
 <p align="center">
@@ -560,7 +560,7 @@ The deployment confirmed:
 - centralized ingress functionality
 
 <p align="center">
-  <img src="../../images/linux-infrastructure/reverse-proxy-lab/13-grafana-accessed-through-reverse-proxy.jpeg" width="1000">
+  <img src="../../images/linux-infrastructure/07-reverse-proxy-lab/13-grafana-accessed-through-reverse-proxy.jpeg" width="1000">
 </p>
 
 <p align="center">
@@ -589,7 +589,7 @@ This validated:
 - reduced attack surface
 
 <p align="center">
-  <img src="../../images/linux-infrastructure/reverse-proxy-lab/14-direct-service-access-blocked.jpeg" width="1000">
+  <img src="../../images/linux-infrastructure/07-reverse-proxy-lab/14-direct-service-access-blocked.jpeg" width="1000">
 </p>
 
 <p align="center">
@@ -619,7 +619,7 @@ The network inspection confirmed:
 were all attached to the same shared ingress network.
 
 <p align="center">
-  <img src="../../images/linux-infrastructure/reverse-proxy-lab/15-validating-shared-proxy-network.jpeg" width="1000">
+  <img src="../../images/linux-infrastructure/07-reverse-proxy-lab/15-validating-shared-proxy-network.jpeg" width="1000">
 </p>
 
 <p align="center">

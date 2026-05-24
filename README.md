@@ -217,27 +217,27 @@ Primary management workstation and planned virtualization host for enterprise in
 
 ## Linux Infrastructure Track
 
-| Document | Description |
+| Phase | Description |
 |---|---|
-| [Hardware Build](docs/linux-infrastructure/hardware-build.md) | Physical server preparation, hardware assembly, and BIOS configuration |
-| [Ubuntu Server Installation](docs/linux-infrastructure/ubuntu-server-install.md) | Ubuntu Server deployment and baseline system configuration |
-| [Remote Access and SSH](docs/linux-infrastructure/remote-access-and-ssh.md) | SSH, Tailscale VPN, and Wake-on-LAN configuration |
-| [Docker Setup](docs/linux-infrastructure/docker-setup.md) | Docker Engine and Portainer deployment |
-| [Docker Networking Lab](docs/linux-infrastructure/docker-networking-lab.md) | Docker bridge networking, container communication, and reverse proxy fundamentals |
-| [Monitoring Stack Lab](docs/linux-infrastructure/monitoring-stack-lab.md) | Prometheus, Node Exporter, and Grafana deployment with persistent storage |
-| [Reverse Proxy Lab](docs/linux-infrastructure/reverse-proxy-lab.md) | Centralized ingress architecture using NGINX Proxy Manager and cross-stack Docker networking |
+| [01 - Hardware Build](docs/linux-infrastructure/01-hardware-build.md) | Physical server preparation, hardware assembly, and BIOS configuration |
+| [02 - Ubuntu Server Installation](docs/linux-infrastructure/02-ubuntu-server-install.md) | Ubuntu Server deployment and baseline system configuration |
+| [03 - Remote Access and SSH](docs/linux-infrastructure/03-remote-access-and-ssh.md) | SSH, Tailscale VPN, and Wake-on-LAN configuration |
+| [04 - Docker Setup](docs/linux-infrastructure/04-docker-setup.md) | Docker Engine and Portainer deployment |
+| [05 - Docker Networking Lab](docs/linux-infrastructure/05-docker-networking-lab.md) | Docker bridge networking, container communication, and reverse proxy fundamentals |
+| [06 - Monitoring Stack Lab](docs/linux-infrastructure/06-monitoring-stack-lab.md) | Prometheus, Node Exporter, and Grafana deployment with persistent storage |
+| [07 - Reverse Proxy Lab](docs/linux-infrastructure/07-reverse-proxy-lab.md) | Centralized ingress architecture using NGINX Proxy Manager and cross-stack Docker networking |
 
-## Planned Enterprise Infrastructure Labs
+## Enterprise Infrastructure Track (Planned)
 
 | Planned Lab | Focus Area |
 |---|---|
-| Virtualization Lab | Hypervisor deployment, VM lifecycle management, snapshots, and virtual networking |
-| Windows Server Lab | Windows Server deployment, baseline configuration, and remote administration |
-| Active Directory Lab | AD DS promotion, domain configuration, DNS integration, and identity structure |
-| Domain Client Lab | Domain-joined workstation deployment, authentication testing, and client management |
-| Group Policy Lab | GPO design, policy inheritance, security baselines, and endpoint management |
-| Linux and AD Integration Lab | Cross-platform identity integration, Kerberos, SSSD, and domain-authenticated Linux |
-| Security and Monitoring Lab | Wazuh SIEM, Sysmon, Windows event forwarding, and centralized telemetry |
+| [01 - Virtualization Lab](docs/enterprise-infrastructure/01-virtualization-lab.md) | Hypervisor deployment, VM lifecycle management, snapshots, and virtual networking |
+| [02 - Windows Server Lab](docs/enterprise-infrastructure/02-windows-server-lab.md) | Windows Server deployment, baseline configuration, and remote administration |
+| [03 - Active Directory Lab](docs/enterprise-infrastructure/03-active-directory-lab.md) | AD DS promotion, domain configuration, DNS integration, and identity structure |
+| [04 - Domain Client Lab](docs/enterprise-infrastructure/04-domain-client-lab.md) | Domain-joined workstation deployment, authentication testing, and client management |
+| [05 - Group Policy Lab](docs/enterprise-infrastructure/05-group-policy-lab.md) | GPO design, policy inheritance, security baselines, and endpoint management |
+| [06 - Linux and AD Integration Lab](docs/enterprise-infrastructure/06-linux-ad-integration-lab.md) | Cross-platform identity integration, Kerberos, SSSD, and domain-authenticated Linux |
+| [07 - Security and Monitoring Lab](docs/enterprise-infrastructure/07-security-monitoring-lab.md) | Wazuh SIEM, Sysmon, Windows event forwarding, and centralized telemetry |
 
 ## Planned Architecture Documentation
 

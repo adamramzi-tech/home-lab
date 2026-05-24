@@ -1,4 +1,4 @@
-# Ubuntu Server Installation
+# 02 - Ubuntu Server Installation
 
 ## Objective
 
@@ -14,7 +14,7 @@ Deploy Ubuntu Server 26.04 LTS onto repurposed hardware to establish the foundat
 - Verified correct server image selection
 
 <p align="center">
-  <img src="../../images/linux-infrastructure/ubuntu-server-install/01-ubuntu-download.jpeg" width="700">
+  <img src="../../images/linux-infrastructure/02-ubuntu-server-install/01-ubuntu-download.jpeg" width="700">
 </p>
 
 <p align="center">
@@ -33,7 +33,7 @@ Configuration used:
 - File system: FAT32
 
 <p align="center">
-  <img src="../../images/linux-infrastructure/ubuntu-server-install/02-rufus-usb.jpeg" width="400">
+  <img src="../../images/linux-infrastructure/02-ubuntu-server-install/02-rufus-usb.jpeg" width="400">
 </p>
 
 <p align="center">
@@ -49,14 +49,14 @@ Configuration used:
 Prior to Ubuntu Server deployment, the motherboard BIOS was updated to improve hardware compatibility, system stability, and long-term reliability.
 
 <p align="center">
-  <img src="../../images/linux-infrastructure/ubuntu-server-install/03-bios-firmware-update.jpeg" width="600">
+  <img src="../../images/linux-infrastructure/02-ubuntu-server-install/03-bios-firmware-update.jpeg" width="600">
 </p>
 
 <p align="center">
   <em>Motherboard BIOS update completed prior to Linux deployment to improve system stability and compatibility.</em>
 </p>
 
-Detailed hardware preparation steps are documented in the [Hardware Build](./hardware-build.md) section.
+Detailed hardware preparation steps are documented in the [Hardware Build](./01-hardware-build.md) section.
 
 ---
 
@@ -67,7 +67,7 @@ Detailed hardware preparation steps are documented in the [Hardware Build](./har
 The system successfully booted into the Ubuntu Server installer environment.
 
 <p align="center">
-  <img src="../../images/linux-infrastructure/ubuntu-server-install/04-language-selection.jpeg" width="700">
+  <img src="../../images/linux-infrastructure/02-ubuntu-server-install/04-language-selection.jpeg" width="700">
 </p>
 
 <p align="center">
@@ -81,7 +81,7 @@ The system successfully booted into the Ubuntu Server installer environment.
 The standard Ubuntu Server installation option was selected.
 
 <p align="center">
-  <img src="../../images/linux-infrastructure/ubuntu-server-install/05-installation-type.jpeg" width="700">
+  <img src="../../images/linux-infrastructure/02-ubuntu-server-install/05-installation-type.jpeg" width="700">
 </p>
 
 <p align="center">
@@ -95,7 +95,7 @@ The standard Ubuntu Server installation option was selected.
 The initial hostname, username, and authentication credentials were configured during installation.
 
 <p align="center">
-  <img src="../../images/linux-infrastructure/ubuntu-server-install/06-profile-configuration.jpeg" width="700">
+  <img src="../../images/linux-infrastructure/02-ubuntu-server-install/06-profile-configuration.jpeg" width="700">
 </p>
 
 <p align="center">
@@ -109,7 +109,7 @@ The initial hostname, username, and authentication credentials were configured d
 Ubuntu Server packages and OpenSSH components were installed.
 
 <p align="center">
-  <img src="../../images/linux-infrastructure/ubuntu-server-install/07-installation-process.jpeg" width="600">
+  <img src="../../images/linux-infrastructure/02-ubuntu-server-install/07-installation-process.jpeg" width="600">
 </p>
 
 <p align="center">
@@ -125,7 +125,7 @@ Ubuntu Server packages and OpenSSH components were installed.
 After installation completed, the server initialized cloud-init services and generated SSH host keys.
 
 <p align="center">
-  <img src="../../images/linux-infrastructure/ubuntu-server-install/08-cloud-init.jpeg" width="600">
+  <img src="../../images/linux-infrastructure/02-ubuntu-server-install/08-cloud-init.jpeg" width="600">
 </p>
 
 <p align="center">
@@ -141,7 +141,7 @@ After installation completed, the server initialized cloud-init services and gen
 The first successful SSH session was established from the Windows 11 client workstation using Windows Terminal.
 
 <p align="center">
-  <img src="../../images/linux-infrastructure/ubuntu-server-install/09-first-ssh.jpeg" width="600">
+  <img src="../../images/linux-infrastructure/02-ubuntu-server-install/09-first-ssh.jpeg" width="600">
 </p>
 
 <p align="center">
@@ -160,7 +160,7 @@ Commands used:
 sudo apt update && sudo apt upgrade -y
 ```
 <p align="center">
-  <img src="../../images/linux-infrastructure/ubuntu-server-install/10-system-update.jpeg" width="700">
+  <img src="../../images/linux-infrastructure/02-ubuntu-server-install/10-system-update.jpeg" width="700">
 </p>
 
 <p align="center">
@@ -184,7 +184,7 @@ sudo apt install fastfetch -y
 ```
 
 <p align="center">
-  <img src="../../images/linux-infrastructure/ubuntu-server-install/11-fastfetch-install.jpeg" width="700">
+  <img src="../../images/linux-infrastructure/02-ubuntu-server-install/11-fastfetch-install.jpeg" width="700">
 </p>
 
 <p align="center">
@@ -204,7 +204,7 @@ sudo apt install speedtest-cli -y
 ```
 
 <p align="center">
-  <img src="../../images/linux-infrastructure/ubuntu-server-install/12-speedtest-cli-install.jpeg" width="700">
+  <img src="../../images/linux-infrastructure/02-ubuntu-server-install/12-speedtest-cli-install.jpeg" width="700">
 </p>
 
 <p align="center">
@@ -224,7 +224,7 @@ speedtest
 ```
 
 <p align="center">
-  <img src="../../images/linux-infrastructure/ubuntu-server-install/13-speedtest.jpeg" width="600">
+  <img src="../../images/linux-infrastructure/02-ubuntu-server-install/13-speedtest.jpeg" width="600">
 </p>
 
 <p align="center">
@@ -250,7 +250,7 @@ Verified:
 - active physical link state
 
 <p align="center">
-  <img src="../../images/linux-infrastructure/ubuntu-server-install/14-ethtool-validation.jpeg" width="650">
+  <img src="../../images/linux-infrastructure/02-ubuntu-server-install/14-ethtool-validation.jpeg" width="650">
 </p>
 
 <p align="center">

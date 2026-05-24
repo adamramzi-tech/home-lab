@@ -1,4 +1,4 @@
-# Docker Setup
+# 04 - Docker Setup
 
 ## Overview
 
@@ -50,7 +50,7 @@ These packages provided:
 - Repository key management
 
 <p align="center">
-  <img src="../../images/linux-infrastructure/docker-setup/01-sudo-update-and-install-ca-certificates.jpeg" width="700">
+  <img src="../../images/linux-infrastructure/04-docker-setup/01-sudo-update-and-install-ca-certificates.jpeg" width="700">
 </p>
 
 <p align="center">
@@ -100,7 +100,7 @@ sudo apt update
 This ensured Docker packages would be pulled directly from Docker's official repositories rather than Ubuntu's default package repositories.
 
 <p align="center">
-  <img src="../../images/linux-infrastructure/docker-setup/02-docker-gpg-key.jpeg" width="700">
+  <img src="../../images/linux-infrastructure/04-docker-setup/02-docker-gpg-key.jpeg" width="700">
 </p>
 
 <p align="center">
@@ -131,7 +131,7 @@ Installed components included:
 This established the complete container runtime environment on the Ubuntu Server host.
 
 <p align="center">
-  <img src="../../images/linux-infrastructure/docker-setup/03-installing-docker-engine.jpeg" width="700">
+  <img src="../../images/linux-infrastructure/04-docker-setup/03-installing-docker-engine.jpeg" width="700">
 </p>
 
 <p align="center">
@@ -165,7 +165,7 @@ The successful output confirmed:
 - Proper runtime installation
 
 <p align="center">
-  <img src="../../images/linux-infrastructure/docker-setup/04-docker-hello-world.jpeg" width="700">
+  <img src="../../images/linux-infrastructure/04-docker-setup/04-docker-hello-world.jpeg" width="700">
 </p>
 
 <p align="center">
@@ -243,7 +243,7 @@ Key configuration details included:
 - Automatic restart policy
 
 <p align="center">
-  <img src="../../images/linux-infrastructure/docker-setup/05-creating-portainer-volume.jpeg" width="700">
+  <img src="../../images/linux-infrastructure/04-docker-setup/05-creating-portainer-volume.jpeg" width="700">
 </p>
 
 <p align="center">
@@ -290,7 +290,7 @@ The Portainer dashboard provided centralized visibility into:
 This became the primary graphical management interface for the server's container infrastructure.
 
 <p align="center">
-  <img src="../../images/linux-infrastructure/docker-setup/06-portainer-dashboard.jpeg" width="900">
+  <img src="../../images/linux-infrastructure/04-docker-setup/06-portainer-dashboard.jpeg" width="900">
 </p>
 
 <p align="center">
