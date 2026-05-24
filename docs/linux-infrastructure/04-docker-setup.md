@@ -411,7 +411,7 @@ The original deployment exposed:
 
 directly to the local network.
 
-During the [Reverse Proxy Lab](reverse-proxy-lab.md), Portainer was:
+During the [Reverse Proxy Lab](07-reverse-proxy-lab.md), Portainer was:
 - attached to a shared Docker ingress network
 - migrated to internal-only service architecture
 - redeployed without direct LAN port exposure
