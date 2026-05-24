@@ -142,7 +142,7 @@ cd ~/infrastructure/docker-networking
 ```
 
 <p align="center">
-  <img src="../images/linux-infrastructure/docker-networking/01-making-project-directories.jpeg" width="700">
+  <img src="../../images/linux-infrastructure/docker-networking/01-making-project-directories.jpeg" width="700">
 </p>
 
 <p align="center">
@@ -183,7 +183,7 @@ networks:
 ```
 
 <p align="center">
-  <img src="../images/linux-infrastructure/docker-networking/02-creating-docker-compose-file.jpeg" width="700">
+  <img src="../../images/linux-infrastructure/docker-networking/02-creating-docker-compose-file.jpeg" width="700">
 </p>
 
 <p align="center">
@@ -203,7 +203,7 @@ docker compose up -d
 ```
 
 <p align="center">
-  <img src="../images/linux-infrastructure/docker-networking/03-running-docker-compose-stack.jpeg" width="700">
+  <img src="../../images/linux-infrastructure/docker-networking/03-running-docker-compose-stack.jpeg" width="700">
 </p>
 
 <p align="center">
@@ -229,7 +229,7 @@ docker network ls
 ```
 
 <p align="center">
-  <img src="../images/linux-infrastructure/docker-networking/04-inspecting-running-containers-and-networks.jpeg" width="800">
+  <img src="../../images/linux-infrastructure/docker-networking/04-inspecting-running-containers-and-networks.jpeg" width="800">
 </p>
 
 <p align="center">
@@ -259,7 +259,7 @@ docker network inspect docker-networking_lab-network
 ```
 
 <p align="center">
-  <img src="../images/linux-infrastructure/docker-networking/05-inspecting-custom-docker-network.jpeg" width="700">
+  <img src="../../images/linux-infrastructure/docker-networking/05-inspecting-custom-docker-network.jpeg" width="700">
 </p>
 
 <p align="center">
@@ -285,7 +285,7 @@ docker exec -it frontend sh
 ```
 
 <p align="center">
-  <img src="../images/linux-infrastructure/docker-networking/06-testing-container-shell-access.jpeg" width="700">
+  <img src="../../images/linux-infrastructure/docker-networking/06-testing-container-shell-access.jpeg" width="700">
 </p>
 
 <p align="center">
@@ -311,7 +311,7 @@ ping backend
 ```
 
 <p align="center">
-  <img src="../images/linux-infrastructure/docker-networking/07-attempting-internal-service-request.jpeg" width="700">
+  <img src="../../images/linux-infrastructure/docker-networking/07-attempting-internal-service-request.jpeg" width="700">
 </p>
 
 <p align="center">
@@ -334,7 +334,7 @@ docker exec backend /http-echo -text="test"
 ```
 
 <p align="center">
-  <img src="../images/linux-infrastructure/docker-networking/08-backend-port-already-in-use-error.jpeg" width="700">
+  <img src="../../images/linux-infrastructure/docker-networking/08-backend-port-already-in-use-error.jpeg" width="700">
 </p>
 
 <p align="center">
@@ -358,7 +358,7 @@ docker run --rm -it --network docker-networking_lab-network alpine sh
 ```
 
 <p align="center">
-  <img src="../images/linux-infrastructure/docker-networking/09-launching-temporary-alpine-debug-container.jpeg" width="700">
+  <img src="../../images/linux-infrastructure/docker-networking/09-launching-temporary-alpine-debug-container.jpeg" width="700">
 </p>
 
 <p align="center">
@@ -381,7 +381,7 @@ curl http://backend:5678
 ```
 
 <p align="center">
-  <img src="../images/linux-infrastructure/docker-networking/10-testing-container-to-container-connectivity.jpeg" width="700">
+  <img src="../../images/linux-infrastructure/docker-networking/10-testing-container-to-container-connectivity.jpeg" width="700">
 </p>
 
 <p align="center">
@@ -423,7 +423,7 @@ server {
 ```
 
 <p align="center">
-  <img src="../images/linux-infrastructure/docker-networking/11-creating-nginx-reverse-proxy-config.jpeg" width="700">
+  <img src="../../images/linux-infrastructure/docker-networking/11-creating-nginx-reverse-proxy-config.jpeg" width="700">
 </p>
 
 <p align="center">
@@ -451,7 +451,7 @@ frontend:
 ```
 
 <p align="center">
-  <img src="../images/linux-infrastructure/docker-networking/12-updating-docker-compose-for-reverse-proxy.jpeg" width="700">
+  <img src="../../images/linux-infrastructure/docker-networking/12-updating-docker-compose-for-reverse-proxy.jpeg" width="700">
 </p>
 
 <p align="center">
@@ -473,7 +473,7 @@ docker compose config
 ```
 
 <p align="center">
-  <img src="../images/linux-infrastructure/docker-networking/13-successful-reverse-proxy-deployment.jpeg" width="700">
+  <img src="../../images/linux-infrastructure/docker-networking/13-successful-reverse-proxy-deployment.jpeg" width="700">
 </p>
 
 <p align="center">
@@ -499,7 +499,7 @@ http://192.168.1.226:8080
 ```
 
 <p align="center">
-  <img src="../images/linux-infrastructure/docker-networking/14-final-browser-test-through-nginx.jpeg" width="650">
+  <img src="../../images/linux-infrastructure/docker-networking/14-final-browser-test-through-nginx.jpeg" width="650">
 </p>
 
 <p align="center">

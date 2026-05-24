@@ -13,7 +13,7 @@ Establish secure remote administration capabilities for the Ubuntu Server enviro
 During Ubuntu Server installation, the OpenSSH server package was enabled to allow secure remote administration immediately after deployment.
 
 <p align="center">
-  <img src="../images/linux-infrastructure/remote-access-and-ssh/01-openssh-installation.jpeg" width="700">
+  <img src="../../images/linux-infrastructure/remote-access-and-ssh/01-openssh-installation.jpeg" width="700">
 </p>
 
 <p align="center">
@@ -33,7 +33,7 @@ Additional Ubuntu installation details are documented in the [Ubuntu Server Inst
 After installation completed, the system successfully booted into Ubuntu Server and initialized core services.
 
 <p align="center">
-  <img src="../images/linux-infrastructure/remote-access-and-ssh/02-first-boot.jpeg" width="450">
+  <img src="../../images/linux-infrastructure/remote-access-and-ssh/02-first-boot.jpeg" width="450">
 </p>
 
 <p align="center">
@@ -56,7 +56,7 @@ Validation performed:
 The first remote SSH session was established from a Windows 11 workstation using Windows Terminal and OpenSSH client utilities.
 
 <p align="center">
-  <img src="../images/linux-infrastructure/remote-access-and-ssh/03-first-ssh-session.jpeg" width="700">
+  <img src="../../images/linux-infrastructure/remote-access-and-ssh/03-first-ssh-session.jpeg" width="700">
 </p>
 
 <p align="center">
@@ -81,7 +81,7 @@ This transition marked the movement from direct physical console management to r
 SSH key infrastructure was prepared on the Windows workstation using the built-in OpenSSH utilities within PowerShell.
 
 <p align="center">
-  <img src="../images/linux-infrastructure/remote-access-and-ssh/04-ssh-keygen.jpeg" width="650">
+  <img src="../../images/linux-infrastructure/remote-access-and-ssh/04-ssh-keygen.jpeg" width="650">
 </p>
 
 <p align="center">
@@ -103,7 +103,7 @@ Key generation objectives:
 Tailscale was deployed to provide secure remote access to the homelab environment without exposing SSH services directly to the public internet.
 
 <p align="center">
-  <img src="../images/linux-infrastructure/remote-access-and-ssh/05-tailscale-connection.jpeg" width="700">
+  <img src="../../images/linux-infrastructure/remote-access-and-ssh/05-tailscale-connection.jpeg" width="700">
 </p>
 
 <p align="center">
@@ -130,7 +130,7 @@ This provided:
 A reserved local IPv4 address was configured through the router management interface to ensure stable infrastructure addressing.
 
 <p align="center">
-  <img src="../images/linux-infrastructure/remote-access-and-ssh/06-reserved-ip.jpeg" width="450">
+  <img src="../../images/linux-infrastructure/remote-access-and-ssh/06-reserved-ip.jpeg" width="450">
 </p>
 
 <p align="center">
@@ -152,7 +152,7 @@ Benefits of reserved addressing:
 Wake-on-LAN related firmware settings were enabled through the motherboard BIOS configuration interface.
 
 <p align="center">
-  <img src="../images/linux-infrastructure/remote-access-and-ssh/07-wake-on-lan.jpeg" width="500">
+  <img src="../../images/linux-infrastructure/remote-access-and-ssh/07-wake-on-lan.jpeg" width="500">
 </p>
 
 <p align="center">
@@ -174,7 +174,7 @@ This enabled remote power management functionality for the server environment.
 Wake-on-LAN functionality was validated using a mobile client application on the local network.
 
 <p align="center">
-  <img src="../images/linux-infrastructure/remote-access-and-ssh/08-mobile-wol.jpeg" width="350">
+  <img src="../../images/linux-infrastructure/remote-access-and-ssh/08-mobile-wol.jpeg" width="350">
 </p>
 
 <p align="center">

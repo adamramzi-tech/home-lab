@@ -133,7 +133,7 @@ cd ~/infrastructure/monitoring-stack
 ```
 
 <p align="center">
-  <img src="../images/linux-infrastructure/monitoring-stack-lab/01-making-project-directories.jpeg" width="700">
+  <img src="../../images/linux-infrastructure/monitoring-stack-lab/01-making-project-directories.jpeg" width="700">
 </p>
 
 <p align="center">
@@ -187,7 +187,7 @@ networks:
 ```
 
 <p align="center">
-  <img src="../images/linux-infrastructure/monitoring-stack-lab/02-creating-docker-compose-file.jpeg" width="700">
+  <img src="../../images/linux-infrastructure/monitoring-stack-lab/02-creating-docker-compose-file.jpeg" width="700">
 </p>
 
 <p align="center">
@@ -208,7 +208,7 @@ nano prometheus/prometheus.yml
 ```
 
 <p align="center">
-  <img src="../images/linux-infrastructure/monitoring-stack-lab/03-prometheus-directory.jpeg" width="700">
+  <img src="../../images/linux-infrastructure/monitoring-stack-lab/03-prometheus-directory.jpeg" width="700">
 </p>
 
 <p align="center">
@@ -228,7 +228,7 @@ scrape_configs:
 ```
 
 <p align="center">
-  <img src="../images/linux-infrastructure/monitoring-stack-lab/04-prometheus-config.jpeg" width="700">
+  <img src="../../images/linux-infrastructure/monitoring-stack-lab/04-prometheus-config.jpeg" width="700">
 </p>
 
 <p align="center">
@@ -268,7 +268,7 @@ docker compose up -d
 ```
 
 <p align="center">
-  <img src="../images/linux-infrastructure/monitoring-stack-lab/05-running-docker-compose-stack.jpeg" width="700">
+  <img src="../../images/linux-infrastructure/monitoring-stack-lab/05-running-docker-compose-stack.jpeg" width="700">
 </p>
 
 <p align="center">
@@ -288,7 +288,7 @@ docker ps
 ```
 
 <p align="center">
-  <img src="../images/linux-infrastructure/monitoring-stack-lab/06-validating-running-containers.jpeg" width="800">
+  <img src="../../images/linux-infrastructure/monitoring-stack-lab/06-validating-running-containers.jpeg" width="800">
 </p>
 
 <p align="center">
@@ -321,7 +321,7 @@ The Prometheus interface loaded successfully, confirming:
 - functional Docker networking
 
 <p align="center">
-  <img src="../images/linux-infrastructure/monitoring-stack-lab/07-prometheus-test.jpeg" width="800">
+  <img src="../../images/linux-infrastructure/monitoring-stack-lab/07-prometheus-test.jpeg">
 </p>
 
 <p align="center">
@@ -343,7 +343,7 @@ http://192.168.1.226:3000
 The Grafana login interface loaded successfully.
 
 <p align="center">
-  <img src="../images/linux-infrastructure/monitoring-stack-lab/08-grafana-test.jpeg" width="800">
+  <img src="../../images/linux-infrastructure/monitoring-stack-lab/08-grafana-test.jpeg" width="800">
 </p>
 
 <p align="center">
@@ -367,7 +367,7 @@ After initial authentication:
 - Grafana was confirmed operational
 
 <p align="center">
-  <img src="../images/linux-infrastructure/monitoring-stack-lab/09-grafana-dash.jpeg" width="800">
+  <img src="../../images/linux-infrastructure/monitoring-stack-lab/09-grafana-dash.jpeg" width="800">
 </p>
 
 <p align="center">
@@ -446,7 +446,7 @@ volumes:
 ```
 
 <p align="center">
-  <img src="../images/linux-infrastructure/monitoring-stack-lab/10-persistent-storage.jpeg" width="800">
+  <img src="../../images/linux-infrastructure/monitoring-stack-lab/10-persistent-storage.jpeg" width="800">
 </p>
 
 <p align="center">
@@ -474,7 +474,7 @@ docker compose up -d
 ```
 
 <p align="center">
-  <img src="../images/linux-infrastructure/monitoring-stack-lab/11-redeploying-stack.jpeg" width="800">
+  <img src="../../images/linux-infrastructure/monitoring-stack-lab/11-redeploying-stack.jpeg" width="800">
 </p>
 
 <p align="center">
@@ -500,7 +500,7 @@ The deployment successfully created:
 - a persistent volume for Grafana application data
 
 <p align="center">
-  <img src="../images/linux-infrastructure/monitoring-stack-lab/12-docker-volume-validation.jpeg" width="800">
+  <img src="../../images/linux-infrastructure/monitoring-stack-lab/12-docker-volume-validation.jpeg" width="800">
 </p>
 
 <p align="center">
@@ -528,7 +528,7 @@ The Node Exporter target showed an `UP` status, confirming:
 - functional monitoring pipeline connectivity
 
 <p align="center">
-  <img src="../images/linux-infrastructure/monitoring-stack-lab/13-prometheus-targets.jpeg" width="800">
+  <img src="../../images/linux-infrastructure/monitoring-stack-lab/13-prometheus-targets.jpeg" width="800">
 </p>
 
 <p align="center">
@@ -556,7 +556,7 @@ Additional metrics tested included:
 - system load metrics
 
 <p align="center">
-  <img src="../images/linux-infrastructure/monitoring-stack-lab/14-prometheus-metrics-query.jpeg" width="800">
+  <img src="../../images/linux-infrastructure/monitoring-stack-lab/14-prometheus-metrics-query.jpeg" width="800">
 </p>
 
 <p align="center">
@@ -583,7 +583,7 @@ http://prometheus:9090
 The internal Docker service name was used instead of an IP address because Grafana and Prometheus communicated through the shared Docker bridge network.
 
 <p align="center">
-  <img src="../images/linux-infrastructure/monitoring-stack-lab/15-grafana-datasource.jpeg" width="800">
+  <img src="../../images/linux-infrastructure/monitoring-stack-lab/15-grafana-datasource.jpeg" width="800">
 </p>
 
 <p align="center">
@@ -613,7 +613,7 @@ A Node Exporter dashboard was chosen because it provides:
 - real-time operational visibility
 
 <p align="center">
-  <img src="../images/linux-infrastructure/monitoring-stack-lab/16-importing-dashboard.jpeg" width="800">
+  <img src="../../images/linux-infrastructure/monitoring-stack-lab/16-importing-dashboard.jpeg" width="800">
 </p>
 
 <p align="center">
@@ -641,7 +641,7 @@ The deployment successfully demonstrated a complete monitoring workflow:
 - Grafana querying and visualizing infrastructure telemetry
 
 <p align="center">
-  <img src="../images/linux-infrastructure/monitoring-stack-lab/17-live-dashboard-metrics.jpeg" width="800">
+  <img src="../../images/linux-infrastructure/monitoring-stack-lab/17-live-dashboard-metrics.jpeg" width="800">
 </p>
 
 <p align="center">
