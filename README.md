@@ -62,54 +62,53 @@ The next phase of the project will introduce enterprise infrastructure concepts 
 # Planned Hybrid Infrastructure Architecture
 
 ```text
-Windows 11 Workstation
-(Primary Management Endpoint + Virtualization Host)
+ISP Fiber Connection
+        ↓
+Primary WiFi 6E Router
+        ↓
+WiFi 6E Mesh Extender
+(Desk Infrastructure Node)
 
-├── VMware Workstation
-│   ├── DC01
-│   │   └── Windows Server 2022
-│   │       ├── Active Directory Domain Services
-│   │       └── AD-Integrated DNS
+├── Cat6 → Windows 11 Workstation
+│
+│   ├── VMware Workstation
+│   │   ├── DC01
+│   │   │   └── Windows Server 2022
+│   │   │       ├── Active Directory Domain Services
+│   │   │       └── AD-Integrated DNS
+│   │   │
+│   │   └── WIN11-CLIENT01
+│   │       └── Domain-Joined Windows 11 Client
 │   │
-│   └── WIN11-CLIENT01
-│       └── Domain-Joined Windows 11 Client
-│
-├── Management Plane
-│   ├── RDP
-│   ├── SSH
-│   ├── Browser-Based Administration
-│   └── VS Code Remote Workflows
-│
-└── Personal Workstation Usage
-    ├── Documentation
-    ├── Development
-    └── General Productivity
-
-                ↓ LAN (Cat6)
-
-Ubuntu Server 26.04 LTS
-(Headless Linux Infrastructure Host)
-
-├── Docker Engine
-│   ├── NGINX Proxy Manager
-│   │   └── Centralized Ingress Layer
+│   ├── Management Plane
+│   │   ├── RDP
+│   │   ├── SSH
+│   │   ├── Browser-Based Administration
+│   │   └── VS Code Remote Workflows
 │   │
-│   ├── Grafana
-│   ├── Prometheus
-│   ├── Portainer
-│   └── Future Linux Infrastructure Services
+│   └── General Workstation Usage
 │
-├── Node Exporter
-│   └── Internal Metrics Pipeline → Prometheus
-│
-├── OpenSSH + Tailscale
-│   └── Remote Administration Layer
-│
-└── Planned Cross-Platform Integration
-    ├── Linux + AD Authentication
-    ├── Windows Metrics Exporting
-    ├── Centralized Logging
-    └── SIEM Integration
+└── Cat6 → Ubuntu Server 26.04 LTS
+    (Headless Linux Infrastructure Host)
+
+    ├── Docker Engine
+    │   ├── NGINX Proxy Manager
+    │   ├── Grafana
+    │   ├── Prometheus
+    │   ├── Portainer
+    │   └── Future Linux Infrastructure Services
+    │
+    ├── Node Exporter
+    │   └── Metrics Pipeline → Prometheus
+    │
+    ├── OpenSSH + Tailscale
+    │   └── Remote Administration Layer
+    │
+    └── Planned Cross-Platform Integration
+        ├── Linux + AD Authentication
+        ├── Windows Metrics Exporting
+        ├── Centralized Logging
+        └── SIEM Integration
 ```
 
 This diagram represents the planned target architecture currently being researched and designed.
