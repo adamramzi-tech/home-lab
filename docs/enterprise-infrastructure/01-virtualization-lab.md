@@ -1,5 +1,11 @@
 # 01 - Virtualization Lab
 
+## Status
+
+Planning and research phase.
+
+---
+
 ## Objective
 
 The goal of this lab is to establish the virtualization foundation for the enterprise infrastructure track using VMware Workstation on the primary Windows 11 workstation.
