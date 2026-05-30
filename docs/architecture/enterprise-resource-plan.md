@@ -213,7 +213,7 @@ Long-term snapshot accumulation will be avoided to reduce:
 |---|---|
 | vCPU | 2 |
 | Memory | 4GB |
-| Storage | 100GB thin provisioned |
+| Storage | 80GB thin provisioned |
 
 ### Planned Responsibilities
 

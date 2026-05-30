@@ -9,7 +9,7 @@ The project is organized into two tracks:
 - **Linux Infrastructure** - Ubuntu Server, Docker, reverse proxy, monitoring, and remote administration
 - **Enterprise Infrastructure (Planned)** - Virtualization, Windows Server, Active Directory, Group Policy, and cross-platform integration
 
-The Linux infrastructure track is operational and documented. The enterprise infrastructure track is currently in the planning and research phase and will be introduced incrementally through dedicated labs.
+The Linux infrastructure track is operational and fully documented. The enterprise infrastructure track is currently transitioning from architecture planning into active implementation through dedicated virtualization and enterprise administration labs. and will be introduced incrementally through dedicated labs.
 
 ---
 
@@ -113,15 +113,23 @@ These documents live separately from the lab walkthroughs so implementation deta
 
 ### Enterprise Infrastructure
 
-| Planned Lab | Focus Area |
-|---|---|
-| [01 - Virtualization Lab](docs/enterprise-infrastructure/01-virtualization-lab.md) | Hypervisor deployment, VM lifecycle management, snapshots, and virtual networking |
-| [02 - Windows Server Lab](docs/enterprise-infrastructure/02-windows-server-lab.md) | Windows Server deployment, baseline configuration, and remote administration |
-| [03 - Active Directory Lab](docs/enterprise-infrastructure/03-active-directory-lab.md) | AD DS promotion, domain configuration, DNS integration, and identity structure |
-| [04 - Domain Client Lab](docs/enterprise-infrastructure/04-domain-client-lab.md) | Domain-joined workstation deployment, authentication testing, and client management |
-| [05 - Group Policy Lab](docs/enterprise-infrastructure/05-group-policy-lab.md) | GPO design, policy inheritance, security baselines, and endpoint management |
-| [06 - Linux and AD Integration Lab](docs/enterprise-infrastructure/06-linux-ad-integration-lab.md) | Cross-platform identity integration, Kerberos, SSSD, and domain-authenticated Linux |
-| [07 - Security and Monitoring Lab](docs/enterprise-infrastructure/07-security-monitoring-lab.md) | Wazuh SIEM, Sysmon, Windows event forwarding, and centralized telemetry |
+#### Completed Labs
+
+| Lab                                                                                | Focus Area                                                                                             |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| [01 - Virtualization Lab](docs/enterprise-infrastructure/01-virtualization-lab.md) | VMware Workstation deployment, enterprise VM provisioning, snapshot management, and virtual networking |
+
+#### Planned Labs
+
+| Planned Lab                                                                                        | Focus Area                                                                                         |
+| -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| [02 - Windows Server Lab](docs/enterprise-infrastructure/02-windows-server-lab.md)                 | Windows Server deployment, baseline configuration, and remote administration                       |
+| [03 - Active Directory Lab](docs/enterprise-infrastructure/03-active-directory-lab.md)             | Active Directory Domain Services deployment, DNS integration, and enterprise identity architecture |
+| [04 - Domain Client Lab](docs/enterprise-infrastructure/04-domain-client-lab.md)                   | Domain-joined workstation deployment, authentication workflows, and client management              |
+| [05 - Group Policy Lab](docs/enterprise-infrastructure/05-group-policy-lab.md)                     | Group Policy design, policy inheritance, security baselines, and endpoint management               |
+| [06 - Linux and AD Integration Lab](docs/enterprise-infrastructure/06-linux-ad-integration-lab.md) | Cross-platform identity integration using Kerberos, SSSD, and centralized authentication           |
+| [07 - Security and Monitoring Lab](docs/enterprise-infrastructure/07-security-monitoring-lab.md)   | Wazuh SIEM, Sysmon, Windows event forwarding, and centralized security telemetry                   |
+
 
 ---
 
@@ -198,24 +206,24 @@ Completed:
 
 ### Enterprise Infrastructure Track
 
-Planning and research phase:
+Completed:
+- VMware Workstation deployment
+- enterprise VM provisioning
+- snapshot and rollback workflows
+- virtual networking validation
 
-- virtualization architecture planning
-- hypervisor selection and networking design
+Current focus:
 - Windows Server deployment planning
-- Active Directory architecture research
-- domain structure and naming conventions
+- Active Directory architecture
+- enterprise identity services
 - Group Policy planning
-- Linux and Active Directory integration research
-- security monitoring architecture planning
-
 ---
 
 ## Current Focus
 
-The current focus of the project is expanding the existing Linux infrastructure into a broader hybrid enterprise environment.
+The project is currently transitioning from virtualization foundations into enterprise infrastructure deployment.
 
-Research and planning are currently underway for:
+Current areas of focus include:
 
 - virtualization architecture
 - Windows Server deployment
@@ -235,8 +243,8 @@ The long-term objective is to build practical real-world experience that reflect
 
 - Linux and Windows systems coexist
 - identity is centralized
-- infrastructure is observable
-- services are segmented
-- networking is layered
+- infrastructure is observable and monitored centrally
+- services are segmented through layered networking
 - security is integrated throughout the environment
+- networking is layered
 - operational changes are documented and validated incrementally

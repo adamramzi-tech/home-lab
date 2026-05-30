@@ -43,13 +43,13 @@ Windows 11 Workstation
 │
 └── VMware Workstation (Hypervisor)
     │
-    ├── DC01 (planned)
+    ├── DC01
     │   └── Windows Server 2022
     │       ├── Active Directory Domain Services
     │       ├── AD-Integrated DNS
     │       └── Domain: ad.home.lab (planned)
     │
-    └── WIN11-CLIENT01 (planned)
+    └── WIN11-CLIENT01
         └── Windows 11 Enterprise
             └── Domain-Joined Client
 
