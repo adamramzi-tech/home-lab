@@ -46,17 +46,7 @@ Configuration used:
 
 ### BIOS Update
 
-Prior to Ubuntu Server deployment, the motherboard BIOS was updated to improve hardware compatibility, system stability, and long-term reliability.
-
-<p align="center">
-  <img src="../../images/linux-infrastructure/02-ubuntu-server-install/03-bios-firmware-update.jpeg" width="600">
-</p>
-
-<p align="center">
-  <em>Motherboard BIOS update completed prior to Linux deployment to improve system stability and compatibility.</em>
-</p>
-
-Detailed hardware preparation steps are documented in the [Hardware Build](./01-hardware-build.md) section.
+Prior to Ubuntu Server deployment, the motherboard BIOS was updated to improve hardware compatibility, system stability, and long-term reliability. Full details are documented in [Lab 01 - Hardware Build](./01-hardware-build.md).
 
 ---
 

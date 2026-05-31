@@ -376,18 +376,11 @@ After initial authentication:
 
 ---
 
-## Persistent Storage Validation
+## Refining the Deployment
 
-### Adding Persistent Storage
+### Removing Unnecessary Node Exporter Port Exposure
 
-After validating the monitoring stack deployment, I realized the services were still operating as stateless containers.
-
-This meant:
-- Grafana dashboards and configuration would be lost if containers were recreated
-- Prometheus metrics history would reset during redeployment
-- the deployment behaved more like a temporary demo environment than a realistic monitoring stack
-
-During this review process, I also realized Node Exporter was unnecessarily exposing port `9100` to the local network through Docker port publishing.
+After validating the monitoring stack, I realized Node Exporter was unnecessarily exposing port `9100` to the local network through Docker port publishing.
 
 The original Node Exporter configuration looked like this:
 
@@ -398,6 +391,15 @@ node-exporter:
 ```
 
 Because Prometheus already communicated with Node Exporter internally through the shared Docker bridge network using Docker DNS and service discovery, external exposure of the metrics endpoint was unnecessary.
+
+### Adding Persistent Storage
+
+I also realized the services were still operating as stateless containers.
+
+This meant:
+- Grafana dashboards and configuration would be lost if containers were recreated
+- Prometheus metrics history would reset during redeployment
+- the deployment behaved more like a temporary demo environment than a realistic monitoring stack
 
 The deployment was refined to:
 - add persistent Docker volumes
@@ -461,6 +463,8 @@ These changes improved the deployment by:
 - creating a more realistic operational monitoring environment
 
 ---
+
+## Persistent Storage Validation
 
 ### Redeploying the Monitoring Stack
 

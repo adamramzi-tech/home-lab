@@ -9,7 +9,7 @@ The project is organized into two tracks:
 - **Linux Infrastructure** - Ubuntu Server, Docker, reverse proxy, monitoring, and remote administration
 - **Enterprise Infrastructure (Planned)** - Virtualization, Windows Server, Active Directory, Group Policy, and cross-platform integration
 
-The Linux infrastructure track is operational and fully documented. The enterprise infrastructure track is currently transitioning from architecture planning into active implementation through dedicated virtualization and enterprise administration labs. and will be introduced incrementally through dedicated labs.
+The Linux infrastructure track is operational and fully documented. The enterprise infrastructure track is currently transitioning from architecture planning into active implementation through dedicated virtualization and enterprise administration labs.
 
 ---
 

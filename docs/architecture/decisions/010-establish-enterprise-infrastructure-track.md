@@ -10,7 +10,7 @@ Accepted
 
 Builds upon:
 
-- [ADR-001: Repurpose Existing Consumer Hardware for Linux Infrastructure](001-repurpose-existing-consumer-hardware-for-linux-infrastructure.md) 
+- [ADR-001: Repurpose Existing Consumer Hardware for Linux Infrastructure](001-repurpose-existing-hardware-for-linux-infrastructure.md) 
 - [ADR-002: Standardize on Ubuntu Server LTS](002-standardize-on-ubuntu-server-lts.md) 
 - [ADR-005: Standardize on Containerized Service Deployment](005-standardize-on-containerized-service-deployment.md)
 

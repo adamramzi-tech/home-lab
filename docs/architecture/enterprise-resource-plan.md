@@ -54,14 +54,19 @@ This separation strategy is considered foundational to maintaining infrastructur
 
 # Current State
 
-At this stage of the project:
-- VMware Workstation has not yet been deployed
-- enterprise virtual machines do not yet exist
+The virtualization foundation has been established. Lab 01 (Virtualization Lab) is complete.
+
+Current state of the enterprise infrastructure environment:
+- VMware Workstation Pro 26H1 is deployed and operational on the Windows 11 workstation
+- DC01 has been provisioned with Windows Server 2022 Standard Evaluation (Desktop Experience)
+- WIN11-CLIENT01 has been provisioned with Windows 11 Enterprise 24H2
+- VMware Tools is installed and operational on both virtual machines
+- both VMs are currently configured on VMware NAT networking
+- baseline rollback snapshots have been created for both systems prior to Active Directory deployment
 - Active Directory infrastructure has not yet been implemented
-- virtualization architecture remains in the planning phase
 - the Linux infrastructure environment remains the primary operational platform
 
-This document defines the intended initial enterprise infrastructure strategy before deployment begins.
+The environment is now prepared for Windows Server configuration and Active Directory deployment in subsequent labs.
 
 ---
 
