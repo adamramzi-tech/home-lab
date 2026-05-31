@@ -654,6 +654,76 @@ The deployment successfully demonstrated a complete monitoring workflow:
 
 ---
 
+## Expanding Node Exporter Host Metric Visibility
+
+After reviewing the monitoring architecture, I realized the initial Node Exporter deployment did not have full visibility into the Ubuntu Server system.
+
+Although Prometheus was successfully scraping metrics, Node Exporter was still operating primarily within the container namespace and did not yet have access to:
+- filesystem metrics
+- full disk telemetry
+- kernel-level system metrics
+- complete infrastructure observability data
+
+To correct this, host filesystem and kernel paths were mounted into the Node Exporter container.
+
+The Docker Compose configuration was updated with:
+
+```yaml
+command:
+  - '--path.procfs=/host/proc'
+  - '--path.rootfs=/rootfs'
+  - '--path.sysfs=/host/sys'
+
+volumes:
+  - /proc:/host/proc:ro
+  - /sys:/host/sys:ro
+  - /:/rootfs:ro
+```
+
+<p align="center">
+  <img src="../../images/linux-infrastructure/06-monitoring-stack-lab/18-Updated-docker-compose.jpeg" width="1000">
+</p>
+
+<p align="center">
+  <em>Updating the Node Exporter container configuration to mount Ubuntu host filesystem and kernel metric paths for expanded infrastructure telemetry collection..</em>
+</p>
+
+After redeploying the monitoring stack, Prometheus successfully collected:
+
+- filesystem metrics
+- disk utilization data
+- mount point telemetry
+- expanded infrastructure metrics
+
+Additional validation confirmed successful collection of filesystem metrics through Prometheus queries.
+
+<p align="center">
+  <img src="../../images/linux-infrastructure/06-monitoring-stack-lab/19-validating-host-filesystem-metrics.jpeg" width="1000">
+</p>
+
+<p align="center">
+  <em>Prometheus successfully collecting filesystem metrics after expanding Node Exporter visibility.</em>
+</p>
+
+Grafana dashboards now displayed significantly more complete infrastructure telemetry from the Ubuntu Server environment.
+
+<p align="center">
+  <img src="../../images/linux-infrastructure/06-monitoring-stack-lab/20-validating-full-host-observability.jpeg" width="1000">
+</p>
+
+<p align="center">
+  <em>Grafana displaying expanded infrastructure telemetry after updating the Node Exporter configuration.</em>
+</p>
+
+This refinement improved:
+
+- infrastructure observability
+- filesystem monitoring visibility
+- telemetry accuracy
+- operational monitoring completeness
+
+---
+
 # Outcome
 
 This project successfully deployed a containerized infrastructure monitoring environment using:
