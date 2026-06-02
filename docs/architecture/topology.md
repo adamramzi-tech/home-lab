@@ -6,8 +6,8 @@ This document describes the physical and logical topology of the homelab environ
 
 The environment spans two physical machines connected over a wired LAN, with clearly separated responsibilities:
 
-- **Windows 11 Workstation** — primary management endpoint and virtualization host for enterprise infrastructure labs
-- **Ubuntu Server 26.04 LTS** — dedicated Linux infrastructure host running containerized services
+- **Windows 11 Workstation**: primary management endpoint and virtualization host for enterprise infrastructure labs
+- **Ubuntu Server 26.04 LTS**: dedicated Linux infrastructure host running containerized services
 
 ---
 
@@ -37,23 +37,30 @@ Windows 11 Workstation
 │
 ├── Management Plane
 │   ├── SSH → Ubuntu Server
-│   ├── RDP → DC01, WIN11-CLIENT01
+│   ├── RDP → DC01 (192.168.1.10), WIN11-CLIENT01 (192.168.1.20)
 │   ├── Browser → grafana.local, portainer.local, prometheus.local, npm.local
 │   └── VS Code Remote Workflows
 │
 └── VMware Workstation (Hypervisor)
     │
-    ├── DC01
-    │   └── Windows Server 2022
-    │       ├── Active Directory Domain Services
-    │       ├── AD-Integrated DNS
+    ├── DC01 (192.168.1.10)
+    │   └── Windows Server 2022 Standard Evaluation
+    │       ├── Static IP: 192.168.1.10
+    │       ├── Hostname: DC01
+    │       ├── RDP enabled
+    │       ├── Active Directory Domain Services (planned)
+    │       ├── AD-Integrated DNS (planned)
     │       └── Domain: ad.home.lab (planned)
     │
-    └── WIN11-CLIENT01
-        └── Windows 11 Enterprise
-            └── Domain-Joined Client
+    └── WIN11-CLIENT01 (192.168.1.20)
+        └── Windows 11 Enterprise Evaluation
+            ├── Static IP: 192.168.1.20
+            ├── Bridged networking
+            ├── RSAT installed
+            ├── Enterprise admin workstation
+            └── Domain join pending Lab 04
 
-                        ↕ LAN (Cat6)
+                        ↕ LAN (Cat6, bridged networking)
 
 Ubuntu Server 26.04 LTS (192.168.1.226)
 │
@@ -76,7 +83,7 @@ Ubuntu Server 26.04 LTS (192.168.1.226)
 │
 ├── Remote Access
 │   ├── OpenSSH (LAN)
-│   └── Tailscale (WireGuard mesh VPN — remote access)
+│   └── Tailscale (WireGuard mesh VPN): remote access
 │
 └── Planned Cross-Platform Integration
     ├── windows-exporter → Prometheus (Windows metrics)
@@ -104,7 +111,7 @@ Docker Networks on Ubuntu Server
     └── grafana
 
 Note: Grafana and Prometheus are attached to both networks.
-Node Exporter is internal-only — no external port exposure.
+Node Exporter is internal-only with no external port exposure.
 ```
 
 ---
@@ -119,8 +126,8 @@ Node Exporter is internal-only — no external port exposure.
 | NPM Admin | Reverse proxy | `http://npm.local` | Internal only |
 | Ubuntu SSH | Direct LAN | `ssh user@192.168.1.226` | Key-based auth |
 | Ubuntu SSH | Tailscale | `ssh user@<tailscale-ip>` | Remote access |
-| DC01 | RDP | `192.168.1.10` | Planned |
-| WIN11-CLIENT01 | RDP | `192.168.1.20` | Planned |
+| DC01 | RDP | `192.168.1.10` | Active (RDP enabled) |
+| WIN11-CLIENT01 | RDP | `192.168.1.20` | Active (admin workstation) |
 
 ---
 
@@ -137,6 +144,7 @@ Management tools in use:
 | Browser | Grafana, Portainer, NPM, Prometheus |
 | VMware Workstation | VM console, lifecycle, snapshots |
 | RDP | Windows Server and client VM administration |
+| RSAT (on WIN11-CLIENT01) | Active Directory and DNS administration |
 | Git / GitHub | Documentation version control |
 
 ---
@@ -147,7 +155,8 @@ Management tools in use:
 |---|---|
 | Linux ↔ Enterprise | Two separate physical machines. No shared hypervisor. LAN-connected only. |
 | Docker internal | No backend service exposes ports directly. All access through NPM. |
-| VM isolation | VMware virtual networking is used to isolate enterprise lab traffic from the primary workstation environment while maintaining LAN connectivity where required. AD domain does not affect workstation DNS. |
+| VM networking | DC01 and WIN11-CLIENT01 operate on bridged networking with direct LAN presence. Enterprise VMs are LAN participants alongside the Ubuntu Server host. |
+| AD domain scope | Active Directory domain (`ad.home.lab`) will be scoped to enterprise VMs. Workstation DNS is not redirected to DC01. |
 | Remote access | Tailscale provides encrypted remote access without exposing SSH publicly. |
 
 ---
@@ -156,6 +165,9 @@ Management tools in use:
 
 As the enterprise infrastructure track progresses, the topology will evolve to include:
 
+- Active Directory Domain Services on DC01
+- AD-integrated DNS replacing temporary public resolvers on both VMs
+- WIN11-CLIENT01 domain-joined to the AD domain
 - Windows metrics flowing into the existing Prometheus/Grafana stack
 - Ubuntu Server authenticating against Active Directory via SSSD
 - Wazuh SIEM collecting logs from both Linux and Windows systems

@@ -2,14 +2,14 @@
 
 ## Overview
 
-This repository documents the design, deployment, administration, and ongoing development of a hybrid homelab environment spanning Linux infrastructure, containerized services, and planned Windows enterprise infrastructure.
+This repository documents the design, deployment, administration, and ongoing development of a hybrid homelab environment spanning Linux infrastructure, containerized services, and Windows enterprise infrastructure.
 
 The project is organized into two tracks:
 
 - **Linux Infrastructure** - Ubuntu Server, Docker, reverse proxy, monitoring, and remote administration
-- **Enterprise Infrastructure (Planned)** - Virtualization, Windows Server, Active Directory, Group Policy, and cross-platform integration
+- **Enterprise Infrastructure** - Virtualization, Windows Server, Active Directory, Group Policy, and cross-platform integration
 
-The Linux infrastructure track is operational and fully documented. The enterprise infrastructure track is currently transitioning from architecture planning into active implementation through dedicated virtualization and enterprise administration labs.
+Both tracks are operational and actively documented. The enterprise infrastructure track has progressed through virtualization and Windows Server configuration, and is now advancing into Active Directory deployment.
 
 ---
 
@@ -23,6 +23,8 @@ The project emphasizes:
 - networking and remote access
 - observability and monitoring
 - reverse proxy architecture
+- Windows Server and Active Directory administration
+- hybrid infrastructure operations
 - documentation discipline
 - incremental infrastructure growth
 
@@ -30,7 +32,7 @@ The project emphasizes:
 
 ## Current Environment
 
-The current lab environment includes:
+### Linux Infrastructure
 
 - Ubuntu Server 26.04 LTS
 - Docker Engine and Docker Compose
@@ -45,7 +47,15 @@ The current lab environment includes:
 - Internal-only backend services
 - Cross-stack Docker networking
 
-The Windows 11 workstation serves as the primary management endpoint and the future virtualization host for enterprise labs.
+### Enterprise Infrastructure
+
+- VMware Workstation Pro (hosted on Windows 11 workstation)
+- DC01: Windows Server 2022 Standard Evaluation, static IP `192.168.1.10`, hostname configured, RDP enabled, fully patched, pre-AD snapshot created
+- WIN11-CLIENT01: Windows 11 Enterprise Evaluation, static IP `192.168.1.20`, RSAT installed, established as enterprise admin workstation, pre-domain snapshot created
+- Both VMs on bridged networking with direct LAN presence
+- Active Directory deployment in progress
+
+The Windows 11 workstation serves as the primary management endpoint and virtualization host for enterprise labs.
 
 ---
 
@@ -115,21 +125,20 @@ These documents live separately from the lab walkthroughs so implementation deta
 
 #### Completed Labs
 
-| Lab                                                                                | Focus Area                                                                                             |
-| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Lab | Focus Area |
+|---|---|
 | [01 - Virtualization Lab](docs/enterprise-infrastructure/01-virtualization-lab.md) | VMware Workstation deployment, enterprise VM provisioning, snapshot management, and virtual networking |
+| [02 - Windows Server Lab](docs/enterprise-infrastructure/02-windows-server-lab.md) | Windows Server baseline configuration, bridged networking, static IP assignment, RDP, RSAT, and pre-AD snapshots |
 
 #### Planned Labs
 
-| Planned Lab                                                                                        | Focus Area                                                                                         |
-| -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| [02 - Windows Server Lab](docs/enterprise-infrastructure/02-windows-server-lab.md)                 | Windows Server deployment, baseline configuration, and remote administration                       |
-| [03 - Active Directory Lab](docs/enterprise-infrastructure/03-active-directory-lab.md)             | Active Directory Domain Services deployment, DNS integration, and enterprise identity architecture |
-| [04 - Domain Client Lab](docs/enterprise-infrastructure/04-domain-client-lab.md)                   | Domain-joined workstation deployment, authentication workflows, and client management              |
-| [05 - Group Policy Lab](docs/enterprise-infrastructure/05-group-policy-lab.md)                     | Group Policy design, policy inheritance, security baselines, and endpoint management               |
-| [06 - Linux and AD Integration Lab](docs/enterprise-infrastructure/06-linux-ad-integration-lab.md) | Cross-platform identity integration using Kerberos, SSSD, and centralized authentication           |
-| [07 - Security and Monitoring Lab](docs/enterprise-infrastructure/07-security-monitoring-lab.md)   | Wazuh SIEM, Sysmon, Windows event forwarding, and centralized security telemetry                   |
-
+| Planned Lab | Focus Area |
+|---|---|
+| [03 - Active Directory Lab](docs/enterprise-infrastructure/03-active-directory-lab.md) | Active Directory Domain Services deployment, DNS integration, and enterprise identity architecture |
+| [04 - Domain Client Lab](docs/enterprise-infrastructure/04-domain-client-lab.md) | Domain-joined workstation deployment, authentication workflows, and client management |
+| [05 - Group Policy Lab](docs/enterprise-infrastructure/05-group-policy-lab.md) | Group Policy design, policy inheritance, security baselines, and endpoint management |
+| [06 - Linux and AD Integration Lab](docs/enterprise-infrastructure/06-linux-ad-integration-lab.md) | Cross-platform identity integration using Kerberos, SSSD, and centralized authentication |
+| [07 - Security and Monitoring Lab](docs/enterprise-infrastructure/07-security-monitoring-lab.md) | Wazuh SIEM, Sysmon, Windows event forwarding, and centralized security telemetry |
 
 ---
 
@@ -207,33 +216,42 @@ Completed:
 ### Enterprise Infrastructure Track
 
 Completed:
+
 - VMware Workstation deployment
-- enterprise VM provisioning
+- enterprise VM provisioning (DC01, WIN11-CLIENT01)
 - snapshot and rollback workflows
 - virtual networking validation
+- bridged networking transition for both VMs
+- static IP assignment: DC01 (`192.168.1.10`), WIN11-CLIENT01 (`192.168.1.20`)
+- DC01 hostname configuration
+- Windows updates applied to both VMs: DC01 build 20348.5139, WIN11-CLIENT01 build 26200.8457
+- RDP enabled on DC01 and validated from Windows 11 workstation
+- RSAT installed on WIN11-CLIENT01 (Active Directory, DNS, Server Manager tools)
+- Server Manager baseline familiarization
+- Windows Defender Firewall and Defender Antivirus validated
+- pre-AD snapshot created for DC01
+- pre-domain snapshot created for WIN11-CLIENT01
 
 Current focus:
-- Windows Server deployment planning
-- Active Directory architecture
-- enterprise identity services
-- Group Policy planning
+- Active Directory Domain Services deployment
+- AD-integrated DNS configuration
+- enterprise identity architecture
+
 ---
 
 ## Current Focus
 
-The project is currently transitioning from virtualization foundations into enterprise infrastructure deployment.
+The project is currently focused on Active Directory deployment on DC01 and establishing the enterprise identity foundation.
 
 Current areas of focus include:
 
-- virtualization architecture
-- Windows Server deployment
-- Active Directory integration
-- centralized identity services
+- Active Directory Domain Services deployment
+- AD-integrated DNS
+- domain join workflows for WIN11-CLIENT01
 - Group Policy management
-- cross-platform authentication
-- centralized DNS
+- centralized authentication
+- cross-platform authentication planning
 - security monitoring expansion
-- SIEM integration
 
 ---
 
