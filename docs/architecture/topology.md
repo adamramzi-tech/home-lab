@@ -50,7 +50,7 @@ Windows 11 Workstation
     │       ├── RDP enabled
     │       ├── Active Directory Domain Services (planned)
     │       ├── AD-Integrated DNS (planned)
-    │       └── Domain: ad.home.lab (planned)
+    │       └── Domain: corp.home.arpa (planned)
     │
     └── WIN11-CLIENT01 (192.168.1.20)
         └── Windows 11 Enterprise Evaluation
@@ -156,7 +156,7 @@ Management tools in use:
 | Linux ↔ Enterprise | Two separate physical machines. No shared hypervisor. LAN-connected only. |
 | Docker internal | No backend service exposes ports directly. All access through NPM. |
 | VM networking | DC01 and WIN11-CLIENT01 operate on bridged networking with direct LAN presence. Enterprise VMs are LAN participants alongside the Ubuntu Server host. |
-| AD domain scope | Active Directory domain (`ad.home.lab`) will be scoped to enterprise VMs. Workstation DNS is not redirected to DC01. |
+| AD domain scope | Active Directory domain (`corp.home.arpa`) will be scoped to enterprise VMs. Workstation DNS is not redirected to DC01. |
 | Remote access | Tailscale provides encrypted remote access without exposing SSH publicly. |
 
 ---
@@ -171,5 +171,5 @@ As the enterprise infrastructure track progresses, the topology will evolve to i
 - Windows metrics flowing into the existing Prometheus/Grafana stack
 - Ubuntu Server authenticating against Active Directory via SSSD
 - Wazuh SIEM collecting logs from both Linux and Windows systems
-- Centralized DNS provided by DC01 for the AD domain, scoped to `ad.home.lab`
+- Centralized DNS provided by DC01 for the AD domain, scoped to `corp.home.arpa`
 - Potential future Proxmox node for dedicated virtualization capacity

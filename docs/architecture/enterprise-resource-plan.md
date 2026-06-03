@@ -302,7 +302,7 @@ Long-term snapshot accumulation is avoided to reduce:
 Planned internal domain:
 
 ```text
-ad.home.lab
+corp.home.arpa
 ```
 
 ## DNS Strategy

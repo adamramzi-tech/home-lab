@@ -15,7 +15,7 @@ The lab picks up from the pre-AD snapshot created at the end of Lab 02, where DC
 The deployment covers:
 
 - installing the Active Directory Domain Services role on DC01
-- promoting DC01 to domain controller and establishing the `ad.home.lab` domain
+- promoting DC01 to domain controller and establishing the `corp.home.arpa` domain
 - configuring AD-integrated DNS to replace the temporary public resolvers
 - reconfiguring DC01's DNS to point to itself after promotion
 - creating the foundational Organizational Unit structure
@@ -31,7 +31,7 @@ Active Directory is the core identity infrastructure that all subsequent enterpr
 ## Objectives
 
 - install the Active Directory Domain Services role on DC01
-- promote DC01 to domain controller for the `ad.home.lab` domain
+- promote DC01 to domain controller for the `corp.home.arpa` domain
 - configure AD-integrated DNS on DC01
 - reconfigure DC01's DNS to point to itself (`192.168.1.10`) immediately after promotion
 - create a foundational Organizational Unit structure
@@ -49,7 +49,7 @@ Labs 01 and 02 established the virtualization foundation and configured both VMs
 
 Active Directory changes that calculus significantly. Once AD is deployed, DC01 is no longer just a Windows Server. It becomes the authoritative identity store, DNS server, Kerberos Key Distribution Center, and domain replication endpoint for the entire enterprise environment. Configuration decisions made during promotion are difficult or impossible to cleanly reverse without either a full demotion and re-promotion cycle or a snapshot rollback. This is why the snapshot discipline established in earlier labs matters so much at this stage.
 
-The domain name `ad.home.lab` was chosen deliberately. The `.lab` TLD is not routable on the public internet, which means there is no risk of domain name collision with external infrastructure. The `ad.` subdomain prefix clearly distinguishes this as an Active Directory domain rather than a general-purpose home network zone. This scoping also keeps the AD domain functionally separate from the broader home LAN. DC01 will serve as the authoritative DNS server for `ad.home.lab` and its subzones, but will not act as the general upstream resolver for the home network.
+The domain name `corp.home.arpa` was chosen deliberately. The `home.arpa` zone is reserved for home network use under RFC 8375, making it the standards-aligned choice for private home lab namespacing. The `corp.` subdomain prefix clearly distinguishes this as an Active Directory domain rather than a general-purpose home network zone. This scoping keeps the AD domain functionally separate from the broader home LAN. DC01 will serve as the authoritative DNS server for `corp.home.arpa` and its subzones, but will not act as the general upstream resolver for the home network.
 
 One of the most important post-promotion steps, and one the wizard does not handle automatically, is updating DC01's network adapter to use itself as the DNS server. After promotion, DC01 must point to `192.168.1.10` for DNS. This is a hard requirement: domain controllers use DNS for service record registration, Kerberos realm lookup, LDAP locator queries, and replication. A domain controller still pointing at a public resolver after promotion cannot correctly locate its own services and will produce misleading diagnostic output. This step should be treated as the very first action taken after the post-promotion reboot.
 
@@ -80,7 +80,7 @@ The Organizational Unit structure planned for this lab is intentionally minimal.
 
 ## Architecture and Topology
 
-After this lab, DC01 will operate as the authoritative domain controller and DNS server for the `ad.home.lab` domain.
+After this lab, DC01 will operate as the authoritative domain controller and DNS server for the `corp.home.arpa` domain.
 
 ```text
 Windows 11 Workstation (192.168.1.x) [hypervisor and access device]
@@ -91,20 +91,20 @@ Windows 11 Workstation (192.168.1.x) [hypervisor and access device]
     │   └── Windows Server 2022 Standard Evaluation
     │       ├── Static IP: 192.168.1.10
     │       ├── Hostname: DC01
-    │       ├── Domain: ad.home.lab
+    │       ├── Domain: corp.home.arpa
     │       ├── Roles: AD DS, DNS Server
     │       ├── DNS: 192.168.1.10 (self)
     │       ├── Kerberos KDC: active
     │       ├── LDAP: active on port 389
     │       ├── Global Catalog: active on port 3268
-    │       └── AD-Integrated DNS: authoritative for ad.home.lab
+    │       └── AD-Integrated DNS: authoritative for corp.home.arpa
     │
     └── WIN11-CLIENT01 (192.168.1.20) [enterprise admin workstation]
         └── Windows 11 Enterprise Evaluation
             ├── Static IP: 192.168.1.20
             ├── DNS: 192.168.1.10 (DC01) [pre-configured in Lab 02]
             ├── RSAT: installed
-            ├── Resolves: ad.home.lab via DC01 DNS
+            ├── Resolves: corp.home.arpa via DC01 DNS
             └── Lab 04: domain join pending
 
                     ↕ LAN
@@ -116,26 +116,26 @@ Ubuntu Server 26.04 LTS (192.168.1.226)
 ### DNS Architecture
 
 ```text
-WIN11-CLIENT01 DNS query: ad.home.lab
+WIN11-CLIENT01 DNS query: corp.home.arpa
         ↓
 DC01 DNS Server (192.168.1.10)
-        ↓ (authoritative for ad.home.lab)
+        ↓ (authoritative for corp.home.arpa)
 AD-Integrated DNS Zone
         ↓ (forwarding for external names)
 Public Resolver (1.1.1.1 / 8.8.8.8)
 ```
 
-DC01 will be authoritative for the `ad.home.lab` zone and all subzones created during promotion, including `_msdcs.ad.home.lab`, which holds the service locator records that clients use to discover domain controller services. External name resolution will be handled through conditional forwarders pointing to public resolvers.
+DC01 will be authoritative for the `corp.home.arpa` zone and all subzones created during promotion, including `_msdcs.corp.home.arpa`, which holds the service locator records that clients use to discover domain controller services. External name resolution will be handled through conditional forwarders pointing to public resolvers.
 
 ### Planned Identity Architecture
 
 ```text
-ad.home.lab [domain]
+corp.home.arpa [domain]
 │
 ├── Domain Controllers
-│   └── DC01.ad.home.lab
+│   └── DC01.corp.home.arpa
 │
-└── ad.home.lab [OU structure]
+└── corp.home.arpa [OU structure]
     │
     ├── IT
     │   └── [IT administrator accounts]
@@ -251,14 +251,14 @@ Once the role installation is complete, a yellow notification flag will appear i
 
 **Deployment configuration:**
 
-Select **Add a new forest** and set the root domain name to `ad.home.lab`.
+Select **Add a new forest** and set the root domain name to `corp.home.arpa`.
 
 <p align="center">
   <img src="../../images/enterprise-infrastructure/03-active-directory-lab/06-ad-new-forest-configuration.jpg" width="700">
 </p>
 
 <p align="center">
-  <em>Configuring the new forest with root domain name ad.home.lab.</em>
+  <em>Configuring the new forest with root domain name corp.home.arpa.</em>
 </p>
 
 **Domain controller options:**
@@ -287,7 +287,7 @@ The DSRM password must be set and stored somewhere secure and separate from doma
 
 **DNS delegation warning:**
 
-The DNS delegation page will display a warning that a delegation for `ad.home.lab` cannot be created. This is expected. Because `.lab` is not a routable TLD, no parent DNS zone exists to delegate from. Acknowledge the warning and continue.
+The DNS delegation page will display a warning that a delegation for `corp.home.arpa` cannot be created. This is expected in most home lab environments where the parent `home.arpa` zone is not managed locally. Acknowledge the warning and continue.
 
 <p align="center">
   <img src="../../images/enterprise-infrastructure/03-active-directory-lab/08-dns-delegation-warning.jpg" width="700">
@@ -423,8 +423,8 @@ Open DNS Manager via RSAT on WIN11-CLIENT01 and connect it to DC01. Confirm the 
 
 | Zone | Type | Purpose |
 |---|---|---|
-| `ad.home.lab` | AD-Integrated Primary | Forward lookup zone for the domain |
-| `_msdcs.ad.home.lab` | AD-Integrated Primary | Service locator records for DC discovery |
+| `corp.home.arpa` | AD-Integrated Primary | Forward lookup zone for the domain |
+| `_msdcs.corp.home.arpa` | AD-Integrated Primary | Service locator records for DC discovery |
 | `192.168.1.x Subnet` | AD-Integrated Primary | Reverse lookup zone for PTR records |
 
 <p align="center">
@@ -432,7 +432,7 @@ Open DNS Manager via RSAT on WIN11-CLIENT01 and connect it to DC01. Confirm the 
 </p>
 
 <p align="center">
-  <em>DNS Manager showing the ad.home.lab forward lookup zone and _msdcs subdelegation created by AD promotion.</em>
+  <em>DNS Manager showing the corp.home.arpa forward lookup zone and _msdcs subdelegation created by AD promotion.</em>
 </p>
 
 The `_msdcs` zone is created automatically by the promotion process and contains the SRV records that clients use to locate Kerberos, LDAP, and Global Catalog services. Its presence confirms that service record registration completed successfully.
@@ -444,8 +444,8 @@ The reverse lookup zone for the `192.168.1.x` subnet is also created automatical
 From WIN11-CLIENT01, validate that the critical AD service records are resolvable:
 
 ```powershell
-nslookup -type=SRV _ldap._tcp.ad.home.lab 192.168.1.10
-nslookup -type=SRV _kerberos._tcp.ad.home.lab 192.168.1.10
+nslookup -type=SRV _ldap._tcp.corp.home.arpa 192.168.1.10
+nslookup -type=SRV _kerberos._tcp.corp.home.arpa 192.168.1.10
 ```
 
 <p align="center">
@@ -560,7 +560,7 @@ The OU structure is designed to:
 - reflect the separation between administrative and standard user accounts
 - mirror the logical organization of the planned enterprise environment
 
-Create the following OUs directly under the `ad.home.lab` domain root:
+Create the following OUs directly under the `corp.home.arpa` domain root:
 
 | OU | Purpose |
 |---|---|
@@ -574,7 +574,7 @@ Create the following OUs directly under the `ad.home.lab` domain root:
 </p>
 
 <p align="center">
-  <em>Organizational Unit structure created under the ad.home.lab domain root.</em>
+  <em>Organizational Unit structure created under the corp.home.arpa domain root.</em>
 </p>
 
 Create the OUs directly under the domain root, not inside the default `Users` or `Computers` containers. The default containers are not OU objects and cannot be directly linked to Group Policy Objects. Creating a parallel OU structure from the start avoids having to migrate objects later and establishes clean GPO targeting surfaces before Lab 05.
@@ -584,7 +584,7 @@ The `Domain Controllers` OU should not be modified. It is managed by Active Dire
 PowerShell equivalent for reproducibility:
 
 ```powershell
-$domain = "DC=ad,DC=home,DC=lab"
+$domain = "DC=corp,DC=home,DC=arpa"
 New-ADOrganizationalUnit -Name "IT"        -Path $domain
 New-ADOrganizationalUnit -Name "Users"     -Path $domain
 New-ADOrganizationalUnit -Name "Computers" -Path $domain
@@ -623,15 +623,15 @@ PowerShell equivalent for user creation only — run this block first, before th
 ```powershell
 New-ADUser -Name "labadmin" `
            -SamAccountName "labadmin" `
-           -UserPrincipalName "labadmin@ad.home.lab" `
-           -Path "OU=IT,DC=ad,DC=home,DC=lab" `
+           -UserPrincipalName "labadmin@corp.home.arpa" `
+           -Path "OU=IT,DC=corp,DC=home,DC=arpa" `
            -AccountPassword (ConvertTo-SecureString "P@ssw0rd!" -AsPlainText -Force) `
            -Enabled $true
 
 New-ADUser -Name "testuser01" `
            -SamAccountName "testuser01" `
-           -UserPrincipalName "testuser01@ad.home.lab" `
-           -Path "OU=Users,DC=ad,DC=home,DC=lab" `
+           -UserPrincipalName "testuser01@corp.home.arpa" `
+           -Path "OU=Users,DC=corp,DC=home,DC=arpa" `
            -AccountPassword (ConvertTo-SecureString "P@ssw0rd!" -AsPlainText -Force) `
            -Enabled $true
 
@@ -653,7 +653,7 @@ Add `labadmin` to `IT-Admins` and `testuser01` to `Domain-Users-Standard`. These
 PowerShell equivalent for group creation:
 
 ```powershell
-$groupsOU = "OU=Groups,DC=ad,DC=home,DC=lab"
+$groupsOU = "OU=Groups,DC=corp,DC=home,DC=arpa"
 New-ADGroup -Name "IT-Admins"             -GroupScope Global -GroupCategory Security -Path $groupsOU
 New-ADGroup -Name "Domain-Users-Standard" -GroupScope Global -GroupCategory Security -Path $groupsOU
 New-ADGroup -Name "Lab-Workstations"      -GroupScope Global -GroupCategory Security -Path $groupsOU
@@ -683,7 +683,7 @@ Run a final validation pass before creating snapshots to confirm the domain cont
 **Domain controller advertising:**
 
 ```powershell
-nltest /dsgetdc:ad.home.lab
+nltest /dsgetdc:corp.home.arpa
 ```
 
 <p align="center">
@@ -691,7 +691,7 @@ nltest /dsgetdc:ad.home.lab
 </p>
 
 <p align="center">
-  <em>nltest confirming DC01 is advertising as the domain controller for ad.home.lab.</em>
+  <em>nltest confirming DC01 is advertising as the domain controller for corp.home.arpa.</em>
 </p>
 
 The output should show DC01 as the located domain controller and include the following flags:
@@ -704,7 +704,7 @@ All five FSMO roles will be held by DC01 as the single domain controller in this
 
 **Kerberos ticket validation:**
 
-Log into DC01 as `labadmin@ad.home.lab` and run:
+Log into DC01 as `labadmin@corp.home.arpa` and run:
 
 ```powershell
 klist
@@ -726,18 +726,18 @@ A value of `2` confirms LDAP signing is required. If the key is absent, the syst
 </p>
 
 <p align="center">
-  <em>Kerberos ticket cache showing a valid TGT issued by DC01 for the ad.home.lab realm.</em>
+  <em>Kerberos ticket cache showing a valid TGT issued by DC01 for the corp.home.arpa realm.</em>
 </p>
 
-The ticket cache should show a valid TGT for `labadmin@AD.HOME.LAB` issued by `krbtgt/AD.HOME.LAB@AD.HOME.LAB` using AES256 encryption. A valid TGT confirms the Kerberos authentication infrastructure is operational and the domain is ready for domain join workflows in Lab 04.
+The ticket cache should show a valid TGT for `labadmin@CORP.HOME.ARPA` issued by `krbtgt/CORP.HOME.ARPA@CORP.HOME.ARPA` using AES256 encryption. A valid TGT confirms the Kerberos authentication infrastructure is operational and the domain is ready for domain join workflows in Lab 04.
 
 **WIN11-CLIENT01 DNS resolution validation:**
 
 From WIN11-CLIENT01, run:
 
 ```powershell
-Resolve-DnsName ad.home.lab
-Resolve-DnsName DC01.ad.home.lab
+Resolve-DnsName corp.home.arpa
+Resolve-DnsName DC01.corp.home.arpa
 Resolve-DnsName google.com
 ```
 
@@ -751,8 +751,8 @@ Resolve-DnsName google.com
 
 All three should resolve correctly:
 
-- `ad.home.lab` resolves to `192.168.1.10`
-- `DC01.ad.home.lab` resolves to `192.168.1.10`
+- `corp.home.arpa` resolves to `192.168.1.10`
+- `DC01.corp.home.arpa` resolves to `192.168.1.10`
 - `google.com` resolves through DC01 forwarding
 
 If all three resolve, WIN11-CLIENT01 can locate the domain and its services. Domain join in Lab 04 is ready to proceed.
@@ -776,13 +776,13 @@ Once all validation steps pass, create snapshots for both VMs before Lab 04 begi
 Snapshot name:
 
 ```text
-DC01 - Active Directory Deployed, ad.home.lab
+DC01 - Active Directory Deployed, corp.home.arpa
 ```
 
 Snapshot description:
 
 ```text
-DC01 promoted to domain controller for ad.home.lab. AD DS and DNS roles installed and operational. OU structure created (IT, Users, Computers, Groups). Domain accounts created: labadmin (Domain Admins), testuser01 (standard user). Security groups created: IT-Admins, Domain-Users-Standard, Lab-Workstations. DNS forwarders configured to 1.1.1.1 and 8.8.8.8. dcdiag passed. Kerberos operational. Ready for Lab 04 domain join.
+DC01 promoted to domain controller for corp.home.arpa. AD DS and DNS roles installed and operational. OU structure created (IT, Users, Computers, Groups). Domain accounts created: labadmin (Domain Admins), testuser01 (standard user). Security groups created: IT-Admins, Domain-Users-Standard, Lab-Workstations. DNS forwarders configured to 1.1.1.1 and 8.8.8.8. dcdiag passed. Kerberos operational. Ready for Lab 04 domain join.
 ```
 
 **WIN11-CLIENT01 pre-domain-join snapshot:**
@@ -804,7 +804,7 @@ WIN11-CLIENT01 - Pre-Domain Join, DNS Validated
 Snapshot description:
 
 ```text
-WIN11-CLIENT01 DNS pointing to DC01 (192.168.1.10). Domain name ad.home.lab and DC01 hostname resolving correctly. SRV records for LDAP and Kerberos resolvable from client. Ready for domain join in Lab 04.
+WIN11-CLIENT01 DNS pointing to DC01 (192.168.1.10). Domain name corp.home.arpa and DC01 hostname resolving correctly. SRV records for LDAP and Kerberos resolvable from client. Ready for domain join in Lab 04.
 ```
 
 ---
@@ -817,18 +817,18 @@ Use this checklist to confirm the lab is complete before moving to Lab 04.
 |---|---|
 | AD DS role installed on DC01 | Visible in Server Manager Roles summary |
 | DC01 promoted to domain controller | Login screen shows HOMELAB domain context |
-| Forest root domain `ad.home.lab` created | Visible in Active Directory Domains and Trusts |
+| Forest root domain `corp.home.arpa` created | Visible in Active Directory Domains and Trusts |
 | NetBIOS domain name `HOMELAB` configured | Confirmed via `nltest` output |
 | DC01 DNS updated to self-reference (`192.168.1.10`) | Confirmed via `ipconfig /all` |
 | NTP configured and syncing | `w32tm /query /status` shows reachable source and low offset |
 | DNS forwarders configured to `1.1.1.1` and `8.8.8.8` | Confirmed via DNS Manager |
-| `ad.home.lab` forward lookup zone present | Confirmed via DNS Manager |
-| `_msdcs.ad.home.lab` zone present with SRV records | Confirmed via DNS Manager and `nslookup` |
+| `corp.home.arpa` forward lookup zone present | Confirmed via DNS Manager |
+| `_msdcs.corp.home.arpa` zone present with SRV records | Confirmed via DNS Manager and `nslookup` |
 | Reverse lookup zone present | Confirmed via DNS Manager |
 | `dcdiag /v` all critical tests passed | No failing tests |
 | Netlogon service running | `Get-Service Netlogon` returns Running |
 | SYSVOL and NETLOGON shares accessible | `Test-Path` returns True for both |
-| DC01 advertising as KDC, GC, PDC | Confirmed via `nltest /dsgetdc:ad.home.lab` |
+| DC01 advertising as KDC, GC, PDC | Confirmed via `nltest /dsgetdc:corp.home.arpa` |
 | Kerberos TGT issued for `labadmin` | Confirmed via `klist` |
 | LDAP signing enforced | `LDAPServerIntegrity` value is `2` or absent (WS2022 default) |
 | OU structure created: IT, Users, Computers, Groups | Visible in ADUC |
@@ -836,8 +836,8 @@ Use this checklist to confirm the lab is complete before moving to Lab 04.
 | `labadmin` in Domain Admins and IT-Admins | Confirmed via `Get-ADGroupMember` |
 | `testuser01` in Domain-Users-Standard | Confirmed via `Get-ADGroupMember` |
 | Security groups created: IT-Admins, Domain-Users-Standard, Lab-Workstations | Visible in ADUC |
-| WIN11-CLIENT01 resolves `ad.home.lab` | Returns `192.168.1.10` |
-| WIN11-CLIENT01 resolves `DC01.ad.home.lab` | Returns `192.168.1.10` |
+| WIN11-CLIENT01 resolves `corp.home.arpa` | Returns `192.168.1.10` |
+| WIN11-CLIENT01 resolves `DC01.corp.home.arpa` | Returns `192.168.1.10` |
 | WIN11-CLIENT01 external DNS forwarding functional | `google.com` resolves through DC01 |
 | DC01 post-promotion snapshot created | Visible in VMware snapshot manager |
 | WIN11-CLIENT01 pre-domain-join snapshot created | Visible in VMware snapshot manager |
@@ -852,7 +852,7 @@ The promotion wizard installs the DNS role and creates AD-integrated zones but d
 
 ### DNS Delegation Warning During Promotion
 
-The promotion wizard will display a warning that a delegation for `ad.home.lab` cannot be created in a parent zone. This is expected. The `.lab` TLD is not routable, so no parent zone exists. Acknowledge the warning and continue.
+The promotion wizard will display a warning that a delegation for `corp.home.arpa` cannot be created in a parent zone. This is expected in most home lab environments where the parent `home.arpa` zone is not managed locally. Acknowledge the warning and continue.
 
 ### SYSVOL Share Not Immediately Accessible After Reboot
 
@@ -864,11 +864,11 @@ Running `dcdiag /v` will likely produce informational warnings alongside passing
 
 ### Kerberos or LDAP SRV Records Not Resolving From WIN11-CLIENT01
 
-If `nslookup -type=SRV _ldap._tcp.ad.home.lab 192.168.1.10` returns no records, confirm that:
+If `nslookup -type=SRV _ldap._tcp.corp.home.arpa 192.168.1.10` returns no records, confirm that:
 
 - DC01's NIC DNS is pointing at itself (`192.168.1.10`), not a public resolver
 - the Netlogon service is running on DC01
-- the `_msdcs.ad.home.lab` zone is present in DNS Manager
+- the `_msdcs.corp.home.arpa` zone is present in DNS Manager
 
 If the Netlogon service was started before DC01's NIC DNS was updated to self-reference, it may not have registered SRV records correctly. Restart the Netlogon service after the NIC DNS update to force re-registration:
 
@@ -911,7 +911,7 @@ A value of `2` confirms LDAP signing is required. A value of `1` means it is ena
 
 ## Outcome
 
-At completion of this lab, DC01 will be a fully operational Active Directory domain controller and DNS server for the `ad.home.lab` domain. The enterprise identity infrastructure that all subsequent labs depend on will be in place.
+At completion of this lab, DC01 will be a fully operational Active Directory domain controller and DNS server for the `corp.home.arpa` domain. The enterprise identity infrastructure that all subsequent labs depend on will be in place.
 
 The environment will be prepared for:
 
