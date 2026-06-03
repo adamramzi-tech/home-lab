@@ -8,7 +8,7 @@ Planning and research phase
 
 ## Overview
 
-This lab deploys Active Directory Domain Services on DC01, establishing the enterprise identity foundation for the homelab environment. It represents the most architecturally significant step in the enterprise infrastructure track: the transition from a collection of independently configured Windows systems into a centrally managed domain.
+This lab deploys Active Directory Domain Services on DC01, establishing the enterprise identity foundation for the CORP environment. It represents the most architecturally significant step in the enterprise infrastructure track: the transition from a collection of independently configured Windows systems into a centrally managed domain.
 
 The lab picks up from the pre-AD snapshot created at the end of Lab 02, where DC01 is a fully configured Windows Server host with a static LAN presence, RDP enabled, and Windows updates applied. The server is ready to receive its first role. This lab introduces that role.
 
@@ -294,19 +294,19 @@ The DNS delegation page will display a warning that a delegation for `corp.home.
 </p>
 
 <p align="center">
-  <em>DNS delegation warning. Expected behavior for a non-routable lab domain. Acknowledge and continue.</em>
+  <em>DNS delegation warning. Expected behavior in a standalone lab environment where the parent zone is not locally managed. Acknowledge and continue.</em>
 </p>
 
 **NetBIOS name:**
 
-The NetBIOS domain name will be automatically derived from the domain name. Verify it reads `HOMELAB` and leave it unchanged.
+The NetBIOS domain name will be automatically derived from the domain name. Verify it reads `CORP` and leave it unchanged.
 
 <p align="center">
   <img src="../../images/enterprise-infrastructure/03-active-directory-lab/09-netbios-name-configuration.jpg" width="700">
 </p>
 
 <p align="center">
-  <em>NetBIOS domain name automatically configured as HOMELAB.</em>
+  <em>NetBIOS domain name automatically configured as CORP.</em>
 </p>
 
 **Paths:**
@@ -339,14 +339,14 @@ Before allowing promotion to proceed, the wizard will run a prerequisites check.
   <em>Prerequisites check passed. Informational warnings can be safely acknowledged.</em>
 </p>
 
-Click **Install**. DC01 will promote itself and reboot automatically. After the reboot, the login screen should reflect the `HOMELAB` domain context.
+Click **Install**. DC01 will promote itself and reboot automatically. After the reboot, the login screen should reflect the `CORP` domain context.
 
 <p align="center">
   <img src="../../images/enterprise-infrastructure/03-active-directory-lab/12-dc01-post-promotion-login.jpg" width="700">
 </p>
 
 <p align="center">
-  <em>DC01 login screen after promotion showing the HOMELAB domain context.</em>
+  <em>DC01 login screen after promotion showing the CORP domain context.</em>
 </p>
 
 ---
@@ -437,7 +437,7 @@ Open DNS Manager via RSAT on WIN11-CLIENT01 and connect it to DC01. Confirm the 
 
 The `_msdcs` zone is created automatically by the promotion process and contains the SRV records that clients use to locate Kerberos, LDAP, and Global Catalog services. Its presence confirms that service record registration completed successfully.
 
-The reverse lookup zone for the `192.168.1.x` subnet is also created automatically during promotion when the wizard detects the static IP configuration. If it is not present, create it manually via DNS Manager: expand Reverse Lookup Zones, right-click, select New Zone, choose AD-Integrated Primary, and enter `192.168.1` as the network ID. The reverse zone enables PTR record resolution and is required for some `dcdiag` tests to pass cleanly.
+If the reverse lookup zone was not automatically created during promotion, create it manually... If it is not present, create it manually via DNS Manager: expand Reverse Lookup Zones, right-click, select New Zone, choose AD-Integrated Primary, and enter `192.168.1` as the network ID. The reverse zone enables PTR record resolution and is required for some `dcdiag` tests to pass cleanly.
 
 **SRV record validation:**
 
@@ -719,7 +719,7 @@ Get-ItemProperty -Path "HKLM:\System\CurrentControlSet\Services\NTDS\Parameters"
                  -Name "LDAPServerIntegrity"
 ```
 
-A value of `2` confirms LDAP signing is required. If the key is absent, the system is using the Windows Server 2022 compiled-in default, which is equivalent to `2`. Either result is acceptable for this lab.
+A value of `2` confirms LDAP signing is required. If the key is absent, Windows Server 2022 is enforcing LDAP signing through its default security configuration. Either result is acceptable for this lab.
 
 <p align="center">
   <img src="../../images/enterprise-infrastructure/03-active-directory-lab/24-kerberos-ticket-validation.jpg" width="700">
@@ -816,9 +816,9 @@ Use this checklist to confirm the lab is complete before moving to Lab 04.
 | Check | Expected Result |
 |---|---|
 | AD DS role installed on DC01 | Visible in Server Manager Roles summary |
-| DC01 promoted to domain controller | Login screen shows HOMELAB domain context |
+| DC01 promoted to domain controller | Login screen shows CORP domain context |
 | Forest root domain `corp.home.arpa` created | Visible in Active Directory Domains and Trusts |
-| NetBIOS domain name `HOMELAB` configured | Confirmed via `nltest` output |
+| NetBIOS domain name `CORP` configured | Confirmed via `nltest` output |
 | DC01 DNS updated to self-reference (`192.168.1.10`) | Confirmed via `ipconfig /all` |
 | NTP configured and syncing | `w32tm /query /status` shows reachable source and low offset |
 | DNS forwarders configured to `1.1.1.1` and `8.8.8.8` | Confirmed via DNS Manager |
@@ -905,7 +905,7 @@ Get-ItemProperty -Path "HKLM:\System\CurrentControlSet\Services\NTDS\Parameters"
                  -Name "LDAPServerIntegrity"
 ```
 
-A value of `2` confirms LDAP signing is required. A value of `1` means it is enabled but not enforced. If the value is missing, the system is using the compiled-in default, which on Windows Server 2022 is equivalent to `2`. For this lab, confirming the value is `2` or absent is sufficient.
+A value of `2` confirms LDAP signing is required. A value of `1` means it is enabled but not enforced. If the value is missing, Windows Server 2022 is enforcing LDAP signing through its default security configuration. For this lab, confirming the value is `2` or absent is sufficient.
 
 ---
 
