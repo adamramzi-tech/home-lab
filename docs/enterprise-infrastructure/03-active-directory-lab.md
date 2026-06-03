@@ -516,7 +516,7 @@ Note: SYSVOL may take a few minutes to initialize after the first promotion rebo
 
 ### Step Seven - Configure DNS Forwarders
 
-Configure DNS forwarders on DC01 so that names outside `ad.home.lab` can be resolved. Without forwarders, DC01 will attempt to resolve all external names through the DNS root hints, which introduces unnecessary latency and complexity.
+Configure DNS forwarders on DC01 so that names outside `corp.home.arpa` can be resolved. Without forwarders, DC01 will attempt to resolve all external names through the DNS root hints, which introduces unnecessary latency and complexity.
 
 Open DNS Manager, right-click DC01, select Properties, and navigate to the Forwarders tab. Add the following forwarders:
 
