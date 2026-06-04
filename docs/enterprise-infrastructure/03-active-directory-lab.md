@@ -189,7 +189,7 @@ After restoring, boot DC01 and verify it is in the expected pre-configuration st
 - Windows updates: applied
 - Server Manager: opening on first boot
 
-Only proceed once the baseline state is confirmed.
+Only proceed once the baseline state is confirmed. Once confirmed, power on WIN11-CLIENT01 before continuing to Step Two.
 
 ---
 
@@ -437,7 +437,7 @@ Open DNS Manager via RSAT on WIN11-CLIENT01 and connect it to DC01. Confirm the 
 
 The `_msdcs` zone is created automatically by the promotion process and contains the SRV records that clients use to locate Kerberos, LDAP, and Global Catalog services. Its presence confirms that service record registration completed successfully.
 
-If the reverse lookup zone was not automatically created during promotion, create it manually... If it is not present, create it manually via DNS Manager: expand Reverse Lookup Zones, right-click, select New Zone, choose AD-Integrated Primary, and enter `192.168.1` as the network ID. The reverse zone enables PTR record resolution and is required for some `dcdiag` tests to pass cleanly.
+If the reverse lookup zone was not automatically created during promotion, create it manually via DNS Manager: expand Reverse Lookup Zones, right-click, select New Zone, choose AD-Integrated Primary, and enter `192.168.1` as the network ID. The reverse zone enables PTR record resolution and is required for some `dcdiag` tests to pass cleanly.
 
 **SRV record validation:**
 
@@ -710,6 +710,16 @@ Log into DC01 as `labadmin@corp.home.arpa` and run:
 klist
 ```
 
+<p align="center">
+  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/24-kerberos-ticket-validation.jpg" width="700">
+</p>
+
+<p align="center">
+  <em>Kerberos ticket cache showing a valid TGT issued by DC01 for the corp.home.arpa realm.</em>
+</p>
+
+The ticket cache should show a valid TGT for `labadmin@CORP.HOME.ARPA` issued by `krbtgt/CORP.HOME.ARPA@CORP.HOME.ARPA` using AES256 encryption. A valid TGT confirms the Kerberos authentication infrastructure is operational and the domain is ready for domain join workflows in Lab 04.
+
 **LDAP signing verification:**
 
 Confirm that LDAP signing is enforced on DC01:
@@ -720,16 +730,6 @@ Get-ItemProperty -Path "HKLM:\System\CurrentControlSet\Services\NTDS\Parameters"
 ```
 
 A value of `2` confirms LDAP signing is required. If the key is absent, Windows Server 2022 is enforcing LDAP signing through its default security configuration. Either result is acceptable for this lab.
-
-<p align="center">
-  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/24-kerberos-ticket-validation.jpg" width="700">
-</p>
-
-<p align="center">
-  <em>Kerberos ticket cache showing a valid TGT issued by DC01 for the corp.home.arpa realm.</em>
-</p>
-
-The ticket cache should show a valid TGT for `labadmin@CORP.HOME.ARPA` issued by `krbtgt/CORP.HOME.ARPA@CORP.HOME.ARPA` using AES256 encryption. A valid TGT confirms the Kerberos authentication infrastructure is operational and the domain is ready for domain join workflows in Lab 04.
 
 **WIN11-CLIENT01 DNS resolution validation:**
 
