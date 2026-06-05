@@ -1,5 +1,11 @@
 # 04 - Docker Setup
 
+## Status
+
+Completed
+
+---
+
 ## Overview
 
 After Ubuntu Server deployment and remote administration were fully operational, the next phase of the home lab focused on containerization using Docker.

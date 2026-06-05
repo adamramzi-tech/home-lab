@@ -1,5 +1,11 @@
 # 07 - Reverse Proxy Lab
 
+## Status
+
+Completed
+
+---
+
 ## Overview
 
 This project focused on implementing a centralized reverse proxy architecture using NGINX Proxy Manager, Docker Compose, shared Docker bridge networking, internal service routing, and hostname-based access control.

@@ -1,6 +1,12 @@
 # 03 - Remote Access and SSH
 
-## Objective
+## Status
+
+Completed
+
+---
+
+## Overview
 
 Establish secure remote administration capabilities for the Ubuntu Server environment using OpenSSH, Windows Terminal, Tailscale, and Wake-on-LAN functionality.
 

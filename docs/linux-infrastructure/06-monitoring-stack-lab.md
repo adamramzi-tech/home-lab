@@ -1,5 +1,11 @@
 # 06 - Monitoring Stack Lab
 
+## Status
+
+Completed
+
+---
+
 ## Overview
 
 This project focused on deploying a containerized monitoring environment using Docker Compose, Prometheus, Node Exporter, and Grafana.

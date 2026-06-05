@@ -92,7 +92,7 @@ The project therefore required:
 - documentation restructuring
 - dedicated enterprise infrastructure planning workflows
 
-## This marked a major strategic evolution point in the environment's architecture and long-term direction.
+This marked a major strategic evolution point in the environment's architecture and long-term direction.
 
 # Decision
 
@@ -262,7 +262,7 @@ into:
 
 - a broader hybrid infrastructure and enterprise administration platform
 
-## This significantly expanded both the technical scope and architectural maturity of the project.
+This significantly expanded both the technical scope and architectural maturity of the project.
 
 ## Tradeoffs
 

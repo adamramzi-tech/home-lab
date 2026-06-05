@@ -1,5 +1,11 @@
 # 05 - Docker Networking Lab
 
+## Status
+
+Completed
+
+---
+
 ## Overview
 
 This lab introduced foundational Docker networking concepts using Docker Compose, custom bridge networks, internal service communication, and reverse proxy architecture.

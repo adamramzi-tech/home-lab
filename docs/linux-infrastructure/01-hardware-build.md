@@ -1,6 +1,12 @@
 # 01 - Hardware Build and System Preparation
 
-## Objective
+## Status
+
+Completed
+
+---
+
+## Overview
 
 The goal of this project was to repurpose existing consumer desktop hardware into a dedicated Linux-based homelab server for learning practical systems administration, networking, Docker, Linux server management, and infrastructure troubleshooting.
 

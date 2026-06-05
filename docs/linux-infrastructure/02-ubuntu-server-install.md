@@ -1,6 +1,12 @@
 # 02 - Ubuntu Server Installation
 
-## Objective
+## Status
+
+Completed
+
+---
+
+## Overview
 
 Deploy Ubuntu Server 26.04 LTS onto repurposed hardware to establish the foundation for the homelab infrastructure environment.
 

@@ -176,7 +176,7 @@ I started by restoring DC01 to the pre-AD snapshot created at the end of Lab 02.
 I restored the snapshot via VMware Workstation's snapshot menu using the revert-to-snapshot workflow.
 
 <p align="center">
-  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/01-restore-pre-ad-snapshot.jpg" width="700">
+  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/01-restore-pre-ad-snapshot.jpg" width="900">
 </p>
 
 <p align="center">
@@ -214,7 +214,7 @@ The wizard automatically prompted to include required features. I accepted all d
 - Remote Server Administration Tools for AD DS
 
 <p align="center">
-  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/02-ad-ds-role-selection.jpg" width="700">
+  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/02-ad-ds-role-selection.jpg" width="900">
 </p>
 
 <p align="center">
@@ -222,7 +222,7 @@ The wizard automatically prompted to include required features. I accepted all d
 </p>
 
 <p align="center">
-  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/03-ad-ds-feature-dependencies.jpg" width="700">
+  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/03-ad-ds-feature-dependencies.jpg" width="900">
 </p>
 
 <p align="center">
@@ -230,7 +230,7 @@ The wizard automatically prompted to include required features. I accepted all d
 </p>
 
 <p align="center">
-  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/04-ad-ds-role-installation-progress.jpg" width="700">
+  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/04-ad-ds-role-installation-progress.jpg" width="900">
 </p>
 
 <p align="center">
@@ -238,7 +238,7 @@ The wizard automatically prompted to include required features. I accepted all d
 </p>
 
 <p align="center">
-  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/05-ad-ds-role-installation-complete.jpg" width="700">
+  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/05-ad-ds-role-installation-complete.jpg" width="900">
 </p>
 
 <p align="center">
@@ -258,7 +258,7 @@ Once role installation was complete, a yellow notification flag appeared in the 
 I selected **Add a new forest** and set the root domain name to `corp.home.arpa`.
 
 <p align="center">
-  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/06-ad-new-forest-configuration.jpg" width="700">
+  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/06-ad-new-forest-configuration.jpg" width="900">
 </p>
 
 <p align="center">
@@ -278,7 +278,7 @@ I configured the following on the Domain Controller Options page:
 | Directory Services Restore Mode (DSRM) password | Set and recorded securely |
 
 <p align="center">
-  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/07-dc-options-configuration.jpg" width="700">
+  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/07-dc-options-configuration.jpg" width="900">
 </p>
 
 <p align="center">
@@ -296,7 +296,7 @@ The DNS Options page contained a **Create DNS delegation** checkbox. The wizard 
 Either way, the action was the same: I unchecked **Create DNS delegation** and continued. There is no parent `home.arpa` zone managed locally, so the delegation cannot be created and is not needed. DC01 is the authoritative DNS server for `corp.home.arpa` without any parent zone delegation.
 
 <p align="center">
-  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/08-dns-delegation-unchecked.jpg" width="700">
+  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/08-dns-delegation-unchecked.jpg" width="900">
 </p>
 
 <p align="center">
@@ -308,7 +308,7 @@ Either way, the action was the same: I unchecked **Create DNS delegation** and c
 The NetBIOS domain name was automatically derived from the domain name. I verified it read `CORP` and left it unchanged.
 
 <p align="center">
-  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/09-netbios-name-configuration.jpg" width="700">
+  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/09-netbios-name-configuration.jpg" width="900">
 </p>
 
 <p align="center">
@@ -326,7 +326,7 @@ I retained the default paths for the AD database, log files, and SYSVOL. There w
 | SYSVOL folder | `C:\Windows\SYSVOL` |
 
 <p align="center">
-  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/10-ad-paths-configuration.jpg" width="700">
+  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/10-ad-paths-configuration.jpg" width="900">
 </p>
 
 <p align="center">
@@ -338,7 +338,7 @@ I retained the default paths for the AD database, log files, and SYSVOL. There w
 Before allowing promotion to proceed, the wizard ran a prerequisites check. All critical tests passed. There were informational warnings about DNS delegation and cryptography policy, both of which were expected and did not affect functionality.
 
 <p align="center">
-  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/11-prerequisites-check-passed.jpg" width="700">
+  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/11-prerequisites-check-passed.jpg" width="900">
 </p>
 
 <p align="center">
@@ -348,7 +348,7 @@ Before allowing promotion to proceed, the wizard ran a prerequisites check. All 
 I clicked **Install**. DC01 promoted itself and rebooted automatically. After the reboot, the login screen reflected the `CORP` domain context.
 
 <p align="center">
-  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/12-dc01-post-promotion-login.jpg" width="700">
+  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/12-dc01-post-promotion-login.jpg" width="900">
 </p>
 
 <p align="center">
@@ -370,7 +370,7 @@ Set-DnsClientServerAddress -InterfaceAlias "Ethernet0" -ServerAddresses ("192.16
 I validated the change with `ipconfig /all`:
 
 <p align="center">
-  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/13-dc01-dns-self-referral.jpg" width="700">
+  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/13-dc01-dns-self-referral.jpg" width="900">
 </p>
 
 <p align="center">
@@ -409,7 +409,7 @@ I then validated that the time service was syncing correctly:
 w32tm /query /status
 ```
 <p align="center">
-  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/14-ntp-time-synchronization.jpg" width="700">
+  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/14-ntp-time-synchronization.jpg" width="900">
 </p>
 
 <p align="center">
@@ -445,7 +445,7 @@ The following zones were present:
 | `1.in-addr.arpa`        | Reverse Lookup Zone   | Reverse DNS resolution and PTR record registration      |
 
 <p align="center">
-  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/15-dns-manager-zones.jpg" width="700">
+  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/15-dns-manager-zones.jpg" width="900">
 </p>
 
 <p align="center">
@@ -466,7 +466,7 @@ nslookup -type=SRV _kerberos._tcp.corp.home.arpa 192.168.1.10
 ```
 
 <p align="center">
-  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/16-srv-record-validation.jpg" width="700">
+  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/16-srv-record-validation.jpg" width="900">
 </p>
 
 <p align="center">
@@ -484,7 +484,7 @@ dcdiag /v
 ```
 
 <p align="center">
-  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/17-dcdiag-validation.jpg" width="700">
+  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/17-dcdiag-validation.jpg" width="900">
 </p>
 
 <p align="center">
@@ -504,7 +504,7 @@ Test-Path \\DC01\NETLOGON
 ```
 
 <p align="center">
-  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/18-netlogon-sysvol-validation.jpg" width="700">
+  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/18-netlogon-sysvol-validation.jpg" width="900">
 </p>
 
 <p align="center">
@@ -523,7 +523,7 @@ I verified that DNS forwarders were configured on DC01 to allow resolution of na
 | `8.8.8.8` | Google public DNS     |
 
 <p align="center">
-  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/19-dns-forwarders-configuration.jpg" width="700">
+  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/19-dns-forwarders-configuration.jpg" width="900">
 </p>
 
 <p align="center">
@@ -537,7 +537,7 @@ Resolve-DnsName google.com -Server 192.168.1.10
 ```
 
 <p align="center">
-  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/20-external-dns-resolution-validation.jpg" width="700">
+  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/20-external-dns-resolution-validation.jpg" width="900">
 </p>
 
 <p align="center">
@@ -571,7 +571,7 @@ I created the following OUs directly under the `corp.home.arpa` domain root:
 Note: ADUC will refuse to create OUs named `Users` or `Computers` at the domain root because default system containers with those exact names already exist there (`CN=Users` and `CN=Computers`). These containers are not OUs and cannot be deleted or renamed. The names above avoid that conflict while remaining descriptive.
 
 <p align="center">
-  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/21-ou-structure-creation.jpg" width="700">
+  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/21-ou-structure-creation.jpg" width="900">
 </p>
 
 <p align="center">
@@ -639,7 +639,7 @@ After creating `labadmin`, I added it to both `Domain Admins` and `IT-Admins`. T
 `testuser01` was created as a standard user with no elevated privileges. It will be used to test domain authentication, Group Policy application, and standard user desktop behavior after WIN11-CLIENT01 is domain-joined in Lab 04.
 
 <p align="center">
-  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/22-domain-user-creation-labadmin.jpg" width="700">
+  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/22-domain-user-creation-labadmin.jpg" width="900">
 </p>
 
 <p align="center">
@@ -647,7 +647,7 @@ After creating `labadmin`, I added it to both `Domain Admins` and `IT-Admins`. T
 </p>
 
 <p align="center">
-  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/23-domain-user-creation-testuser01.jpg" width="700">
+  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/23-domain-user-creation-testuser01.jpg" width="900">
 </p>
 
 <p align="center">
@@ -704,7 +704,7 @@ Add-ADGroupMember -Identity "Domain-Users-Standard" -Members "testuser01"
 ```
 
 <p align="center">
-  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/24-security-group-creation.jpg" width="700">
+  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/24-security-group-creation.jpg" width="900">
 </p>
 
 <p align="center">
@@ -718,7 +718,7 @@ Get-ADGroupMember "IT-Admins"
 Get-ADGroupMember "Domain-Users-Standard"
 ```
 
-<p align="center"> <img src="../../images/enterprise-infrastructure/03-active-directory-lab/25-security-group-membership-validation.jpg" width="700"> </p> <p align="center"> <em>Validation of IT-Admins and Domain-Users-Standard group memberships.</em> </p>
+<p align="center"> <img src="../../images/enterprise-infrastructure/03-active-directory-lab/25-security-group-membership-validation.jpg" width="900"> </p> <p align="center"> <em>Validation of IT-Admins and Domain-Users-Standard group memberships.</em> </p>
 
 The output confirmed that `labadmin` was a member of `IT-Admins` and `testuser01` was a member of `Domain-Users-Standard`, validating that the initial role-based access structure was configured correctly.
 
@@ -760,7 +760,7 @@ klist
 ```
 
 <p align="center">
-  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/27-kerberos-ticket-validation.jpg" width="700">
+  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/27-kerberos-ticket-validation.jpg" width="900">
 </p>
 
 <p align="center">
@@ -787,7 +787,7 @@ This check is informational. The result is interpreted as follows:
 - Key absent: treat this as the platform default and verify behavior through effective security policy settings rather than registry presence alone.
 
 <p align="center">
-  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/28-ldap-signing-verification.jpg" width="700">
+  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/28-ldap-signing-verification.jpg" width="900">
 </p>
 
 <p align="center">
@@ -807,7 +807,7 @@ Resolve-DnsName google.com
 ```
 
 <p align="center">
-  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/29-win11-dns-resolution-validation.jpg" width="700">
+  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/29-win11-dns-resolution-validation.jpg" width="900">
 </p>
 
 <p align="center">
@@ -833,7 +833,7 @@ Once all validation steps were completed, I created snapshots for both VMs befor
 **DC01 post-promotion snapshot:**
 
 <p align="center">
-  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/30-dc01-post-promotion-snapshot.jpg" width="700">
+  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/30-dc01-post-promotion-snapshot.jpg" width="900">
 </p>
 
 <p align="center">
@@ -855,7 +855,7 @@ DC01 promoted to domain controller for corp.home.arpa. Active Directory Domain S
 **WIN11-CLIENT01 pre-domain-join snapshot:**
 
 <p align="center">
-  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/31-win11-pre-domain-join-snapshot.jpg" width="700">
+  <img src="../../images/enterprise-infrastructure/03-active-directory-lab/31-win11-pre-domain-join-snapshot.jpg" width="900">
 </p>
 
 <p align="center">
