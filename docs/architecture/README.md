@@ -17,8 +17,8 @@ The homelab environment has evolved from a single Linux server into a broader hy
 - Docker-based services
 - centralized ingress architecture
 - observability pipelines
-- planned enterprise infrastructure
-- virtualization and Active Directory integration
+- enterprise infrastructure (Active Directory, DNS, domain identity)
+- virtualization and Windows Server administration
 
 As the environment grows in complexity, documenting architectural reasoning becomes increasingly important.
 
@@ -111,13 +111,14 @@ Documents:
 
 Documents:
 
-- planned virtualization architecture
-- VM inventory
-- CPU and memory allocation
+- enterprise virtualization architecture
+- current VM inventory and resource allocation
 - storage planning
-- virtual networking considerations
-- identity and DNS planning
+- virtual networking design
+- Active Directory and DNS architecture
 - infrastructure separation strategy
+- operational constraints
+- future expansion planning
 
 ---
 

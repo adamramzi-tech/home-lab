@@ -9,7 +9,7 @@ The project is organized into two tracks:
 - **Linux Infrastructure** - Ubuntu Server, Docker, reverse proxy, monitoring, and remote administration
 - **Enterprise Infrastructure** - Virtualization, Windows Server, Active Directory, Group Policy, and cross-platform integration
 
-Both tracks are operational and actively documented. The enterprise infrastructure track has progressed through virtualization and Windows Server configuration, and is now advancing into Active Directory deployment.
+Both tracks are operational and actively documented. The enterprise infrastructure track has progressed through virtualization, Windows Server configuration, and Active Directory deployment, and is now advancing into domain client configuration.
 
 ---
 
@@ -50,10 +50,10 @@ The project emphasizes:
 ### Enterprise Infrastructure
 
 - VMware Workstation Pro (hosted on Windows 11 workstation)
-- DC01: Windows Server 2022 Standard Evaluation, static IP `192.168.1.10`, hostname configured, RDP enabled, fully patched, pre-AD snapshot created
-- WIN11-CLIENT01: Windows 11 Enterprise Evaluation, static IP `192.168.1.20`, RSAT installed, established as enterprise admin workstation, pre-domain snapshot created
+- DC01: Windows Server 2022 Standard Evaluation, static IP `192.168.1.10`, Active Directory Domain Services deployed, AD-integrated DNS operational, RDP enabled
+- WIN11-CLIENT01: Windows 11 Enterprise Evaluation, static IP `192.168.1.20`, RSAT installed, enterprise administration workstation, prepared for domain join
 - Both VMs on bridged networking with direct LAN presence
-- Active Directory deployment in progress
+- Active Directory Domain Services deployed: domain `corp.home.arpa` operational, DC01 promoted to domain controller, AD-integrated DNS active, OU structure created, domain user and group accounts created, post-promotion snapshots taken
 
 The Windows 11 workstation serves as the primary management endpoint and virtualization host for enterprise labs.
 
@@ -129,12 +129,12 @@ These documents live separately from the lab walkthroughs so implementation deta
 |---|---|
 | [01 - Virtualization Lab](docs/enterprise-infrastructure/01-virtualization-lab.md) | VMware Workstation deployment, enterprise VM provisioning, snapshot management, and virtual networking |
 | [02 - Windows Server Lab](docs/enterprise-infrastructure/02-windows-server-lab.md) | Windows Server baseline configuration, bridged networking, static IP assignment, RDP, RSAT, and pre-AD snapshots |
+| [03 - Active Directory Lab](docs/enterprise-infrastructure/03-active-directory-lab.md) | Active Directory Domain Services deployment, AD-integrated DNS, OU structure, domain accounts, and enterprise identity architecture |
 
 #### Planned Labs
 
 | Planned Lab | Focus Area |
 |---|---|
-| [03 - Active Directory Lab](docs/enterprise-infrastructure/03-active-directory-lab.md) | Active Directory Domain Services deployment, DNS integration, and enterprise identity architecture |
 | [04 - Domain Client Lab](docs/enterprise-infrastructure/04-domain-client-lab.md) | Domain-joined workstation deployment, authentication workflows, and client management |
 | [05 - Group Policy Lab](docs/enterprise-infrastructure/05-group-policy-lab.md) | Group Policy design, policy inheritance, security baselines, and endpoint management |
 | [06 - Linux and AD Integration Lab](docs/enterprise-infrastructure/06-linux-ad-integration-lab.md) | Cross-platform identity integration using Kerberos, SSSD, and centralized authentication |
@@ -231,25 +231,33 @@ Completed:
 - Windows Defender Firewall and Defender Antivirus validated
 - pre-AD snapshot created for DC01
 - pre-domain snapshot created for WIN11-CLIENT01
+- Active Directory Domain Services deployed on DC01
+- DC01 promoted to domain controller for `corp.home.arpa`
+- AD-integrated DNS operational; DC01 self-referencing for DNS
+- NTP configured and syncing on DC01
+- DNS forwarders configured to `1.1.1.1` and `8.8.8.8`
+- OU structure created: IT, User Accounts, Workstations, Groups
+- default containers redirected to new OUs
+- domain accounts created: `labadmin` (Domain Admins, IT-Admins), `testuser01` (Domain-Users-Standard)
+- security groups created: IT-Admins, Domain-Users-Standard, Lab-Workstations
+- DC01 advertising as KDC, GC, and PDC Emulator confirmed
+- Kerberos TGT validated for `labadmin`
+- post-promotion snapshots created for DC01 and WIN11-CLIENT01
 
 Current focus:
-- Active Directory Domain Services deployment
-- AD-integrated DNS configuration
-- enterprise identity architecture
+- domain join workflows for WIN11-CLIENT01 (Lab 04)
 
 ---
 
 ## Current Focus
 
-The project is currently focused on Active Directory deployment on DC01 and establishing the enterprise identity foundation.
+The project is currently focused on domain client configuration and the next phase of enterprise infrastructure buildout.
 
 Current areas of focus include:
 
-- Active Directory Domain Services deployment
-- AD-integrated DNS
-- domain join workflows for WIN11-CLIENT01
-- Group Policy management
-- centralized authentication
+- domain join workflows for WIN11-CLIENT01 (Lab 04)
+- Group Policy design and deployment (Lab 05)
+- centralized authentication validation
 - cross-platform authentication planning
 - security monitoring expansion
 

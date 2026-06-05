@@ -54,7 +54,7 @@ This separation strategy is considered foundational to maintaining infrastructur
 
 # Current State
 
-Labs 01 and 02 are complete. The enterprise infrastructure environment is fully configured and ready for Active Directory deployment.
+Labs 01, 02, and 03 are complete. The Active Directory domain is fully deployed and operational.
 
 Current state of the enterprise infrastructure environment:
 
@@ -68,14 +68,21 @@ Current state of the enterprise infrastructure environment:
 - Windows updates applied, DC01 OS Build 20348.5139 (Version 21H2), WIN11-CLIENT01 OS Build 26200.8457 (Version 25H2)
 - RDP is enabled on DC01 and validated from the Windows 11 workstation
 - RSAT is installed on WIN11-CLIENT01 (Active Directory, DNS, and Server Manager tools)
-- WIN11-CLIENT01 DNS points to DC01 (`192.168.1.10`) in preparation for AD-integrated DNS
-- DC01 DNS temporarily uses public resolvers (`1.1.1.1` / `8.8.8.8`) pending AD promotion
-- pre-AD snapshot created for DC01: `DC01 - Configured Windows Server Base, Pre-AD`
-- pre-domain snapshot created for WIN11-CLIENT01: `WIN11-CLIENT01 - Configured Client Base, Pre-Domain`
-- Active Directory infrastructure has not yet been implemented
+- Active Directory Domain Services deployed on DC01; DC01 promoted to domain controller for `corp.home.arpa`
+- AD-integrated DNS operational; DC01 DNS self-referencing at `192.168.1.10`
+- NTP configured and syncing on DC01 (`time.cloudflare.com`)
+- DNS forwarders configured to `1.1.1.1` and `8.8.8.8` for external resolution
+- OU structure created: IT, User Accounts, Workstations, Groups
+- default containers redirected: `CN=Users` to `OU=User Accounts`, `CN=Computers` to `OU=Workstations`
+- domain accounts created: `labadmin` (Domain Admins, IT-Admins), `testuser01` (Domain-Users-Standard)
+- security groups created: IT-Admins, Domain-Users-Standard, Lab-Workstations
+- DC01 advertising as KDC, GC, and PDC Emulator confirmed via `nltest`
+- Kerberos TGT validated for `labadmin@CORP.HOME.ARPA`
+- post-promotion snapshot created for DC01: `DC01 - Active Directory Deployed, corp.home.arpa`
+- pre-domain-join snapshot created for WIN11-CLIENT01: `WIN11-CLIENT01 - Pre-Domain Join, DNS Validated`
 - the Linux infrastructure environment remains the primary operational platform
 
-The environment is now prepared for Active Directory Domain Services deployment in Lab 03.
+The environment is now prepared for domain client configuration in Lab 04.
 
 ---
 
@@ -214,8 +221,8 @@ Long-term snapshot accumulation is avoided to reduce:
 
 ### Role
 
-- Active Directory Domain Controller (planned)
-- DNS Server (planned)
+- Active Directory Domain Controller
+- DNS Server (AD-integrated)
 
 ### Operating System
 
@@ -235,16 +242,14 @@ Long-term snapshot accumulation is avoided to reduce:
 - Static IP: `192.168.1.10`
 - Subnet mask: `255.255.255.0`
 - Default gateway: `192.168.1.1`
-- DNS (temporary): `1.1.1.1` / `8.8.8.8`
+- DNS (primary): `192.168.1.10` (self, AD-integrated DNS)
 - Networking: VMware Bridged (direct LAN)
 - RDP: Enabled
 - OS Build: 20348.5139 (Version 21H2)
-- Snapshot: `DC01 - Configured Windows Server Base, Pre-AD`
+- Snapshot: `DC01 - Active Directory Deployed, corp.home.arpa`
 
 ### Planned Responsibilities
 
-- Active Directory Domain Services
-- AD-integrated DNS
 - centralized authentication
 - Group Policy management
 - domain identity services
@@ -281,7 +286,7 @@ Long-term snapshot accumulation is avoided to reduce:
 - Networking: VMware Bridged (direct LAN)
 - RSAT: Installed (Active Directory, DNS, Server Manager tools)
 - OS Build: 26200.8457 (Version 25H2)
-- Snapshot: `WIN11-CLIENT01 - Configured Client Base, Pre-Domain`
+- Snapshot: `WIN11-CLIENT01 - Pre-Domain Join, DNS Validated`
 
 ### Planned Usage
 
@@ -297,9 +302,9 @@ Long-term snapshot accumulation is avoided to reduce:
 
 # Identity and DNS Strategy
 
-## Planned Internal Domain
+## Internal Domain
 
-Planned internal domain:
+Active Directory domain:
 
 ```text
 corp.home.arpa
@@ -307,22 +312,22 @@ corp.home.arpa
 
 ## DNS Strategy
 
-The enterprise environment will utilize:
-- AD-integrated DNS
-- centralized internal name resolution
-- DNS forwarding for external resolution
+The enterprise environment uses:
+- AD-integrated DNS hosted on DC01
+- centralized internal name resolution for `corp.home.arpa`
+- DNS forwarding to `1.1.1.1` and `8.8.8.8` for external resolution
 
-Planned DNS flow:
+DNS flow:
 
 ```text
 Domain Clients
         ↓
 DC01 DNS Server (192.168.1.10)
         ↓
-Upstream Router or Public Resolver
+Public Resolvers (1.1.1.1 / 8.8.8.8)
 ```
 
-WIN11-CLIENT01 is already configured to use DC01 (`192.168.1.10`) as its primary DNS server. DC01 itself will be reconfigured to point to itself (`192.168.1.10`) as primary DNS at the time of Active Directory promotion.
+WIN11-CLIENT01 is configured to use DC01 (`192.168.1.10`) as its primary DNS server. DC01 points to itself (`192.168.1.10`) as primary DNS.
 
 This architecture supports:
 - Active Directory service discovery

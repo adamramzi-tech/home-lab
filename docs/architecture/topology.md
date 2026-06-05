@@ -48,9 +48,9 @@ Windows 11 Workstation
     │       ├── Static IP: 192.168.1.10
     │       ├── Hostname: DC01
     │       ├── RDP enabled
-    │       ├── Active Directory Domain Services (planned)
-    │       ├── AD-Integrated DNS (planned)
-    │       └── Domain: corp.home.arpa (planned)
+    │       ├── Active Directory Domain Services
+    │       ├── AD-Integrated DNS
+    │       └── Domain: corp.home.arpa
     │
     └── WIN11-CLIENT01 (192.168.1.20)
         └── Windows 11 Enterprise Evaluation
@@ -126,8 +126,8 @@ Node Exporter is internal-only with no external port exposure.
 | NPM Admin | Reverse proxy | `http://npm.local` | Internal only |
 | Ubuntu SSH | Direct LAN | `ssh user@192.168.1.226` | Key-based auth |
 | Ubuntu SSH | Tailscale | `ssh user@<tailscale-ip>` | Remote access |
-| DC01 | RDP | `192.168.1.10` | Active (RDP enabled) |
-| WIN11-CLIENT01 | RDP | `192.168.1.20` | Active (admin workstation) |
+| DC01 | RDP | `192.168.1.10` | Active Directory domain controller; AD DS and DNS operational |
+| WIN11-CLIENT01 | RDP | `192.168.1.20` | Domain join pending Lab 04 |
 
 ---
 
@@ -144,7 +144,7 @@ Management tools in use:
 | Browser | Grafana, Portainer, NPM, Prometheus |
 | VMware Workstation | VM console, lifecycle, snapshots |
 | RDP | Windows Server and client VM administration |
-| RSAT (on WIN11-CLIENT01) | Active Directory and DNS administration |
+| RSAT (WIN11-CLIENT01) | Remote Active Directory and DNS administration when required |
 | Git / GitHub | Documentation version control |
 
 ---
@@ -156,7 +156,7 @@ Management tools in use:
 | Linux ↔ Enterprise | Two separate physical machines. No shared hypervisor. LAN-connected only. |
 | Docker internal | No backend service exposes ports directly. All access through NPM. |
 | VM networking | DC01 and WIN11-CLIENT01 operate on bridged networking with direct LAN presence. Enterprise VMs are LAN participants alongside the Ubuntu Server host. |
-| AD domain scope | Active Directory domain (`corp.home.arpa`) will be scoped to enterprise VMs. Workstation DNS is not redirected to DC01. |
+| AD domain scope | Active Directory domain (`corp.home.arpa`) is scoped to enterprise VMs. DC01 is the authoritative DNS server for the domain. Workstation DNS is not redirected to DC01. |
 | Remote access | Tailscale provides encrypted remote access without exposing SSH publicly. |
 
 ---
@@ -165,11 +165,9 @@ Management tools in use:
 
 As the enterprise infrastructure track progresses, the topology will evolve to include:
 
-- Active Directory Domain Services on DC01
-- AD-integrated DNS replacing temporary public resolvers on both VMs
-- WIN11-CLIENT01 domain-joined to the AD domain
+- WIN11-CLIENT01 domain-joined to the `corp.home.arpa` AD domain (Lab 04)
 - Windows metrics flowing into the existing Prometheus/Grafana stack
 - Ubuntu Server authenticating against Active Directory via SSSD
 - Wazuh SIEM collecting logs from both Linux and Windows systems
-- Centralized DNS provided by DC01 for the AD domain, scoped to `corp.home.arpa`
+- Additional systems integrated with the `corp.home.arpa` Active Directory domain
 - Potential future Proxmox node for dedicated virtualization capacity
