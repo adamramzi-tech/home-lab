@@ -57,8 +57,9 @@ Windows 11 Workstation
             ├── Static IP: 192.168.1.20
             ├── Bridged networking
             ├── RSAT installed
-            ├── Enterprise admin workstation
-            └── Domain join pending Lab 04
+            ├── Domain: corp.home.arpa
+            ├── Computer account: CN=WIN11-CLIENT01,OU=Workstations,DC=corp,DC=home,DC=arpa
+            └── IPv6 disabled (Ethernet0); DNS: 192.168.1.10 (DC01) only
 
                         ↕ LAN (Cat6, bridged networking)
 
@@ -127,7 +128,7 @@ Node Exporter is internal-only with no external port exposure.
 | Ubuntu SSH | Direct LAN | `ssh user@192.168.1.226` | Key-based auth |
 | Ubuntu SSH | Tailscale | `ssh user@<tailscale-ip>` | Remote access |
 | DC01 | RDP | `192.168.1.10` | Active Directory domain controller; AD DS and DNS operational |
-| WIN11-CLIENT01 | RDP | `192.168.1.20` | Domain join pending Lab 04 |
+| WIN11-CLIENT01 | RDP | `192.168.1.20` | Domain-joined; computer account in OU=Workstations |
 
 ---
 
@@ -156,7 +157,7 @@ Management tools in use:
 | Linux ↔ Enterprise | Two separate physical machines. No shared hypervisor. LAN-connected only. |
 | Docker internal | No backend service exposes ports directly. All access through NPM. |
 | VM networking | DC01 and WIN11-CLIENT01 operate on bridged networking with direct LAN presence. Enterprise VMs are LAN participants alongside the Ubuntu Server host. |
-| AD domain scope | Active Directory domain (`corp.home.arpa`) is scoped to enterprise VMs. DC01 is the authoritative DNS server for the domain. Workstation DNS is not redirected to DC01. |
+| AD domain scope | Active Directory domain (`corp.home.arpa`) is scoped to enterprise VMs. DC01 is the authoritative DNS server for the domain. WIN11-CLIENT01 is joined to the domain and uses DC01 exclusively for DNS (IPv4 only; IPv6 disabled on Ethernet0). |
 | Remote access | Tailscale provides encrypted remote access without exposing SSH publicly. |
 
 ---
@@ -165,7 +166,7 @@ Management tools in use:
 
 As the enterprise infrastructure track progresses, the topology will evolve to include:
 
-- WIN11-CLIENT01 domain-joined to the `corp.home.arpa` AD domain (Lab 04)
+- Group Policy deployment across the `corp.home.arpa` domain (Lab 05)
 - Windows metrics flowing into the existing Prometheus/Grafana stack
 - Ubuntu Server authenticating against Active Directory via SSSD
 - Wazuh SIEM collecting logs from both Linux and Windows systems

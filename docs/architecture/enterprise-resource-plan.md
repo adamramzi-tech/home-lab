@@ -54,7 +54,7 @@ This separation strategy is considered foundational to maintaining infrastructur
 
 # Current State
 
-Labs 01, 02, and 03 are complete. The Active Directory domain is fully deployed and operational.
+Labs 01, 02, 03, and 04 are complete. The Active Directory domain is fully deployed and WIN11-CLIENT01 is domain-joined and validated.
 
 Current state of the enterprise infrastructure environment:
 
@@ -80,9 +80,19 @@ Current state of the enterprise infrastructure environment:
 - Kerberos TGT validated for `labadmin@CORP.HOME.ARPA`
 - post-promotion snapshot created for DC01: `DC01 - Active Directory Deployed, corp.home.arpa`
 - pre-domain-join snapshot created for WIN11-CLIENT01: `WIN11-CLIENT01 - Pre-Domain Join, DNS Validated`
+- WIN11-CLIENT01 joined to `corp.home.arpa`; computer account confirmed in `OU=Workstations`
+- domain authentication validated using `testuser01`; domain SID confirmed in security token
+- Kerberos TGT confirmed for `testuser01@CORP.HOME.ARPA` via AES-256; LDAP and CIFS service tickets issued
+- secure channel integrity verified via `nltest /sc_verify` returning `NERR_Success`
+- DC01 discoverable from WIN11-CLIENT01 via `nltest /dsgetdc`
+- Group Policy processing validated via `gpupdate /force` and `gpresult /r`; Default Domain Policy applied from DC01
+- AD DNS SRV record resolution confirmed from the joined client
+- IPv6 disabled on WIN11-CLIENT01 Ethernet0 adapter to eliminate competing DNS resolution path
+- post-domain-join snapshot created for DC01: `DC01 - Domain Join Complete`
+- post-domain-join snapshot created for WIN11-CLIENT01: `WIN11-CLIENT01 - Domain Joined`
 - the Linux infrastructure environment remains the primary operational platform
 
-The environment is now prepared for domain client configuration in Lab 04.
+The environment is now prepared for Group Policy design and deployment in Lab 05.
 
 ---
 
@@ -282,13 +292,15 @@ Long-term snapshot accumulation is avoided to reduce:
 - Static IP: `192.168.1.20`
 - Subnet mask: `255.255.255.0`
 - Default gateway: `192.168.1.1`
-- DNS (primary): `192.168.1.10` (DC01)
+- DNS (primary): `192.168.1.10` (DC01); IPv6 disabled on Ethernet0
 - Networking: VMware Bridged (direct LAN)
 - RSAT: Installed (Active Directory, DNS, Server Manager tools)
 - OS Build: 26200.8457 (Version 25H2)
-- Snapshot: `WIN11-CLIENT01 - Pre-Domain Join, DNS Validated`
+- Domain: `corp.home.arpa`
+- Computer account: `CN=WIN11-CLIENT01,OU=Workstations,DC=corp,DC=home,DC=arpa`
+- Snapshot: `WIN11-CLIENT01 - Domain Joined`
 
-### Planned Usage
+### Current and Planned Usage
 
 - domain authentication testing
 - Group Policy validation
