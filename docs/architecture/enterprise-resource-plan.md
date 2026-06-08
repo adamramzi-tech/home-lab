@@ -272,7 +272,7 @@ Long-term snapshot accumulation is avoided to reduce:
 ### Role
 
 - Enterprise admin workstation
-- Domain-joined Windows workstation (pending Lab 04)
+- Domain-joined Windows workstation
 
 ### Operating System
 

@@ -255,9 +255,6 @@ Completed:
 - IPv6 disabled on WIN11-CLIENT01 to resolve competing DNS resolution path
 - post-domain-join snapshots created for DC01 and WIN11-CLIENT01
 
-Current focus:
-- Group Policy design and deployment (Lab 05)
-
 ---
 
 ## Current Focus
