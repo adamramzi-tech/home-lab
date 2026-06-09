@@ -14,16 +14,16 @@ services:
     container_name: node-exporter
 
     command:
-    - '--path.procfs=/host/proc'
-    - '--path.rootfs=/rootfs'
-    - '--path.sysfs=/host/sys'
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
 
-  volumes:
-    - /proc:/host/proc:ro
-    - /sys:/host/sys:ro
-    - /:/rootfs:ro
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
     
-  networks:
+    networks:
       - monitoring
 
   grafana:
