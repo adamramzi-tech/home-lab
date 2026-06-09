@@ -9,7 +9,7 @@ The project is organized into two tracks:
 - **Linux Infrastructure** - Ubuntu Server, Docker, reverse proxy, monitoring, and remote administration
 - **Enterprise Infrastructure** - Virtualization, Windows Server, Active Directory, Group Policy, and cross-platform integration
 
-Both tracks are operational and actively documented. The enterprise infrastructure track has progressed through virtualization, Windows Server configuration, Active Directory deployment, and domain client configuration, and is now advancing into Group Policy.
+Both tracks are operational and actively documented. The enterprise infrastructure track has progressed through virtualization, Windows Server configuration, Active Directory deployment, domain client configuration, and Group Policy deployment, and is now advancing into Linux AD integration.
 
 ---
 
@@ -55,6 +55,7 @@ The project emphasizes:
 - Both VMs on bridged networking with direct LAN presence
 - Active Directory Domain Services deployed: domain `corp.home.arpa` operational, DC01 promoted to domain controller, AD-integrated DNS active, OU structure created, domain user and group accounts created, post-promotion snapshots taken
 - WIN11-CLIENT01 joined to `corp.home.arpa`: computer account confirmed in `OU=Workstations`, domain authentication validated, Kerberos TGT confirmed, secure channel verified, Group Policy processing validated
+- Group Policy deployed: three purpose-built GPOs created, linked, and validated; security group filtering operational on `Workstation-Security-Baseline` using `Lab-Workstations`; RSoP confirmed on WIN11-CLIENT01 and DC01
 
 The Windows 11 workstation serves as the primary management endpoint and virtualization host for enterprise labs.
 
@@ -132,12 +133,12 @@ These documents live separately from the lab walkthroughs so implementation deta
 | [02 - Windows Server Lab](docs/enterprise-infrastructure/02-windows-server-lab.md) | Windows Server baseline configuration, bridged networking, static IP assignment, RDP, RSAT, and pre-AD snapshots |
 | [03 - Active Directory Lab](docs/enterprise-infrastructure/03-active-directory-lab.md) | Active Directory Domain Services deployment, AD-integrated DNS, OU structure, domain accounts, and enterprise identity architecture |
 | [04 - Domain Client Lab](docs/enterprise-infrastructure/04-domain-client-lab.md) | Domain join, computer account placement, domain authentication, Kerberos validation, secure channel verification, Group Policy processing, and AD service discovery from the joined client |
+| [05 - Group Policy Lab](docs/enterprise-infrastructure/05-group-policy-lab.md) | GPO design and deployment, OU-based computer and user policy targeting, security group filtering, gpresult and RSoP validation, and post-GPO snapshots |
 
 #### Planned Labs
 
 | Planned Lab | Focus Area |
 |---|---|
-| [05 - Group Policy Lab](docs/enterprise-infrastructure/05-group-policy-lab.md) | Group Policy design, policy inheritance, security baselines, and endpoint management |
 | [06 - Linux and AD Integration Lab](docs/enterprise-infrastructure/06-linux-ad-integration-lab.md) | Cross-platform identity integration using Kerberos, SSSD, and centralized authentication |
 | [07 - Security and Monitoring Lab](docs/enterprise-infrastructure/07-security-monitoring-lab.md) | Wazuh SIEM, Sysmon, Windows event forwarding, and centralized security telemetry |
 
@@ -254,18 +255,26 @@ Completed:
 - AD DNS SRV record resolution confirmed from the joined client
 - IPv6 disabled on WIN11-CLIENT01 to resolve competing DNS resolution path
 - post-domain-join snapshots created for DC01 and WIN11-CLIENT01
+- `Workstation-Security-Baseline` GPO created and linked to `OU=Workstations`; User Configuration disabled; inactivity limit, Windows Firewall domain profile, and audit policies configured
+- `Standard-User-Environment` GPO created and linked to `OU=User Accounts`; Computer Configuration disabled; Control Panel, Run, display, and LAN restrictions configured
+- `IT-Admin-Environment` GPO created and linked to `OU=IT`; Computer Configuration disabled; desktop wallpaper policy configured
+- GPO application validated via `gpupdate /force` and `gpresult /r` in both `testuser01` and `labadmin` sessions
+- functional restrictions confirmed for `testuser01`; wallpaper policy confirmed applied for `labadmin` via RSoP
+- Windows Firewall domain profile confirmed active on WIN11-CLIENT01
+- `WIN11-CLIENT01$` added to `Lab-Workstations`; security filtering on `Workstation-Security-Baseline` switched from `Authenticated Users` to `Lab-Workstations`; GPO confirmed still applied after `gpupdate /force`
+- RSoP validated with no denied GPOs and security filtering reflected correctly
+- post-GPO snapshots created: `DC01 - Group Policy Deployed`, `WIN11-CLIENT01 - Group Policy Applied`
 
 ---
 
 ## Current Focus
 
-The project is currently focused on Group Policy design and deployment and the next phase of enterprise infrastructure buildout.
+The project is currently focused on Linux and Active Directory integration and the next phase of enterprise infrastructure buildout.
 
 Current areas of focus include:
 
-- Group Policy design and deployment (Lab 05)
-- centralized authentication validation
-- cross-platform authentication planning
+- Linux AD integration via SSSD and Kerberos (Lab 06)
+- centralized cross-platform authentication
 - security monitoring expansion
 
 ---

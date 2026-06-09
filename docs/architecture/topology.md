@@ -50,7 +50,8 @@ Windows 11 Workstation
     │       ├── RDP enabled
     │       ├── Active Directory Domain Services
     │       ├── AD-Integrated DNS
-    │       └── Domain: corp.home.arpa
+    │       ├── Domain: corp.home.arpa
+    │       └── Group Policy: three custom GPOs deployed and validated
     │
     └── WIN11-CLIENT01 (192.168.1.20)
         └── Windows 11 Enterprise Evaluation
@@ -59,7 +60,9 @@ Windows 11 Workstation
             ├── RSAT installed
             ├── Domain: corp.home.arpa
             ├── Computer account: CN=WIN11-CLIENT01,OU=Workstations,DC=corp,DC=home,DC=arpa
-            └── IPv6 disabled (Ethernet0); DNS: 192.168.1.10 (DC01) only
+            ├── IPv6 disabled (Ethernet0); DNS: 192.168.1.10 (DC01) only
+            └── Group Policy: Workstation-Security-Baseline, Standard-User-Environment
+                (or IT-Admin-Environment for labadmin) applied and validated
 
                         ↕ LAN (Cat6, bridged networking)
 
@@ -88,8 +91,8 @@ Ubuntu Server 26.04 LTS (192.168.1.226)
 │
 └── Planned Cross-Platform Integration
     ├── windows-exporter → Prometheus (Windows metrics)
-    ├── SSSD + Kerberos (Linux AD authentication)
-    ├── Wazuh Agent (security monitoring)
+    ├── SSSD + Kerberos (Linux AD authentication) [Lab 06]
+    ├── Wazuh Agent (security monitoring) [Lab 07]
     └── Centralized logging pipeline
 ```
 
@@ -117,6 +120,29 @@ Node Exporter is internal-only with no external port exposure.
 
 ---
 
+## Group Policy Topology
+
+```text
+corp.home.arpa [domain]
+│
+├── Default Domain Policy [not modified]
+│
+├── IT [OU]
+│   ├── IT-Admin-Environment GPO (user-scoped: desktop wallpaper)
+│   └── labadmin
+│
+├── User Accounts [OU]
+│   ├── Standard-User-Environment GPO (user-scoped: Control Panel, Run, display, LAN restrictions)
+│   └── testuser01
+│
+└── Workstations [OU]
+    ├── Workstation-Security-Baseline GPO (computer-scoped: inactivity limit, firewall, audit)
+    │   └── Security Filter: Lab-Workstations (Authenticated Users removed)
+    └── WIN11-CLIENT01 (computer account; member of Lab-Workstations)
+```
+
+---
+
 ## Service Access Map
 
 | Service | Access Method | URL / Address | Notes |
@@ -127,8 +153,8 @@ Node Exporter is internal-only with no external port exposure.
 | NPM Admin | Reverse proxy | `http://npm.local` | Internal only |
 | Ubuntu SSH | Direct LAN | `ssh user@192.168.1.226` | Key-based auth |
 | Ubuntu SSH | Tailscale | `ssh user@<tailscale-ip>` | Remote access |
-| DC01 | RDP | `192.168.1.10` | Active Directory domain controller; AD DS and DNS operational |
-| WIN11-CLIENT01 | RDP | `192.168.1.20` | Domain-joined; computer account in OU=Workstations |
+| DC01 | RDP | `192.168.1.10` | Active Directory domain controller; AD DS and DNS operational; Group Policy deployed |
+| WIN11-CLIENT01 | RDP | `192.168.1.20` | Domain-joined; computer account in OU=Workstations; Group Policy applied and validated |
 
 ---
 
@@ -145,7 +171,7 @@ Management tools in use:
 | Browser | Grafana, Portainer, NPM, Prometheus |
 | VMware Workstation | VM console, lifecycle, snapshots |
 | RDP | Windows Server and client VM administration |
-| RSAT (WIN11-CLIENT01) | Remote Active Directory and DNS administration when required |
+| RSAT (WIN11-CLIENT01) | Remote Active Directory, DNS, and Group Policy administration |
 | Git / GitHub | Documentation version control |
 
 ---
@@ -158,6 +184,7 @@ Management tools in use:
 | Docker internal | No backend service exposes ports directly. All access through NPM. |
 | VM networking | DC01 and WIN11-CLIENT01 operate on bridged networking with direct LAN presence. Enterprise VMs are LAN participants alongside the Ubuntu Server host. |
 | AD domain scope | Active Directory domain (`corp.home.arpa`) is scoped to enterprise VMs. DC01 is the authoritative DNS server for the domain. WIN11-CLIENT01 is joined to the domain and uses DC01 exclusively for DNS (IPv4 only; IPv6 disabled on Ethernet0). |
+| Group Policy scope | Computer policy scoped to `OU=Workstations`; user policy scoped independently to `OU=User Accounts` and `OU=IT`. Security group filtering on `Workstation-Security-Baseline` restricts application to `Lab-Workstations` members. |
 | Remote access | Tailscale provides encrypted remote access without exposing SSH publicly. |
 
 ---
@@ -166,9 +193,8 @@ Management tools in use:
 
 As the enterprise infrastructure track progresses, the topology will evolve to include:
 
-- Group Policy deployment across the `corp.home.arpa` domain (Lab 05)
+- Ubuntu Server authenticating against Active Directory via SSSD and Kerberos (Lab 06)
 - Windows metrics flowing into the existing Prometheus/Grafana stack
-- Ubuntu Server authenticating against Active Directory via SSSD
-- Wazuh SIEM collecting logs from both Linux and Windows systems
+- Wazuh SIEM collecting logs from both Linux and Windows systems (Lab 07)
 - Additional systems integrated with the `corp.home.arpa` Active Directory domain
 - Potential future Proxmox node for dedicated virtualization capacity

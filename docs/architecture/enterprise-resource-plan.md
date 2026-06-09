@@ -54,7 +54,7 @@ This separation strategy is considered foundational to maintaining infrastructur
 
 # Current State
 
-Labs 01, 02, 03, and 04 are complete. The Active Directory domain is fully deployed and WIN11-CLIENT01 is domain-joined and validated.
+Labs 01, 02, 03, 04, and 05 are complete. The Active Directory domain is fully deployed, WIN11-CLIENT01 is domain-joined and validated, and Group Policy is deployed and validated across all three target OUs.
 
 Current state of the enterprise infrastructure environment:
 
@@ -67,7 +67,7 @@ Current state of the enterprise infrastructure environment:
 - WIN11-CLIENT01 static IP: `192.168.1.20`
 - Windows updates applied, DC01 OS Build 20348.5139 (Version 21H2), WIN11-CLIENT01 OS Build 26200.8457 (Version 25H2)
 - RDP is enabled on DC01 and validated from the Windows 11 workstation
-- RSAT is installed on WIN11-CLIENT01 (Active Directory, DNS, and Server Manager tools)
+- RSAT is installed on WIN11-CLIENT01 (Active Directory, DNS, Server Manager, and Group Policy tools)
 - Active Directory Domain Services deployed on DC01; DC01 promoted to domain controller for `corp.home.arpa`
 - AD-integrated DNS operational; DC01 DNS self-referencing at `192.168.1.10`
 - NTP configured and syncing on DC01 (`time.cloudflare.com`)
@@ -90,9 +90,19 @@ Current state of the enterprise infrastructure environment:
 - IPv6 disabled on WIN11-CLIENT01 Ethernet0 adapter to eliminate competing DNS resolution path
 - post-domain-join snapshot created for DC01: `DC01 - Domain Join Complete`
 - post-domain-join snapshot created for WIN11-CLIENT01: `WIN11-CLIENT01 - Domain Joined`
+- `Workstation-Security-Baseline` GPO created; User Configuration disabled; inactivity limit (900s), Windows Firewall domain profile, and audit logon/account logon policies configured; linked to `OU=Workstations`
+- `Standard-User-Environment` GPO created; Computer Configuration disabled; Control Panel, Run, display, and LAN restrictions configured; linked to `OU=User Accounts`
+- `IT-Admin-Environment` GPO created; Computer Configuration disabled; desktop wallpaper policy configured; linked to `OU=IT`
+- GPO application validated via `gpresult /r` in `testuser01` and `labadmin` sessions; `Get-GPO -All` and `Get-GPInheritance` confirmed post-deployment state from DC01
+- functional restrictions confirmed for `testuser01`; wallpaper policy confirmed applied for `labadmin` via RSoP
+- Windows Firewall domain profile confirmed active in both user sessions
+- `WIN11-CLIENT01$` added to `Lab-Workstations`; security filtering on `Workstation-Security-Baseline` switched from `Authenticated Users` to `Lab-Workstations`; GPO confirmed still applied after `gpupdate /force`
+- RSoP validated with no denied GPOs and security filtering reflected correctly
+- post-GPO snapshot created for DC01: `DC01 - Group Policy Deployed`
+- post-GPO snapshot created for WIN11-CLIENT01: `WIN11-CLIENT01 - Group Policy Applied`
 - the Linux infrastructure environment remains the primary operational platform
 
-The environment is now prepared for Group Policy design and deployment in Lab 05.
+The environment is now prepared for Linux AD integration in Lab 06.
 
 ---
 
@@ -256,9 +266,9 @@ Long-term snapshot accumulation is avoided to reduce:
 - Networking: VMware Bridged (direct LAN)
 - RDP: Enabled
 - OS Build: 20348.5139 (Version 21H2)
-- Snapshot: `DC01 - Active Directory Deployed, corp.home.arpa`
+- Snapshot: `DC01 - Group Policy Deployed`
 
-### Planned Responsibilities
+### Responsibilities
 
 - centralized authentication
 - Group Policy management
@@ -294,11 +304,12 @@ Long-term snapshot accumulation is avoided to reduce:
 - Default gateway: `192.168.1.1`
 - DNS (primary): `192.168.1.10` (DC01); IPv6 disabled on Ethernet0
 - Networking: VMware Bridged (direct LAN)
-- RSAT: Installed (Active Directory, DNS, Server Manager tools)
+- RSAT: Installed (Active Directory, DNS, Server Manager, and Group Policy tools)
 - OS Build: 26200.8457 (Version 25H2)
 - Domain: `corp.home.arpa`
 - Computer account: `CN=WIN11-CLIENT01,OU=Workstations,DC=corp,DC=home,DC=arpa`
-- Snapshot: `WIN11-CLIENT01 - Domain Joined`
+- Group Policy: `Workstation-Security-Baseline` applied (computer scope); user-scoped policy determined by logged-in user's OU
+- Snapshot: `WIN11-CLIENT01 - Group Policy Applied`
 
 ### Current and Planned Usage
 
