@@ -7,7 +7,7 @@ This document describes the physical and logical topology of the homelab environ
 The environment spans two physical machines connected over a wired LAN, with clearly separated responsibilities:
 
 - **Windows 11 Workstation**: primary management endpoint and virtualization host for enterprise infrastructure labs
-- **Ubuntu Server 26.04 LTS**: dedicated Linux infrastructure host running containerized services
+- **Ubuntu Server 26.04 LTS**: dedicated Linux infrastructure host running containerized services and a domain member of `corp.home.arpa`
 
 ---
 
@@ -68,6 +68,17 @@ Windows 11 Workstation
 
 Ubuntu Server 26.04 LTS (192.168.1.226)
 │
+├── Active Directory Integration
+│   ├── Domain: corp.home.arpa (member)
+│   ├── Computer account: CN=UBUNTU-SERVER,OU=Workstations,DC=corp,DC=home,DC=arpa
+│   ├── realmd: domain join tooling
+│   ├── SSSD: identity and authentication broker
+│   │   ├── AD provider: identity sourced from DC01
+│   │   ├── Kerberos: authentication tickets from DC01 KDC
+│   │   ├── PAM integration: authentication pipeline
+│   │   └── NSS integration: identity resolution pipeline
+│   └── Access control: Linux-Admins group membership required
+│
 ├── Docker Engine
 │   │
 │   ├── Reverse Proxy Layer
@@ -86,14 +97,12 @@ Ubuntu Server 26.04 LTS (192.168.1.226)
 │       └── Portainer (Docker administration)
 │
 ├── Remote Access
-│   ├── OpenSSH (LAN)
+│   ├── OpenSSH (LAN): AD credentials accepted for Linux-Admins members
 │   └── Tailscale (WireGuard mesh VPN): remote access
 │
-└── Planned Cross-Platform Integration
+└── Planned Integration
     ├── windows-exporter → Prometheus (Windows metrics)
-    ├── SSSD + Kerberos (Linux AD authentication) [Lab 06]
-    ├── Wazuh Agent (security monitoring) [Lab 07]
-    └── Centralized logging pipeline
+    └── Wazuh Agent (security monitoring) [Lab 07]
 ```
 
 ---
@@ -138,7 +147,8 @@ corp.home.arpa [domain]
 └── Workstations [OU]
     ├── Workstation-Security-Baseline GPO (computer-scoped: inactivity limit, firewall, audit)
     │   └── Security Filter: Lab-Workstations (Authenticated Users removed)
-    └── WIN11-CLIENT01 (computer account; member of Lab-Workstations)
+    ├── WIN11-CLIENT01 (computer account; member of Lab-Workstations)
+    └── UBUNTU-SERVER (computer account)
 ```
 
 ---
@@ -183,7 +193,7 @@ Management tools in use:
 | Linux ↔ Enterprise | Two separate physical machines. No shared hypervisor. LAN-connected only. |
 | Docker internal | No backend service exposes ports directly. All access through NPM. |
 | VM networking | DC01 and WIN11-CLIENT01 operate on bridged networking with direct LAN presence. Enterprise VMs are LAN participants alongside the Ubuntu Server host. |
-| AD domain scope | Active Directory domain (`corp.home.arpa`) is scoped to enterprise VMs. DC01 is the authoritative DNS server for the domain. WIN11-CLIENT01 is joined to the domain and uses DC01 exclusively for DNS (IPv4 only; IPv6 disabled on Ethernet0). |
+| AD domain scope | Active Directory domain (`corp.home.arpa`) spans both enterprise VMs and the Ubuntu Server host. DC01 is the authoritative DNS server for the domain. WIN11-CLIENT01 uses DC01 exclusively for DNS (IPv4 only; IPv6 disabled on Ethernet0). Ubuntu Server uses DC01 as its primary DNS server via Netplan. |
 | Group Policy scope | Computer policy scoped to `OU=Workstations`; user policy scoped independently to `OU=User Accounts` and `OU=IT`. Security group filtering on `Workstation-Security-Baseline` restricts application to `Lab-Workstations` members. |
 | Remote access | Tailscale provides encrypted remote access without exposing SSH publicly. |
 
@@ -193,7 +203,6 @@ Management tools in use:
 
 As the enterprise infrastructure track progresses, the topology will evolve to include:
 
-- Ubuntu Server authenticating against Active Directory via SSSD and Kerberos (Lab 06)
 - Windows metrics flowing into the existing Prometheus/Grafana stack
 - Wazuh SIEM collecting logs from both Linux and Windows systems (Lab 07)
 - Additional systems integrated with the `corp.home.arpa` Active Directory domain

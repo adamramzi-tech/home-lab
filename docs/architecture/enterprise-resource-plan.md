@@ -75,7 +75,7 @@ Current state of the enterprise infrastructure environment:
 - OU structure created: IT, User Accounts, Workstations, Groups
 - default containers redirected: `CN=Users` to `OU=User Accounts`, `CN=Computers` to `OU=Workstations`
 - domain accounts created: `labadmin` (Domain Admins, IT-Admins), `testuser01` (Domain-Users-Standard)
-- security groups created: IT-Admins, Domain-Users-Standard, Lab-Workstations
+- security groups created: IT-Admins, Domain-Users-Standard, Lab-Workstations, Linux-Admins (Lab 06)
 - DC01 advertising as KDC, GC, and PDC Emulator confirmed via `nltest`
 - Kerberos TGT validated for `labadmin@CORP.HOME.ARPA`
 - post-promotion snapshot created for DC01: `DC01 - Active Directory Deployed, corp.home.arpa`
@@ -100,9 +100,22 @@ Current state of the enterprise infrastructure environment:
 - RSoP validated with no denied GPOs and security filtering reflected correctly
 - post-GPO snapshot created for DC01: `DC01 - Group Policy Deployed`
 - post-GPO snapshot created for WIN11-CLIENT01: `WIN11-CLIENT01 - Group Policy Applied`
+- `Linux-Admins` security group created in `OU=Groups`; `labadmin` added as sole member
+- Ubuntu Server hostname standardized to `ubuntu-server` before domain join; Netplan updated to use DC01 (`192.168.1.10`) as primary DNS; Kerberos and LDAP SRV records confirmed resolvable
+- required packages installed on Ubuntu Server: `realmd`, `sssd`, `sssd-tools`, `adcli`, `krb5-user`, `samba-common-bin`, `packagekit`
+- `realm discover corp.home.arpa` succeeded; `realm join -U labadmin corp.home.arpa` completed with no errors
+- `UBUNTU-SERVER` computer account created in `OU=Workstations` via `redircmp` redirect
+- SSSD configured with `access_provider = simple` and `simple_allow_groups = Linux-Admins@corp.home.arpa`; `sssd.conf` permissions set to `0600`
+- `pam-auth-update` run to enable `pam_mkhomedir`
+- AD identity resolution confirmed via `id` and `getent` for both `labadmin` and `testuser01`
+- Kerberos TGT acquired for `labadmin` via `kinit`; SSH session established with AD credentials; home directory created on first login
+- `testuser01` SSH session correctly denied at PAM authorization step
+- AD-side validation confirmed from DC01 via PowerShell and ADUC
+- post-integration snapshot created for DC01: `DC01 - Linux AD Integration Complete`
+- post-integration snapshot created for WIN11-CLIENT01: `WIN11-CLIENT01 - Linux AD Integration Validated`
 - the Linux infrastructure environment remains the primary operational platform
 
-The environment is now prepared for Linux AD integration in Lab 06.
+Lab 06 is complete. Ubuntu Server has been joined to `corp.home.arpa` using `realm join`. SSSD and Kerberos are configured, identity resolution is operational via `id` and `getent`, access is restricted to `Linux-Admins` group members, SSH authentication has been validated for both permitted and denied users, and the `UBUNTU-SERVER` computer account is confirmed in `OU=Workstations`. Post-integration snapshots have been created for DC01 (`DC01 - Linux AD Integration Complete`) and WIN11-CLIENT01 (`WIN11-CLIENT01 - Linux AD Integration Validated`). The environment is now prepared for security monitoring in Lab 07.
 
 ---
 
@@ -266,7 +279,7 @@ Long-term snapshot accumulation is avoided to reduce:
 - Networking: VMware Bridged (direct LAN)
 - RDP: Enabled
 - OS Build: 20348.5139 (Version 21H2)
-- Snapshot: `DC01 - Group Policy Deployed`
+- Snapshot: `DC01 - Linux AD Integration Complete`
 
 ### Responsibilities
 
@@ -309,7 +322,7 @@ Long-term snapshot accumulation is avoided to reduce:
 - Domain: `corp.home.arpa`
 - Computer account: `CN=WIN11-CLIENT01,OU=Workstations,DC=corp,DC=home,DC=arpa`
 - Group Policy: `Workstation-Security-Baseline` applied (computer scope); user-scoped policy determined by logged-in user's OU
-- Snapshot: `WIN11-CLIENT01 - Group Policy Applied`
+- Snapshot: `WIN11-CLIENT01 - Linux AD Integration Validated`
 
 ### Current and Planned Usage
 
@@ -439,7 +452,6 @@ The long-term objective is to build a hybrid infrastructure environment where:
 - services remain segmented appropriately
 
 Planned future integrations may include:
-- Linux authentication against Active Directory
 - centralized DNS integration
 - Windows metrics exporting
 - Prometheus integration for Windows systems
@@ -480,12 +492,10 @@ Future infrastructure expansion may include:
 - additional Windows Server roles
 - Windows Server Core deployments
 - secondary infrastructure servers
-- Linux and Active Directory integration
 - centralized logging infrastructure
 - SIEM platforms
 - Windows monitoring agents
 - security telemetry pipelines
 - segmented virtual networks
-- centralized authentication workflows
 
 Resource allocation strategies will evolve incrementally as additional enterprise services are introduced.

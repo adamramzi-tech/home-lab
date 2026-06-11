@@ -9,7 +9,7 @@ The project is organized into two tracks:
 - **Linux Infrastructure** - Ubuntu Server, Docker, reverse proxy, monitoring, and remote administration
 - **Enterprise Infrastructure** - Virtualization, Windows Server, Active Directory, Group Policy, and cross-platform integration
 
-Both tracks are operational and actively documented. The enterprise infrastructure track has progressed through virtualization, Windows Server configuration, Active Directory deployment, domain client configuration, and Group Policy deployment, and is now advancing into Linux AD integration.
+Both tracks are operational and actively documented. The enterprise infrastructure track has progressed through virtualization, Windows Server configuration, Active Directory deployment, domain client configuration, Group Policy deployment, and Linux AD integration, and is now advancing into security monitoring.
 
 ---
 
@@ -56,6 +56,7 @@ The project emphasizes:
 - Active Directory Domain Services deployed: domain `corp.home.arpa` operational, DC01 promoted to domain controller, AD-integrated DNS active, OU structure created, domain user and group accounts created, post-promotion snapshots taken
 - WIN11-CLIENT01 joined to `corp.home.arpa`: computer account confirmed in `OU=Workstations`, domain authentication validated, Kerberos TGT confirmed, secure channel verified, Group Policy processing validated
 - Group Policy deployed: three purpose-built GPOs created, linked, and validated; security group filtering operational on `Workstation-Security-Baseline` using `Lab-Workstations`; RSoP confirmed on WIN11-CLIENT01 and DC01
+- Ubuntu Server joined to `corp.home.arpa`: SSSD and Kerberos configured, identity resolution operational, access restricted to `Linux-Admins` group, SSH authentication validated for permitted and denied users, AD-side computer account and group membership confirmed
 
 The Windows 11 workstation serves as the primary management endpoint and virtualization host for enterprise labs.
 
@@ -134,12 +135,12 @@ These documents live separately from the lab walkthroughs so implementation deta
 | [03 - Active Directory Lab](docs/enterprise-infrastructure/03-active-directory-lab.md) | Active Directory Domain Services deployment, AD-integrated DNS, OU structure, domain accounts, and enterprise identity architecture |
 | [04 - Domain Client Lab](docs/enterprise-infrastructure/04-domain-client-lab.md) | Domain join, computer account placement, domain authentication, Kerberos validation, secure channel verification, Group Policy processing, and AD service discovery from the joined client |
 | [05 - Group Policy Lab](docs/enterprise-infrastructure/05-group-policy-lab.md) | GPO design and deployment, OU-based computer and user policy targeting, security group filtering, gpresult and RSoP validation, and post-GPO snapshots |
+| [06 - Linux and AD Integration Lab](docs/enterprise-infrastructure/06-linux-ad-integration-lab.md) | Cross-platform identity integration using realmd, SSSD, Kerberos, and centralized authentication; Linux-Admins group-based access control; SSH authentication and denial validation |
 
 #### Planned Labs
 
 | Planned Lab | Focus Area |
 |---|---|
-| [06 - Linux and AD Integration Lab](docs/enterprise-infrastructure/06-linux-ad-integration-lab.md) | Cross-platform identity integration using Kerberos, SSSD, and centralized authentication |
 | [07 - Security and Monitoring Lab](docs/enterprise-infrastructure/07-security-monitoring-lab.md) | Wazuh SIEM, Sysmon, Windows event forwarding, and centralized security telemetry |
 
 ---
@@ -264,18 +265,29 @@ Completed:
 - `WIN11-CLIENT01$` added to `Lab-Workstations`; security filtering on `Workstation-Security-Baseline` switched from `Authenticated Users` to `Lab-Workstations`; GPO confirmed still applied after `gpupdate /force`
 - RSoP validated with no denied GPOs and security filtering reflected correctly
 - post-GPO snapshots created: `DC01 - Group Policy Deployed`, `WIN11-CLIENT01 - Group Policy Applied`
+- `Linux-Admins` security group created in `OU=Groups`; `labadmin` added as member
+- Ubuntu Server hostname standardized to `ubuntu-server`; DNS corrected to use DC01 (`192.168.1.10`) via Netplan; Kerberos SRV records confirmed resolvable
+- Ubuntu Server joined to `corp.home.arpa` using `realm join`; `UBUNTU-SERVER` computer account confirmed in `OU=Workstations`
+- SSSD configured with `access_provider = simple` and `simple_allow_groups = Linux-Admins@corp.home.arpa`
+- `pam-auth-update` run to enable `pam_mkhomedir` for automatic home directory creation
+- AD user identity resolution confirmed via `id` and `getent` for both `labadmin` and `testuser01`
+- Kerberos TGT acquired for `labadmin` via `kinit`; ticket confirmed via `klist`
+- `labadmin` SSH session established with AD credentials; home directory created on first login; Kerberos ticket present in session
+- `testuser01` SSH session denied at PAM authorization step; Kerberos authentication succeeded but authorization failed due to absent `Linux-Admins` membership
+- AD-side validation confirmed from DC01: computer account, group membership, `labadmin` member status, and `testuser01` non-member status confirmed via PowerShell and ADUC
+- post-integration snapshots created: `DC01 - Linux AD Integration Complete`, `WIN11-CLIENT01 - Linux AD Integration Validated`
 
 ---
 
 ## Current Focus
 
-The project is currently focused on Linux and Active Directory integration and the next phase of enterprise infrastructure buildout.
+The project is currently focused on security monitoring and the next phase of enterprise infrastructure buildout.
 
 Current areas of focus include:
 
-- Linux AD integration via SSSD and Kerberos (Lab 06)
-- centralized cross-platform authentication
-- security monitoring expansion
+- Wazuh SIEM deployment (Lab 07)
+- centralized security telemetry across Windows and Linux endpoints
+- Windows event forwarding and Sysmon integration
 
 ---
 
