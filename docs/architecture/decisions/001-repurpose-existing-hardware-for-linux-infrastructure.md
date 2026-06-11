@@ -6,9 +6,9 @@ Accepted
 
 ---
 
-## Related Decisions 
+## Related Decisions
 
-Builds upon: 
+Builds upon:
 
 - none
 
