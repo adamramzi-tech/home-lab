@@ -2,7 +2,7 @@
 
 ## Status
 
-Planning and research phase.
+In Progress
 
 ---
 
@@ -254,6 +254,529 @@ The following order of operations is planned for the implementation phase. Each 
 10. **Review alerts and collected telemetry** in the Wazuh dashboard. Confirm that events from all three systems are present, correctly attributed, and visible in a unified view.
 
 11. **Capture screenshots and documentation artifacts** throughout the implementation. Screenshots will cover the dashboard agent status view, event detail views for each validation scenario, and the cross-platform event sequence demonstrating correlation across DC01, WIN11-CLIENT01, and Ubuntu Server.
+
+---
+
+## Deployment Steps
+
+### Phase One: Deploy the Wazuh Docker Compose Stack
+
+Phase One deployed the Wazuh central components as a Docker Compose stack on the Ubuntu Server host. All three containers — manager, indexer, and dashboard — were brought up cleanly after resolving two non-obvious issues encountered during the process: the certificate SAN format required by TLS validation, and a port conflict between the Wazuh dashboard and the existing NGINX Proxy Manager deployment. Both issues are documented in detail below so the reasoning is preserved.
+
+#### 1.1 Create the Project Directory
+
+A dedicated project directory was created on the Ubuntu Server host to house the Wazuh deployment, following the same structure used for the monitoring stack and reverse proxy deployments.
+
+```bash
+mkdir -p ~/infrastructure/security-monitoring-lab
+cd ~/infrastructure/security-monitoring-lab
+```
+
+<p align="center">
+  <img src="../../images/enterprise-infrastructure/07-security-monitoring-lab/01-create-security-monitoring-lab-directory.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Project directory created at ~/infrastructure/security-monitoring-lab on the Ubuntu Server host.</em>
+</p>
+
+#### 1.2 Clone the Wazuh Docker Repository
+
+The official Wazuh Docker repository was cloned at the `v4.14.5` version tag rather than against `main`. The `main` branch tracks development and may reference container image tags not yet published to Docker Hub. Pinning to a release tag ensures the compose file and images are consistent.
+
+```bash
+git clone https://github.com/wazuh/wazuh-docker.git -b v4.14.5
+cd wazuh-docker/single-node
+```
+
+<p align="center">
+  <img src="../../images/enterprise-infrastructure/07-security-monitoring-lab/02-clone-wazuh-docker-repository.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>wazuh-docker repository cloned at tag v4.14.5 and working directory changed to the single-node subfolder.</em>
+</p>
+
+All subsequent steps were run from within `wazuh-docker/single-node`.
+
+#### 1.3 Generate Wazuh SSL Certificates
+
+Wazuh requires SSL certificates before the stack can start. The manager, indexer, and dashboard all communicate over TLS, and the compose file bind-mounts the certificate files into each container at startup. The `wazuh-certs-tool.sh` script was used to generate a complete self-signed certificate set.
+
+The certificate tool and its node configuration template were downloaded from the Wazuh package server:
+
+```bash
+curl -sO https://packages.wazuh.com/4.14/wazuh-certs-tool.sh
+curl -sO https://packages.wazuh.com/4.14/config.yml
+```
+
+<p align="center">
+  <img src="../../images/enterprise-infrastructure/07-security-monitoring-lab/03-download-certifate-tool-and-node-config-template.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>wazuh-certs-tool.sh and config.yml downloaded from packages.wazuh.com into the single-node working directory.</em>
+</p>
+
+> **Note:** The current Wazuh Docker documentation also offers a `wazuh-certs-generator` Docker image as an alternative certificate generation method. The shell script approach used here is still actively supported and referenced in Wazuh's own step-by-step installation guide. It was chosen here because it keeps the certificate generation process visible and explicit, which fits the educational intent of this lab.
+
+The default `config.yml` was inspected before editing:
+
+<p align="center">
+  <img src="../../images/enterprise-infrastructure/07-security-monitoring-lab/04-node-configuration-template.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Default config.yml template showing placeholder node names and IP values for indexer, server, and dashboard nodes.</em>
+</p>
+
+`config.yml` was edited to define the node names for this single-node deployment. A non-obvious issue was encountered here: despite the field being named `ip`, setting it to the host's actual IP address (`192.168.1.226`) causes the cert tool to embed only an `IP Address` SAN in the generated certificate. When Filebeat inside the manager container later attempts to connect to `https://wazuh.indexer:9200` by hostname, TLS validation fails because the cert has no `DNS` SAN entry matching `wazuh.indexer`.
+
+The fix is to set the `ip` field to the node's DNS hostname. This causes the cert tool to embed a `DNS` SAN, which satisfies hostname-based TLS validation:
+
+```yaml
+nodes:
+  indexer:
+    - name: wazuh.indexer
+      ip: "wazuh.indexer"
+  server:
+    - name: wazuh.manager
+      ip: "wazuh.manager"
+  dashboard:
+    - name: wazuh.dashboard
+      ip: "wazuh.dashboard"
+```
+
+<p align="center">
+  <img src="../../images/enterprise-infrastructure/07-security-monitoring-lab/05-configue-config-yml.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>config.yml edited with node hostnames used as the ip field values so the generated certificates carry DNS SANs matching the Docker service hostnames.</em>
+</p>
+
+The certificate tool was run to generate the full certificate set:
+
+```bash
+bash wazuh-certs-tool.sh -A
+```
+
+<p align="center">
+  <img src="../../images/enterprise-infrastructure/07-security-monitoring-lab/06-run-certificate-tool.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>wazuh-certs-tool.sh run with the -A flag generating the root CA, admin certificates, and node certificates for all three components.</em>
+</p>
+
+The output directory was verified before proceeding:
+
+```bash
+ls wazuh-certificates/
+```
+
+<p align="center">
+  <img src="../../images/enterprise-infrastructure/07-security-monitoring-lab/07-verify-populated-output-directory.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>wazuh-certificates/ directory populated with root-ca.pem, root-ca.key, admin.pem, admin-key.pem, and node-specific certificate pairs for the indexer, manager, and dashboard.</em>
+</p>
+
+#### 1.4 Place Certificates in the Paths Expected by the Compose File
+
+All certificates were copied into `config/wazuh_indexer_ssl_certs/`, the single directory the `docker-compose.yml` references for bind mounts across all three containers. The manager expects the root CA under the name `root-ca-manager.pem`, so a second copy was placed with that filename.
+
+```bash
+mkdir -p config/wazuh_indexer_ssl_certs
+
+# Root CA (two copies: one for indexer/dashboard, one named as the manager expects)
+cp wazuh-certificates/root-ca.pem config/wazuh_indexer_ssl_certs/root-ca.pem
+cp wazuh-certificates/root-ca.pem config/wazuh_indexer_ssl_certs/root-ca-manager.pem
+
+# Manager certificates
+cp wazuh-certificates/wazuh.manager.pem config/wazuh_indexer_ssl_certs/wazuh.manager.pem
+cp wazuh-certificates/wazuh.manager-key.pem config/wazuh_indexer_ssl_certs/wazuh.manager-key.pem
+
+# Indexer certificates
+cp wazuh-certificates/wazuh.indexer.pem config/wazuh_indexer_ssl_certs/wazuh.indexer.pem
+cp wazuh-certificates/wazuh.indexer-key.pem config/wazuh_indexer_ssl_certs/wazuh.indexer-key.pem
+cp wazuh-certificates/admin.pem config/wazuh_indexer_ssl_certs/admin.pem
+cp wazuh-certificates/admin-key.pem config/wazuh_indexer_ssl_certs/admin-key.pem
+
+# Dashboard certificates
+cp wazuh-certificates/wazuh.dashboard.pem config/wazuh_indexer_ssl_certs/wazuh.dashboard.pem
+cp wazuh-certificates/wazuh.dashboard-key.pem config/wazuh_indexer_ssl_certs/wazuh.dashboard-key.pem
+```
+
+<p align="center">
+  <img src="../../images/enterprise-infrastructure/07-security-monitoring-lab/08-certificate-placement.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>All certificate files copied into config/wazuh_indexer_ssl_certs/ including root-ca-manager.pem as a second copy of the root CA for the manager bind mount.</em>
+</p>
+
+The directory contents were verified before proceeding:
+
+```bash
+find config/wazuh_indexer_ssl_certs/ -name '*.pem' | sort
+```
+
+<p align="center">
+  <img src="../../images/enterprise-infrastructure/07-security-monitoring-lab/09-verify-directory-contents.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>All 10 expected PEM files confirmed present in config/wazuh_indexer_ssl_certs/.</em>
+</p>
+
+#### 1.5 Set the Kernel `vm.max_map_count` Value
+
+The Wazuh indexer (OpenSearch) requires more virtual memory mappings than the Linux kernel allows by default. This was set on the Docker host before starting the stack:
+
+```bash
+# Apply immediately (takes effect without a reboot):
+sudo sysctl -w vm.max_map_count=262144
+
+# Make it permanent across reboots:
+echo "vm.max_map_count=262144" | sudo tee -a /etc/sysctl.conf
+```
+
+<p align="center">
+  <img src="../../images/enterprise-infrastructure/07-security-monitoring-lab/10-set-kernel-vm-max-map-count-value.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>vm.max_map_count set to 262144 immediately via sysctl and written to /etc/sysctl.conf for persistence across reboots.</em>
+</p>
+
+#### 1.6 Remap the Dashboard Port
+
+The Wazuh dashboard container binds to port 443 by default. In this environment, port 443 is already held by NGINX Proxy Manager. The dashboard's host port was changed to `8443` in `docker-compose.yml` before starting the stack:
+
+```yaml
+      - 8443:5601
+```
+
+<p align="center">
+  <img src="../../images/enterprise-infrastructure/07-security-monitoring-lab/11-remap-dashboard-port.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>docker-compose.yml edited to remap the dashboard container port from 443 to 8443, avoiding the conflict with the existing NGINX Proxy Manager deployment.</em>
+</p>
+
+The dashboard is reachable at `https://192.168.1.226:8443` directly, and NGINX Proxy Manager is configured to forward `wazuh.local` to port `8443` in Phase Three.
+
+#### 1.7 Deploy the Stack
+
+```bash
+docker compose up -d
+```
+
+<p align="center">
+  <img src="../../images/enterprise-infrastructure/07-security-monitoring-lab/12-deploy-stack.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>docker compose up -d pulling all three Wazuh images and starting the manager, indexer, and dashboard containers.</em>
+</p>
+
+The manager logs were followed to monitor startup progress:
+
+```bash
+docker logs single-node-wazuh.manager-1 --follow
+```
+
+<p align="center">
+  <img src="../../images/enterprise-infrastructure/07-security-monitoring-lab/13-initial startup.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Manager log output confirming successful connection to the indexer and all IndexerConnector instances initialized. The key lines confirming a healthy startup are the established connection to wazuh.indexer:9200 and the sequence of IndexerConnector initialized successfully messages.</em>
+</p>
+
+All three containers reached a running state with no restart loops. The indexer took the longest to initialize. Once the manager logs showed `Connection to backoff(elasticsearch(https://wazuh.indexer:9200)) established` and all `IndexerConnector initialized successfully` entries completed, the stack was confirmed healthy.
+
+---
+
+### Phase Two: Verify Stack Functionality and Change Default Credentials
+
+#### 2.1 Confirm Indexer Is Accepting Data
+
+The default credentials are defined in the `.env` file inside the `single-node` directory. Check that file for the actual values before running this command:
+
+```bash
+cat .env
+```
+
+Then query the indexer:
+
+```bash
+curl -k -u admin:SecretPassword https://localhost:9200
+```
+
+Replace `SecretPassword` with whatever `INDEXER_PASSWORD` is set to in `.env` if it differs. A JSON response from the OpenSearch indexer confirms it is up and accepting connections.
+
+#### 2.2 Access the Wazuh Dashboard
+
+From the Windows 11 management workstation, open a browser and navigate to:
+
+```text
+https://192.168.1.226:8443
+```
+
+The Wazuh Dashboard listens on port `8443` in this deployment due to the port remap in step 1.6. Accept the self-signed certificate warning on first access.
+
+The Wazuh Docker deployment uses default credentials for initial access. The defaults in the 4.14 release are:
+
+| Account | Username | Default Password | Purpose |
+|---|---|---|---|
+| Indexer admin | `admin` | `admin` | Dashboard login and indexer API access |
+| Dashboard service user | `kibanaserver` | `kibanaserver` | Internal dashboard-to-indexer communication |
+
+Log in to the dashboard with the `admin` account:
+
+```text
+Username: admin
+Password: admin
+```
+
+Note: changing passwords after deployment is not a simple UI operation. It requires generating a new bcrypt hash, updating `config/wazuh_indexer/internal_users.yml`, updating `docker-compose.yml`, restarting the stack, and running `securityadmin.sh` inside the indexer container to apply the changes. For a lab environment, leaving the default credentials and noting them in the lab documentation is acceptable. If the passwords are changed, follow the official Wazuh Docker password change procedure rather than attempting to change them through the dashboard UI alone.
+
+#### 2.3 Confirm Dashboard Is Showing No Agents
+
+Navigate to **Agents** in the left sidebar. At this point, zero agents should be enrolled. This is the expected baseline before any agent installation.
+
+---
+
+### Phase Three: Configure Dashboard Access Through NGINX Proxy Manager
+
+The Wazuh stack runs in a separate Docker Compose project from the reverse proxy stack. Unlike the monitoring stack (which was updated to join the `reverse-proxy-lab_proxy` network), the Wazuh stack cannot be directly reached by NGINX Proxy Manager via Docker DNS unless it is attached to the same proxy network. The simplest approach for this environment is to proxy by IP, since Wazuh and NGINX Proxy Manager are on the same host.
+
+#### 3.1 Add a Proxy Host for the Wazuh Dashboard
+
+In NGINX Proxy Manager (`http://npm.local`), create a new proxy host with the following settings:
+
+| Field | Value |
+|---|---|
+| Domain Name | `wazuh.local` |
+| Scheme | `https` |
+| Forward Hostname | `192.168.1.226` |
+| Forward Port | `8443` |
+| Websockets Support | On |
+
+Because the Wazuh Dashboard uses HTTPS, the scheme in the forward configuration must be set to `https`, not `http`. Enable **Websockets Support**, as the dashboard uses websockets for real-time agent status updates. Under the **SSL** tab, leave certificate management as none since this is an internal-only hostname.
+
+NGINX Proxy Manager will fail to forward to the Wazuh Dashboard by default because the dashboard container uses a self-signed certificate. To resolve this, open the **Advanced** tab for the proxy host and add the following to the custom Nginx configuration block:
+
+```nginx
+proxy_ssl_verify off;
+```
+
+This disables backend SSL certificate verification for this proxy host only, which is appropriate for an internal lab service using a self-signed cert.
+
+#### 3.2 Add the Hosts File Entry on the Management Workstation
+
+On the Windows 11 management workstation, open `C:\Windows\System32\drivers\etc\hosts` as administrator and add:
+
+```text
+192.168.1.226 wazuh.local
+```
+
+This follows the same pattern used for `grafana.local`, `prometheus.local`, `portainer.local`, and `npm.local` in the reverse proxy lab.
+
+#### 3.3 Confirm Dashboard Access Via Hostname
+
+Navigate to `https://wazuh.local` from the management workstation browser. The Wazuh Dashboard should load through the reverse proxy. Expect a certificate warning since NGINX Proxy Manager is forwarding to a self-signed cert on the Wazuh Dashboard container.
+
+---
+
+### Phase Four: Install the Wazuh Agent on DC01
+
+#### 4.1 Download the Windows Agent MSI
+
+From DC01, open a browser and navigate to the Wazuh Dashboard at `https://wazuh.local`. Go to **Agents > Deploy new agent**. The dashboard provides a guided flow that generates the correct installation command for the selected OS.
+
+Select:
+- OS: Windows
+- Architecture: x86_64
+- Manager address: `192.168.1.226`
+- (Optional) Agent name: `DC01`
+
+Copy the generated PowerShell command. It handles the MSI download and enrollment in one step.
+
+#### 4.2 Install and Enroll the Agent
+
+On DC01, open an elevated PowerShell prompt and run the command copied from the dashboard. It will look similar to:
+
+```powershell
+Invoke-WebRequest -Uri https://packages.wazuh.com/4.x/windows/wazuh-agent-4.14.5-1.msi -OutFile $env:tmp\wazuh-agent.msi; msiexec.exe /i $env:tmp\wazuh-agent.msi /q WAZUH_MANAGER='192.168.1.226' WAZUH_AGENT_NAME='DC01'
+```
+
+Use the exact command the dashboard generates, as it will include the correct version number. After the install completes, start the agent service:
+
+```powershell
+NET START WazuhSvc
+```
+
+#### 4.3 Confirm DC01 Agent Enrollment in the Dashboard
+
+Return to the Wazuh Dashboard and navigate to **Agents**. DC01 should appear as an active agent within one to two minutes of the service starting. Confirm the agent status shows **Active** before proceeding.
+
+---
+
+### Phase Five: Install the Wazuh Agent on WIN11-CLIENT01
+
+#### 5.1 Download and Install the Agent
+
+Follow the same process as Phase Four on WIN11-CLIENT01. In the Wazuh Dashboard deploy agent flow, set the agent name to `WIN11-CLIENT01` so it is clearly identified in the dashboard. Use the same manager address (`192.168.1.226`). Run the generated command in an elevated PowerShell prompt on WIN11-CLIENT01, then start the service:
+
+```powershell
+NET START WazuhSvc
+```
+
+#### 5.2 Confirm WIN11-CLIENT01 Agent Enrollment
+
+Navigate to **Agents** in the dashboard. Both DC01 and WIN11-CLIENT01 should now show as **Active**. Do not proceed to agent installation on Ubuntu Server until both Windows agents are confirmed enrolled.
+
+---
+
+### Phase Six: Install the Wazuh Agent on the Ubuntu Server Host
+
+#### 6.1 Add the Wazuh Repository and Install the Agent
+
+The Wazuh Dashboard deploy agent flow also generates the Linux install command. Use it for the exact current version. The manual steps are shown here for reference:
+
+```bash
+curl -s https://packages.wazuh.com/key/GPG-KEY-WAZUH | sudo gpg --no-default-keyring --keyring gnupg-ring:/usr/share/keyrings/wazuh.gpg --import
+sudo chmod 644 /usr/share/keyrings/wazuh.gpg  # sudo required: /usr/share/keyrings/ is root-owned
+echo "deb [signed-by=/usr/share/keyrings/wazuh.gpg] https://packages.wazuh.com/4.x/apt/ stable main" | sudo tee /etc/apt/sources.list.d/wazuh.list
+sudo apt update
+sudo apt install wazuh-agent
+```
+
+Note: the `chmod` line needs `sudo` since `/usr/share/keyrings/` requires elevated access.
+
+#### 6.2 Configure the Agent to Point to the Manager
+
+Set the manager address using the `WAZUH_MANAGER` environment variable during install (included in the dashboard-generated command), or edit the config manually after install:
+
+```bash
+sudo nano /var/ossec/etc/ossec.conf
+```
+
+Locate the `<client>` block and confirm or set:
+
+```xml
+<server>
+  <address>192.168.1.226</address>
+</server>
+```
+
+Because the Wazuh Manager is running as a Docker container on this same host and port 1514 and 1515 are published to the host, the agent connects to the host's LAN IP rather than to `localhost` or a container name.
+
+#### 6.3 Enroll and Start the Agent
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable wazuh-agent
+sudo systemctl start wazuh-agent
+```
+
+The agent self-registers with the manager on first start if `WAZUH_MANAGER` is set in the config. If enrollment does not happen automatically, run the registration binary manually:
+
+```bash
+sudo /var/ossec/bin/agent-auth -m 192.168.1.226
+sudo systemctl restart wazuh-agent
+```
+
+#### 6.4 Confirm Ubuntu Server Agent Enrollment
+
+Navigate to **Agents** in the Wazuh Dashboard. All three agents (DC01, WIN11-CLIENT01, and Ubuntu Server) should now appear as **Active**. This is the required baseline before any validation event generation begins.
+
+---
+
+### Phase Seven: Verify Event Collection Sources
+
+#### 7.1 Confirm Windows Security Event Log Collection on DC01 and WIN11-CLIENT01
+
+On each Windows agent, the Wazuh agent reads the Security event log by default. Verify the agent configuration at:
+
+```text
+C:\Program Files (x86)\ossec-agent\ossec.conf
+```
+
+Confirm the `<localfile>` block for the Security channel is present:
+
+```xml
+<localfile>
+  <location>Security</location>
+  <log_format>eventchannel</log_format>
+</localfile>
+```
+
+The default Wazuh Windows agent configuration includes this block. If it is absent, add it under the `<ossec_config>` root element and restart the service:
+
+```powershell
+Restart-Service WazuhSvc
+```
+
+#### 7.2 Confirm Auth Log Collection on Ubuntu Server
+
+On the Ubuntu Server host, verify the agent configuration at `/var/ossec/etc/ossec.conf` includes a `<localfile>` block for the auth log:
+
+```xml
+<localfile>
+  <location>/var/log/auth.log</location>
+  <log_format>syslog</log_format>
+</localfile>
+```
+
+If absent, add it and restart the agent:
+
+```bash
+sudo systemctl restart wazuh-agent
+```
+
+---
+
+### Phase Eight: Generate and Validate Events
+
+#### 8.1 Successful Windows Logon (Event ID 4624)
+
+Log into WIN11-CLIENT01 with domain credentials. In the Wazuh Dashboard, navigate to **Security Events** and filter by the agent name set during enrollment (`WIN11-CLIENT01`). Locate the 4624 event and confirm the AD identity is correctly attributed in the event detail.
+
+#### 8.2 Failed Windows Logon (Event ID 4625)
+
+Attempt a login on WIN11-CLIENT01 with an intentionally incorrect password. Locate the resulting 4625 event in the dashboard filtered by `WIN11-CLIENT01` and confirm the account name and failure reason are captured.
+
+#### 8.3 Active Directory Group Membership Change (Event IDs 4728 / 4729)
+
+From DC01, add `testuser01` to `Linux-Admins` and then remove them. These two operations generate the events targeted in the lab objectives, and the change is safe to make and immediately reverse:
+
+```powershell
+Add-ADGroupMember -Identity "Linux-Admins" -Members "testuser01"
+Remove-ADGroupMember -Identity "Linux-Admins" -Members "testuser01" -Confirm:$false
+```
+
+In the Wazuh Dashboard, filter by agent `DC01` and locate the 4728 and 4729 events. Confirm the `labadmin` administrator account is attributed as the actor in both events.
+
+#### 8.4 Linux Authentication Events
+
+From the Windows 11 management workstation, SSH into the Ubuntu Server host as `labadmin` (expected to succeed) and as `testuser01` (expected to be denied by SSSD). The correct SSH syntax for AD users with SSSD's `use_fully_qualified_names = True` is:
+
+```bash
+ssh labadmin@corp.home.arpa@192.168.1.226
+ssh testuser01@corp.home.arpa@192.168.1.226
+```
+
+This is the same syntax validated in Lab 06. In the Wazuh Dashboard, filter by the Ubuntu Server agent and locate the corresponding auth log events for both attempts in **Security Events**. Confirm the fully qualified AD identity (`labadmin@corp.home.arpa`) is visible in the event data.
+
+#### 8.5 Cross-Platform Event Correlation
+
+Using the Wazuh Dashboard search, filter by a username present across all three systems (for example, `labadmin`). Confirm that events from DC01, WIN11-CLIENT01, and the Ubuntu Server agent all appear together, sharing the same identity. This validates that centralized monitoring provides a cross-platform view of authentication activity using the consistent AD identity model established across all previous labs.
 
 ---
 
