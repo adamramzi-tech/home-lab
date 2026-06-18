@@ -15,6 +15,7 @@ The objective of this phase is to introduce:
 - Windows administration
 - enterprise networking concepts
 - cross-platform integration
+- security monitoring and SIEM deployment
 
 while remaining within the practical limits of available hardware resources.
 
@@ -32,6 +33,7 @@ The current Linux infrastructure environment remains the operational foundation 
 - reverse proxy services
 - remote administration tooling
 - containerized infrastructure workloads
+- Wazuh SIEM stack (Manager, Indexer, Dashboard)
 
 The enterprise infrastructure environment is intended primarily for:
 - virtualization administration
@@ -40,6 +42,7 @@ The enterprise infrastructure environment is intended primarily for:
 - Group Policy testing
 - enterprise authentication workflows
 - hybrid infrastructure integration
+- security monitoring and event collection
 
 The virtualization environment is hosted on separate hardware from the Ubuntu Server host in order to:
 - preserve Linux infrastructure stability
@@ -54,7 +57,7 @@ This separation strategy is considered foundational to maintaining infrastructur
 
 # Current State
 
-Labs 01, 02, 03, 04, and 05 are complete. The Active Directory domain is fully deployed, WIN11-CLIENT01 is domain-joined and validated, and Group Policy is deployed and validated across all three target OUs.
+Labs 01 through 07 are complete. The Active Directory domain is fully deployed, WIN11-CLIENT01 is domain-joined and validated, Group Policy is deployed and validated across all three target OUs, Ubuntu Server is joined to the domain with SSSD providing AD-backed authentication, and Wazuh SIEM is deployed with agents enrolled on all three monitored systems and event collection validated across Windows and Linux endpoints.
 
 Current state of the enterprise infrastructure environment:
 
@@ -113,9 +116,17 @@ Current state of the enterprise infrastructure environment:
 - AD-side validation confirmed from DC01 via PowerShell and ADUC
 - post-integration snapshot created for DC01: `DC01 - Linux AD Integration Complete`
 - post-integration snapshot created for WIN11-CLIENT01: `WIN11-CLIENT01 - Linux AD Integration Validated`
+- Wazuh single-node stack (Manager, Indexer, Dashboard) deployed as Docker Compose on Ubuntu Server at `v4.14.5`; dashboard port remapped to `8443`
+- SSL certificates generated via `wazuh-certs-generator` container; stack health validated
+- DC01 enrolled as Wazuh Windows agent (`WazuhSvc` started and confirmed Active)
+- WIN11-CLIENT01 enrolled as Wazuh Windows agent (`WazuhSvc` started and confirmed Active)
+- Ubuntu Server enrolled as Wazuh Linux agent (`wazuh-agent` service enabled and confirmed Active)
+- Windows Security event collection validated on DC01 and WIN11-CLIENT01 via intentional failed logon events visible in Wazuh Dashboard
+- Linux authentication event collection validated on Ubuntu Server via failed SSH attempt visible in Wazuh Dashboard
+- default Wazuh credentials documented; passwords changed after lab completion
 - the Linux infrastructure environment remains the primary operational platform
 
-Lab 06 is complete. Ubuntu Server has been joined to `corp.home.arpa` using `realm join`. SSSD and Kerberos are configured, identity resolution is operational via `id` and `getent`, access is restricted to `Linux-Admins` group members, SSH authentication has been validated for both permitted and denied users, and the `UBUNTU-SERVER` computer account is confirmed in `OU=Workstations`. Post-integration snapshots have been created for DC01 (`DC01 - Linux AD Integration Complete`) and WIN11-CLIENT01 (`WIN11-CLIENT01 - Linux AD Integration Validated`). The environment is now prepared for security monitoring in Lab 07.
+Lab 07 is complete. Wazuh is deployed and operational as the centralized security monitoring platform for the `corp.home.arpa` environment. All three monitored systems are enrolled, event collection is verified across Windows and Linux endpoints, and the Wazuh dashboard provides a unified view of security-relevant activity across the environment.
 
 ---
 
@@ -169,6 +180,7 @@ The goal is not to simulate large-scale enterprise infrastructure, but rather to
 - DNS architecture
 - virtualization workflows
 - hybrid infrastructure concepts
+- security monitoring and SIEM deployment
 
 Initial deployments prioritize:
 - stability
@@ -280,6 +292,7 @@ Long-term snapshot accumulation is avoided to reduce:
 - RDP: Enabled
 - OS Build: 20348.5139 (Version 21H2)
 - Snapshot: `DC01 - Linux AD Integration Complete`
+- Wazuh agent: enrolled and Active
 
 ### Responsibilities
 
@@ -287,6 +300,7 @@ Long-term snapshot accumulation is avoided to reduce:
 - Group Policy management
 - domain identity services
 - internal enterprise DNS resolution
+- Wazuh Windows agent (Security event forwarding)
 
 ---
 
@@ -323,6 +337,7 @@ Long-term snapshot accumulation is avoided to reduce:
 - Computer account: `CN=WIN11-CLIENT01,OU=Workstations,DC=corp,DC=home,DC=arpa`
 - Group Policy: `Workstation-Security-Baseline` applied (computer scope); user-scoped policy determined by logged-in user's OU
 - Snapshot: `WIN11-CLIENT01 - Linux AD Integration Validated`
+- Wazuh agent: enrolled and Active
 
 ### Current and Planned Usage
 
@@ -333,6 +348,7 @@ Long-term snapshot accumulation is avoided to reduce:
 - endpoint management testing
 - enterprise client administration
 - cross-platform integration testing
+- Wazuh Windows agent (Security event forwarding)
 
 ---
 
@@ -432,6 +448,7 @@ The Ubuntu Server host continues functioning as:
 - the monitoring platform
 - the reverse proxy platform
 - the Linux administration environment
+- the Wazuh SIEM platform
 
 The Windows virtualization environment functions primarily as:
 - the enterprise experimentation platform
@@ -451,14 +468,11 @@ The long-term objective is to build a hybrid infrastructure environment where:
 - infrastructure visibility remains unified
 - services remain segmented appropriately
 
-Planned future integrations may include:
+Potential future integrations may include:
 - centralized DNS integration
-- Windows metrics exporting
+- Windows metrics exporting via windows-exporter
 - Prometheus integration for Windows systems
 - Grafana dashboards for hybrid infrastructure visibility
-- centralized logging workflows
-- SIEM integration using Wazuh
-- cross-platform monitoring and telemetry
 
 ---
 
@@ -480,22 +494,20 @@ The objective of the project is not to simulate enterprise-scale hardware availa
 
 # Future Expansion Planning
 
-The initial enterprise environment is focused primarily on:
+The initial enterprise environment has established:
 - Active Directory fundamentals
 - virtualization workflows
 - Windows administration
 - Group Policy management
 - centralized identity concepts
 - enterprise DNS architecture
+- cross-platform identity integration
+- SIEM deployment and security event collection
 
 Future infrastructure expansion may include:
 - additional Windows Server roles
 - Windows Server Core deployments
 - secondary infrastructure servers
 - centralized logging infrastructure
-- SIEM platforms
-- Windows monitoring agents
-- security telemetry pipelines
+- Windows monitoring agents and metrics exporting
 - segmented virtual networks
-
-Resource allocation strategies will evolve incrementally as additional enterprise services are introduced.

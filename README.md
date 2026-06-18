@@ -7,9 +7,9 @@ This repository documents the design, deployment, administration, and ongoing de
 The project is organized into two tracks:
 
 - **Linux Infrastructure** - Ubuntu Server, Docker, reverse proxy, monitoring, and remote administration
-- **Enterprise Infrastructure** - Virtualization, Windows Server, Active Directory, Group Policy, and cross-platform integration
+- **Enterprise Infrastructure** - Virtualization, Windows Server, Active Directory, Group Policy, cross-platform integration, and security monitoring
 
-Both tracks are operational and actively documented. The enterprise infrastructure track has progressed through virtualization, Windows Server configuration, Active Directory deployment, domain client configuration, Group Policy deployment, and Linux AD integration, and is now advancing into security monitoring.
+Both tracks are operational and actively documented. The enterprise infrastructure track has progressed through virtualization, Windows Server configuration, Active Directory deployment, domain client configuration, Group Policy deployment, Linux AD integration, and Wazuh SIEM deployment.
 
 ---
 
@@ -25,6 +25,7 @@ The project emphasizes:
 - reverse proxy architecture
 - Windows Server and Active Directory administration
 - hybrid infrastructure operations
+- security monitoring and event collection
 - documentation discipline
 - incremental infrastructure growth
 
@@ -46,6 +47,7 @@ The project emphasizes:
 - Reverse proxy architecture
 - Internal-only backend services
 - Cross-stack Docker networking
+- Wazuh SIEM stack (Manager, Indexer, Dashboard)
 
 ### Enterprise Infrastructure
 
@@ -57,6 +59,7 @@ The project emphasizes:
 - WIN11-CLIENT01 joined to `corp.home.arpa`: computer account confirmed in `OU=Workstations`, domain authentication validated, Kerberos TGT confirmed, secure channel verified, Group Policy processing validated
 - Group Policy deployed: three purpose-built GPOs created, linked, and validated; security group filtering operational on `Workstation-Security-Baseline` using `Lab-Workstations`; RSoP confirmed on WIN11-CLIENT01 and DC01
 - Ubuntu Server joined to `corp.home.arpa`: SSSD and Kerberos configured, identity resolution operational, access restricted to `Linux-Admins` group, SSH authentication validated for permitted and denied users, AD-side computer account and group membership confirmed
+- Wazuh SIEM deployed: Manager, Indexer, and Dashboard running as Docker Compose stack on Ubuntu Server; agents enrolled on DC01, WIN11-CLIENT01, and Ubuntu Server; Windows Security and Linux authentication event collection validated
 
 The Windows 11 workstation serves as the primary management endpoint and virtualization host for enterprise labs.
 
@@ -84,7 +87,7 @@ The enterprise infrastructure track focuses on:
 - Group Policy
 - centralized authentication
 - cross-platform identity integration
-- security monitoring
+- security monitoring and SIEM deployment
 
 ---
 
@@ -136,12 +139,7 @@ These documents live separately from the lab walkthroughs so implementation deta
 | [04 - Domain Client Lab](docs/enterprise-infrastructure/04-domain-client-lab.md) | Domain join, computer account placement, domain authentication, Kerberos validation, secure channel verification, Group Policy processing, and AD service discovery from the joined client |
 | [05 - Group Policy Lab](docs/enterprise-infrastructure/05-group-policy-lab.md) | GPO design and deployment, OU-based computer and user policy targeting, security group filtering, gpresult and RSoP validation, and post-GPO snapshots |
 | [06 - Linux and AD Integration Lab](docs/enterprise-infrastructure/06-linux-ad-integration-lab.md) | Cross-platform identity integration using realmd, SSSD, Kerberos, and centralized authentication; Linux-Admins group-based access control; SSH authentication and denial validation |
-
-#### Planned Labs
-
-| Planned Lab | Focus Area |
-|---|---|
-| [07 - Security and Monitoring Lab](docs/enterprise-infrastructure/07-security-monitoring-lab.md) | Wazuh SIEM, Sysmon, Windows event forwarding, and centralized security telemetry |
+| [07 - Security and Monitoring Lab](docs/enterprise-infrastructure/07-security-monitoring-lab.md) | Wazuh SIEM deployment as a Docker Compose stack; agent enrollment on DC01, WIN11-CLIENT01, and Ubuntu Server; Windows Security and Linux authentication event collection validated |
 
 ---
 
@@ -276,18 +274,13 @@ Completed:
 - `testuser01` SSH session denied at PAM authorization step; Kerberos authentication succeeded but authorization failed due to absent `Linux-Admins` membership
 - AD-side validation confirmed from DC01: computer account, group membership, `labadmin` member status, and `testuser01` non-member status confirmed via PowerShell and ADUC
 - post-integration snapshots created: `DC01 - Linux AD Integration Complete`, `WIN11-CLIENT01 - Linux AD Integration Validated`
-
----
-
-## Current Focus
-
-The project is currently focused on security monitoring and the next phase of enterprise infrastructure buildout.
-
-Current areas of focus include:
-
-- Wazuh SIEM deployment (Lab 07)
-- centralized security telemetry across Windows and Linux endpoints
-- Windows event forwarding and Sysmon integration
+- Wazuh single-node stack (Manager, Indexer, Dashboard) deployed as Docker Compose on Ubuntu Server at `v4.14.5`
+- SSL certificates generated via `wazuh-certs-generator` container; dashboard host port remapped to `8443`
+- stack health validated: all three containers confirmed running, indexer accepting connections, dashboard accessible and error-free
+- DC01 enrolled as Wazuh Windows agent; WIN11-CLIENT01 enrolled as Wazuh Windows agent; Ubuntu Server enrolled as Wazuh Linux agent; all three confirmed Active in dashboard
+- Windows Security event collection validated on DC01 and WIN11-CLIENT01 via intentional failed logon events
+- Linux authentication event collection validated on Ubuntu Server via failed SSH attempt
+- default Wazuh credentials documented; passwords changed after lab completion
 
 ---
 

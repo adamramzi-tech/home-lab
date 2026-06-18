@@ -39,6 +39,7 @@ Windows 11 Workstation
 │   ├── SSH → Ubuntu Server
 │   ├── RDP → DC01 (192.168.1.10), WIN11-CLIENT01 (192.168.1.20)
 │   ├── Browser → grafana.local, portainer.local, prometheus.local, npm.local
+│   │             https://192.168.1.226:8443 (Wazuh Dashboard)
 │   └── VS Code Remote Workflows
 │
 └── VMware Workstation (Hypervisor)
@@ -51,7 +52,8 @@ Windows 11 Workstation
     │       ├── Active Directory Domain Services
     │       ├── AD-Integrated DNS
     │       ├── Domain: corp.home.arpa
-    │       └── Group Policy: three custom GPOs deployed and validated
+    │       ├── Group Policy: three custom GPOs deployed and validated
+    │       └── Wazuh Agent: enrolled and Active (Windows Security event forwarding)
     │
     └── WIN11-CLIENT01 (192.168.1.20)
         └── Windows 11 Enterprise Evaluation
@@ -61,8 +63,9 @@ Windows 11 Workstation
             ├── Domain: corp.home.arpa
             ├── Computer account: CN=WIN11-CLIENT01,OU=Workstations,DC=corp,DC=home,DC=arpa
             ├── IPv6 disabled (Ethernet0); DNS: 192.168.1.10 (DC01) only
-            └── Group Policy: Workstation-Security-Baseline, Standard-User-Environment
-                (or IT-Admin-Environment for labadmin) applied and validated
+            ├── Group Policy: Workstation-Security-Baseline, Standard-User-Environment
+            │   (or IT-Admin-Environment for labadmin) applied and validated
+            └── Wazuh Agent: enrolled and Active (Windows Security event forwarding)
 
                         ↕ LAN (Cat6, bridged networking)
 
@@ -81,6 +84,12 @@ Ubuntu Server 26.04 LTS (192.168.1.226)
 │
 ├── Docker Engine
 │   │
+│   ├── Security Monitoring Layer
+│   │   └── Wazuh Stack (Docker Compose, v4.14.5)
+│   │       ├── wazuh-manager (agent comms, rule processing, alert generation)
+│   │       ├── wazuh-indexer (OpenSearch data storage and search backend)
+│   │       └── wazuh-dashboard (https://192.168.1.226:8443)
+│   │
 │   ├── Reverse Proxy Layer
 │   │   └── NGINX Proxy Manager (ports 80, 443, 81)
 │   │       ├── grafana.local → grafana:3000
@@ -96,13 +105,12 @@ Ubuntu Server 26.04 LTS (192.168.1.226)
 │   └── Management Layer (internal-only)
 │       └── Portainer (Docker administration)
 │
-├── Remote Access
-│   ├── OpenSSH (LAN): AD credentials accepted for Linux-Admins members
-│   └── Tailscale (WireGuard mesh VPN): remote access
+├── Wazuh Agent
+│   └── wazuh-agent service: enrolled and Active (Linux auth event forwarding)
 │
-└── Planned Integration
-    ├── windows-exporter → Prometheus (Windows metrics)
-    └── Wazuh Agent (security monitoring) [Lab 07]
+└── Remote Access
+    ├── OpenSSH (LAN): AD credentials accepted for Linux-Admins members
+    └── Tailscale (WireGuard mesh VPN): remote access
 ```
 
 ---
@@ -125,6 +133,23 @@ Docker Networks on Ubuntu Server
 
 Note: Grafana and Prometheus are attached to both networks.
 Node Exporter is internal-only with no external port exposure.
+The Wazuh stack runs on its own internal Docker network (single-node default).
+```
+
+---
+
+## Wazuh Agent Coverage
+
+```text
+DC01 (192.168.1.10)           ──┐
+WIN11-CLIENT01 (192.168.1.20)  ─┼──► wazuh-manager (192.168.1.226:1514)
+Ubuntu Server (192.168.1.226)  ──┘         │
+                                            ▼
+                                     wazuh-indexer
+                                            │
+                                            ▼
+                                     wazuh-dashboard
+                                (https://192.168.1.226:8443)
 ```
 
 ---
@@ -161,10 +186,11 @@ corp.home.arpa [domain]
 | Prometheus | Reverse proxy | `http://prometheus.local` | Internal only |
 | Portainer | Reverse proxy | `http://portainer.local` | Internal only |
 | NPM Admin | Reverse proxy | `http://npm.local` | Internal only |
+| Wazuh Dashboard | Direct HTTPS | `https://192.168.1.226:8443` | Internal only |
 | Ubuntu SSH | Direct LAN | `ssh user@192.168.1.226` | Key-based auth |
 | Ubuntu SSH | Tailscale | `ssh user@<tailscale-ip>` | Remote access |
-| DC01 | RDP | `192.168.1.10` | Active Directory domain controller; AD DS and DNS operational; Group Policy deployed |
-| WIN11-CLIENT01 | RDP | `192.168.1.20` | Domain-joined; computer account in OU=Workstations; Group Policy applied and validated |
+| DC01 | RDP | `192.168.1.10` | Active Directory domain controller; AD DS and DNS operational; Group Policy deployed; Wazuh agent Active |
+| WIN11-CLIENT01 | RDP | `192.168.1.20` | Domain-joined; computer account in OU=Workstations; Group Policy applied and validated; Wazuh agent Active |
 
 ---
 
@@ -178,7 +204,7 @@ Management tools in use:
 |---|---|
 | Windows Terminal | SSH sessions to Ubuntu Server |
 | VS Code Remote | Remote file editing on Ubuntu Server |
-| Browser | Grafana, Portainer, NPM, Prometheus |
+| Browser | Grafana, Portainer, NPM, Prometheus, Wazuh Dashboard |
 | VMware Workstation | VM console, lifecycle, snapshots |
 | RDP | Windows Server and client VM administration |
 | RSAT (WIN11-CLIENT01) | Remote Active Directory, DNS, and Group Policy administration |
@@ -191,19 +217,19 @@ Management tools in use:
 | Boundary | Description |
 |---|---|
 | Linux ↔ Enterprise | Two separate physical machines. No shared hypervisor. LAN-connected only. |
-| Docker internal | No backend service exposes ports directly. All access through NPM. |
+| Docker internal | No backend service exposes ports directly. All access through NPM or direct IP where applicable. |
 | VM networking | DC01 and WIN11-CLIENT01 operate on bridged networking with direct LAN presence. Enterprise VMs are LAN participants alongside the Ubuntu Server host. |
 | AD domain scope | Active Directory domain (`corp.home.arpa`) spans both enterprise VMs and the Ubuntu Server host. DC01 is the authoritative DNS server for the domain. WIN11-CLIENT01 uses DC01 exclusively for DNS (IPv4 only; IPv6 disabled on Ethernet0). Ubuntu Server uses DC01 as its primary DNS server via Netplan. |
 | Group Policy scope | Computer policy scoped to `OU=Workstations`; user policy scoped independently to `OU=User Accounts` and `OU=IT`. Security group filtering on `Workstation-Security-Baseline` restricts application to `Lab-Workstations` members. |
+| Wazuh agent scope | All three systems (DC01, WIN11-CLIENT01, Ubuntu Server) enrolled as Wazuh agents reporting to wazuh-manager on Ubuntu Server at `192.168.1.226:1514`. |
 | Remote access | Tailscale provides encrypted remote access without exposing SSH publicly. |
 
 ---
 
 ## Planned Evolution
 
-As the enterprise infrastructure track progresses, the topology will evolve to include:
+As the enterprise infrastructure track progresses, the topology may evolve to include:
 
-- Windows metrics flowing into the existing Prometheus/Grafana stack
-- Wazuh SIEM collecting logs from both Linux and Windows systems (Lab 07)
+- Windows metrics flowing into the existing Prometheus/Grafana stack via windows-exporter
 - Additional systems integrated with the `corp.home.arpa` Active Directory domain
 - Potential future Proxmox node for dedicated virtualization capacity
