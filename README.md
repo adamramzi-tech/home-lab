@@ -4,12 +4,15 @@
 
 This repository documents the design, deployment, administration, and ongoing development of a hybrid homelab environment spanning Linux infrastructure, containerized services, and Windows enterprise infrastructure.
 
-The project is organized into two tracks:
+The project is organized into five tracks:
 
 - **Linux Infrastructure** - Ubuntu Server, Docker, reverse proxy, monitoring, and remote administration
 - **Enterprise Infrastructure** - Virtualization, Windows Server, Active Directory, Group Policy, cross-platform integration, and security monitoring
+- **Infrastructure Automation and Scripting** - PowerShell automation against the existing Active Directory environment *(planned)*
+- **Cloud and Hybrid Identity** - Entra ID, Microsoft Entra Connect, and hybrid identity architecture *(planned)*
+- **Network Infrastructure** - Perimeter firewall, VLAN segmentation, access control policy, and network-layer security *(planned)*
 
-Both tracks are operational and actively documented. The enterprise infrastructure track has progressed through virtualization, Windows Server configuration, Active Directory deployment, domain client configuration, Group Policy deployment, Linux AD integration, and Wazuh SIEM deployment.
+The Linux and enterprise infrastructure tracks are completed and fully documented. The remaining three tracks are planned and will be implemented sequentially as documented in [ADR-014](docs/architecture/decisions/014-establish-long-term-infrastructure-expansion-roadmap.md).
 
 ---
 
@@ -26,6 +29,8 @@ The project emphasizes:
 - Windows Server and Active Directory administration
 - hybrid infrastructure operations
 - security monitoring and event collection
+- infrastructure automation and scripting
+- cloud and hybrid identity integration
 - documentation discipline
 - incremental infrastructure growth
 
@@ -89,6 +94,34 @@ The enterprise infrastructure track focuses on:
 - cross-platform identity integration
 - security monitoring and SIEM deployment
 
+### Infrastructure Automation and Scripting Track *(planned)*
+
+The infrastructure automation and scripting track focuses on:
+- PowerShell scripting against the existing Active Directory environment
+- user and group provisioning automation
+- GPO reporting and administration workflows
+- scheduled maintenance task automation
+- log parsing and operational scripting
+
+### Cloud and Hybrid Identity Track *(planned)*
+
+The cloud and hybrid identity track focuses on:
+- Microsoft Entra ID and Entra Connect configuration
+- hybrid identity integration between on-premises AD and Azure
+- Entra ID user and group management
+- Microsoft 365 administration workflows
+- cloud identity architecture
+
+### Network Infrastructure Track *(planned)*
+
+The network infrastructure track focuses on:
+- perimeter firewall deployment and management
+- VLAN design and segmentation
+- inter-VLAN routing and access control policy
+- firewall rule documentation
+- network-layer intrusion detection integrated with the existing Wazuh SIEM deployment
+- self-hosted VPN infrastructure
+
 ---
 
 ## Architecture and Standards
@@ -150,6 +183,9 @@ home-lab/
 ├── docs/
 │   ├── linux-infrastructure/
 │   ├── enterprise-infrastructure/
+│   ├── automation-and-scripting/
+│   ├── cloud-and-hybrid-identity/
+│   ├── network-infrastructure/
 │   ├── architecture/
 │   └── templates/
 │
@@ -289,9 +325,11 @@ Completed:
 The long-term objective is to build practical real-world experience that reflects the operational complexity of modern IT environments where:
 
 - Linux and Windows systems coexist
-- identity is centralized
+- identity is centralized and extended to the cloud
 - infrastructure is observable and monitored centrally
 - services are segmented through layered networking
 - security is integrated throughout the environment
-- networking is layered
+- administrative workflows are automated and repeatable
 - operational changes are documented and validated incrementally
+
+The planned track sequence (Infrastructure Automation and Scripting, Cloud and Hybrid Identity, Network Infrastructure) is documented in [ADR-014](docs/architecture/decisions/014-establish-long-term-infrastructure-expansion-roadmap.md).

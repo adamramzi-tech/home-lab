@@ -20,7 +20,7 @@ These standards apply to:
 - screenshots
 - networking references
 - folder organization
-- future enterprise infrastructure labs
+- future infrastructure labs
 
 ---
 
@@ -197,6 +197,9 @@ Example:
 ```text
 linux-infrastructure/
 enterprise-infrastructure/
+automation-and-scripting/
+cloud-and-hybrid-identity/
+network-infrastructure/
 architecture/
 ```
 
@@ -212,11 +215,14 @@ This separation reflects:
 
 The repository is organized into separate infrastructure phases that reflect the evolution of the environment over time.
 
-Current phases include:
+Current and planned phases include:
 
 ```text
-linux-infrastructure/
-enterprise-infrastructure/
+linux-infrastructure/       (completed)
+enterprise-infrastructure/  (completed)
+automation-and-scripting/   (planned)
+cloud-and-hybrid-identity/  (planned)
+network-infrastructure/     (planned)
 architecture/
 ```
 
@@ -268,6 +274,73 @@ infrastructure/enterprise-infrastructure/
 
 ---
 
+## Infrastructure Automation and Scripting Track
+
+The infrastructure automation and scripting track focuses on:
+
+- PowerShell scripting against the existing Active Directory environment
+- user and group provisioning automation
+- GPO reporting and administration workflows
+- scheduled maintenance task automation
+- log parsing and operational scripting
+
+This phase deepens the operational value of existing infrastructure without requiring new hardware or topology changes.
+
+Associated directories include:
+
+```text
+docs/automation-and-scripting/
+images/automation-and-scripting/
+infrastructure/automation-and-scripting/
+```
+
+---
+
+## Cloud and Hybrid Identity Track
+
+The cloud and hybrid identity track focuses on:
+
+- Microsoft Entra ID and Entra Connect configuration
+- hybrid identity integration between on-premises AD and Azure
+- Entra ID user and group management
+- Microsoft 365 administration workflows
+- cloud identity architecture
+
+This phase extends the on-premises identity foundation established in the enterprise infrastructure track into a hybrid architecture.
+
+Associated directories include:
+
+```text
+docs/cloud-and-hybrid-identity/
+images/cloud-and-hybrid-identity/
+infrastructure/cloud-and-hybrid-identity/
+```
+
+---
+
+## Network Infrastructure Track
+
+The network infrastructure track focuses on:
+
+- perimeter firewall deployment and management
+- VLAN design and segmentation
+- inter-VLAN routing and access control policy
+- firewall rule documentation
+- network-layer intrusion detection integrated with the existing Wazuh SIEM deployment
+- self-hosted VPN infrastructure
+
+This phase introduces network segmentation and perimeter enforcement across the full environment.
+
+Associated directories include:
+
+```text
+docs/network-infrastructure/
+images/network-infrastructure/
+infrastructure/network-infrastructure/
+```
+
+---
+
 ## Architecture Documentation
 
 Architecture documentation exists separately from implementation-focused lab documentation.
@@ -293,6 +366,7 @@ docs/templates/
 ```
 
 This separation helps preserve:
+
 - clear infrastructure boundaries
 - implementation sequencing
 - documentation scalability
@@ -301,6 +375,7 @@ This separation helps preserve:
 ## Architecture Documentation Standards
 
 Architecture documentation should focus on:
+
 - infrastructure-wide decisions
 - topology relationships
 - operational boundaries
