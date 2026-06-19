@@ -328,7 +328,7 @@ nslookup -type=SRV _ldap._tcp.corp.home.arpa
 ```
 
 <p align="center">
-  <img src="../../images/enterprise-infrastructure/06-linux-ad-integration-lab/08-dns-resolution-succcessful.jpg" width="900">
+  <img src="../../images/enterprise-infrastructure/06-linux-ad-integration-lab/08-dns-resolution-successful.jpg" width="900">
 </p>
 
 <p align="center">
