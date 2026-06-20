@@ -19,6 +19,10 @@ The homelab environment has evolved from a single Linux server into a broader hy
 - observability pipelines
 - enterprise infrastructure (Active Directory, DNS, domain identity)
 - virtualization and Windows Server administration
+- security monitoring and SIEM deployment
+- infrastructure automation and scripting (planned)
+- cloud and hybrid identity integration (planned)
+- network infrastructure and segmentation (planned)
 
 As the environment grows in complexity, documenting architectural reasoning becomes increasingly important.
 
@@ -178,4 +182,4 @@ The architecture layer exists to support:
 - long-term maintainability
 - structured infrastructure growth
 
-As the environment continues evolving into a hybrid Linux and Windows infrastructure platform, architecture documentation becomes increasingly important for preserving infrastructure continuity and operational understanding over time.
+As the environment continues evolving into a hybrid Linux and Windows infrastructure platform with automation, cloud identity, and network segmentation planned, architecture documentation becomes increasingly important for preserving infrastructure continuity and operational understanding over time.
