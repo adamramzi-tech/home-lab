@@ -228,8 +228,16 @@ Management tools in use:
 
 ## Planned Evolution
 
-As the enterprise infrastructure track progresses, the topology may evolve to include:
+The environment will evolve across three planned tracks as defined in ADR-014:
 
-- Windows metrics flowing into the existing Prometheus/Grafana stack via windows-exporter
-- Additional systems integrated with the `corp.home.arpa` Active Directory domain
-- Potential future Proxmox node for dedicated virtualization capacity
+**Track 3: Infrastructure Automation and Scripting**
+
+PowerShell automation of Active Directory administration workflows. No topology changes. The existing environment serves as the automation target.
+
+**Track 4: Cloud and Hybrid Identity**
+
+Extension of the on-premises AD environment into Azure via Microsoft Entra Connect. The topology will expand to include a hybrid identity boundary between `corp.home.arpa` and Entra ID. No changes to the existing on-premises topology are anticipated.
+
+**Track 5: Network Infrastructure**
+
+Perimeter firewall deployment and VLAN segmentation. This track will introduce the most significant topology changes: the current flat LAN will be replaced with a segmented architecture. The topology document will be updated substantially when Track 5 planning begins.
