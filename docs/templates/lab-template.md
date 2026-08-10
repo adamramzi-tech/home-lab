@@ -41,6 +41,18 @@ Explain:
 
 ---
 
+## Design Decisions
+
+*(Optional but encouraged. Use when the lab involves real choices worth defending, e.g. where a script runs, which tool or approach was selected over alternatives, or a scope boundary. Omit for straightforward deployment labs with no meaningful decision to record.)*
+
+### Decision Title
+
+**Decision:** State the decision in one sentence.
+
+Explain the reasoning: what alternatives were considered, why this option was chosen, and any obligation or tradeoff the decision introduces. Significant architectural decisions that affect more than one lab should become their own ADR instead of living here.
+
+---
+
 ## Technologies Used
 
 - Technology 1
@@ -90,7 +102,9 @@ Example:
 
 ---
 
-## Deployment Steps
+## Implementation Plan
+
+*(Titled "Implementation Plan" while the lab is in the planning and research phase. Rename to "Implementation" once work begins. Use "Deployment Steps" as subsection headings or as the section title for labs that deploy infrastructure rather than write scripts, whichever fits the work.)*
 
 ### Step One
 
@@ -98,7 +112,7 @@ Explain:
 
 - commands used
 - configuration changes
-- deployment rationale
+- deployment or scripting rationale
 
 ```bash
 example command
@@ -106,7 +120,7 @@ example command
 
 ### Step Two
 
-Continue documenting deployment progress incrementally.
+Continue documenting progress incrementally.
 
 ---
 
@@ -176,3 +190,13 @@ Focus on:
 - operational reasoning
 - architectural growth
 - infrastructure maturity
+
+---
+
+## Sources
+
+*(Optional but encouraged. A living research log, not a bibliography assembled at the end. Add references as they are actually consulted, grouped by topic, with a short note on what each one supports. Planning-phase research goes in first; deployment-stage sources are appended as they come up during implementation and troubleshooting.)*
+
+**Topic Group**
+
+- [Source title](https://example.com) - what this source specifically supports in this lab
