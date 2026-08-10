@@ -97,7 +97,110 @@ Provisioning and offboarding both originate from WIN11-CLIENT01 against DC01. Va
 
 ### Step One - Define Script Parameters and Pre-Flight Duplicate Check
 
-The script's parameters will be defined, establishing which values are required at runtime and which fall back to defaults: name fields, `SamAccountName`, target OU, role group, an optional Linux access switch, and the initial password. A pre-flight check will then query Active Directory for an existing account with the same `SamAccountName` so that a duplicate is caught before any object is created.
+`New-LabUser.ps1` was created in `C:\Scripts` on WIN11-CLIENT01, the script execution endpoint established in [ADR-016](../architecture/decisions/016-run-automation-scripts-from-domain-joined-client.md).
+
+```powershell
+New-Item -Path "C:\Scripts\New-LabUser.ps1" -ItemType File -Force
+```
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/01-user-lifecycle-automation/01-create-script-file.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>New-LabUser.ps1 created as an empty file in C:\Scripts on WIN11-CLIENT01.</em>
+</p>
+
+#### Execution Policy
+
+The first attempt to run the script was blocked. Windows PowerShell's default execution policy prevents any script from running, returning a `PSSecurityException` before the script's own logic is reached. This is expected on a freshly configured workstation and is a real administrative prerequisite rather than a script defect.
+
+The execution policy was set to `RemoteSigned` scoped to `CurrentUser`. `RemoteSigned` permits locally authored scripts to run while still requiring that any script downloaded from the internet be digitally signed, which is the standard, defensible posture for an administration workstation. Scoping the change to `CurrentUser` rather than `LocalMachine` keeps it least-privilege: only the current user's context is affected, and no machine-wide policy is altered.
+
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+Get-ExecutionPolicy -List
+```
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/01-user-lifecycle-automation/02-set-execution-policy.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Get-ExecutionPolicy -List confirming RemoteSigned applied at the CurrentUser scope, with all other scopes left Undefined.</em>
+</p>
+
+#### Parameter Design
+
+The parameter block is derived directly from the lab objectives. The identity fields (`FirstName`, `LastName`, `SamAccountName`) are mandatory because provisioning an account requires them and no default is meaningful; `SamAccountName` in particular is a required attribute of `New-ADUser`. `TargetOU` and `RoleGroup` implement the OU placement and group assignment objective, defaulting to the existing `OU=User Accounts` and `Domain-Users-Standard` structures documented in Technologies Used while remaining overridable. `LinuxAccess` is a switch rather than a mandatory parameter because the second objective defines the Linux path as optional. `InitialPassword` is a mandatory `[SecureString]`: `New-ADUser` creates a disabled account if no password is supplied, so one is required, and the Security Considerations requirement to avoid plaintext credential handling dictates that it be a SecureString entered at runtime rather than a plaintext string.
+
+```powershell
+[CmdletBinding()]
+param (
+    [Parameter(Mandatory = $true)]
+    [string]$FirstName,
+
+    [Parameter(Mandatory = $true)]
+    [string]$LastName,
+
+    [Parameter(Mandatory = $true)]
+    [string]$SamAccountName,
+
+    [Parameter(Mandatory = $false)]
+    [string]$TargetOU = "OU=User Accounts,DC=corp,DC=home,DC=arpa",
+
+    [Parameter(Mandatory = $false)]
+    [ValidateSet("IT-Admins", "Domain-Users-Standard")]
+    [string]$RoleGroup = "Domain-Users-Standard",
+
+    [Parameter(Mandatory = $false)]
+    [switch]$LinuxAccess,
+
+    [Parameter(Mandatory = $true)]
+    [System.Security.SecureString]$InitialPassword
+)
+```
+
+#### Pre-Flight Duplicate Check
+
+Before any account object is created, the script queries Active Directory for an existing account with the same `SamAccountName`. `Get-ADUser -Identity` throws a terminating `ADIdentityNotFoundException` when the account does not exist. Catching that specific exception confirms the name is free and safe to use, while a second, generic catch handles a genuine query failure (DC01 unreachable, insufficient permissions) without falsely reporting the name as available. This reflects the lab objective of validating a result rather than assuming success, applied before anything is created.
+
+```powershell
+Import-Module ActiveDirectory
+
+Write-Host "Checking whether '$SamAccountName' already exists in Active Directory..." -ForegroundColor Cyan
+
+try {
+    $existing = Get-ADUser -Identity $SamAccountName -ErrorAction Stop
+    Write-Host "ABORT: an account with SamAccountName '$SamAccountName' already exists ($($existing.DistinguishedName))." -ForegroundColor Red
+    return
+}
+catch [Microsoft.ActiveDirectory.Management.ADIdentityNotFoundException] {
+    Write-Host "OK: no existing account named '$SamAccountName'. Safe to proceed." -ForegroundColor Green
+}
+catch {
+    Write-Host "ERROR: could not query Active Directory ($($_.Exception.Message))." -ForegroundColor Red
+    return
+}
+```
+
+The check was validated against two accounts. Running it against `testuser01`, which exists from Lab 06, triggered the ABORT branch and returned the account's live distinguished name from DC01. Running it against the unused name `jdoe` passed the check and reported the name safe to proceed.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/01-user-lifecycle-automation/03-preflight-duplicate-abort.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Pre-flight check against testuser01 hitting the ABORT branch and returning the existing account's distinguished name (CN=testuser01,OU=User Accounts,DC=corp,DC=home,DC=arpa) from Active Directory.</em>
+</p>
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/01-user-lifecycle-automation/04-preflight-duplicate-pass.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Pre-flight check against the unused name jdoe passing the ADIdentityNotFoundException catch and reporting the name safe to proceed.</em>
+</p>
 
 ### Step Two - Implement Account Creation and Group Assignment
 
