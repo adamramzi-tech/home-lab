@@ -204,7 +204,56 @@ The check was validated against two accounts. Running it against `testuser01`, w
 
 ### Step Two - Implement Account Creation and Group Assignment
 
-Account creation will be implemented using `New-ADUser` to create the account in the target OU, followed by `Add-ADGroupMember` to assign the specified role group and, when Linux access is requested, `Linux-Admins`.
+With the pre-flight check confirming the name is free, the script derives the remaining account attributes and creates the object. `DisplayName` and `UserPrincipalName` are derived in the script rather than exposed as parameters: the display name is `"FirstName LastName"`, and the UPN is `SamAccountName@corp.home.arpa`. Deriving them keeps the parameter block minimal while still populating the attributes an account needs to be usable.
+
+```powershell
+# Derive display name and UPN from the supplied parameters
+$displayName = "$FirstName $LastName"
+$userPrincipalName = "$SamAccountName@corp.home.arpa"
+
+Write-Host "Creating account '$SamAccountName' in $TargetOU..." -ForegroundColor Cyan
+
+New-ADUser `
+    -Name $displayName `
+    -SamAccountName $SamAccountName `
+    -UserPrincipalName $userPrincipalName `
+    -GivenName $FirstName `
+    -Surname $LastName `
+    -DisplayName $displayName `
+    -Path $TargetOU `
+    -AccountPassword $InitialPassword `
+    -ChangePasswordAtLogon $true `
+    -Enabled $true
+```
+
+`-Name` sets the account's common name (the CN shown in ADUC), while `-SamAccountName` sets the separate logon name. `-AccountPassword` consumes the `[SecureString]` supplied at runtime directly, so no plaintext conversion occurs anywhere in the script. `-ChangePasswordAtLogon $true` forces the user to set their own password on first logon, meaning the administrator who runs the script never knows the account's eventual credential. `-Enabled $true` makes the account usable at creation; without both a password and an explicit enable, `New-ADUser` produces a disabled account.
+
+Role-group assignment follows creation. The account is always added to its role group, and `Linux-Admins` is added only when `-LinuxAccess` is supplied. The `else` branch prints an explicit skip message so the console output reflects which path was taken rather than silently omitting the Linux step.
+
+```powershell
+# Assign the role group
+Write-Host "Adding '$SamAccountName' to role group '$RoleGroup'..." -ForegroundColor Cyan
+Add-ADGroupMember -Identity $RoleGroup -Members $SamAccountName
+
+# Grant Linux access only when requested
+if ($LinuxAccess) {
+    Write-Host "Adding '$SamAccountName' to 'Linux-Admins' (Linux access requested)..." -ForegroundColor Cyan
+    Add-ADGroupMember -Identity "Linux-Admins" -Members $SamAccountName
+}
+else {
+    Write-Host "Linux access not requested; skipping Linux-Admins membership." -ForegroundColor DarkGray
+}
+```
+
+The creation and assignment logic was written but not executed at this stage. Because these cmdlets write to Active Directory, the first live run is performed in Step Four against the test account that is later offboarded in Step Seven, keeping account creation and removal on a single, traceable object rather than creating throwaway accounts out of sequence.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/01-user-lifecycle-automation/05-account-creation-code.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>New-LabUser.ps1 in the editor showing the pre-flight check followed by the account creation and group assignment logic, with the conditional Linux-Admins membership.</em>
+</p>
 
 ### Step Three - Implement Validation Logic
 
