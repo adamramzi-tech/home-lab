@@ -2,7 +2,7 @@
 
 ## Status
 
-Planning and research phase
+In progress
 
 ---
 
@@ -93,15 +93,45 @@ Provisioning and offboarding both originate from WIN11-CLIENT01 against DC01. Va
 
 ---
 
-## Implementation Plan
+## Implementation
 
-Not yet started. This section will be renamed to `## Implementation` once script development begins. It will document the actual scripts, commands, and configuration as they are written and validated, following the document lifecycle: Planning and research phase -> Implementation -> Validation -> Troubleshooting -> Outcome -> Lessons Learned.
+### Step One - Define Script Parameters and Pre-Flight Duplicate Check
+
+The script's parameters will be defined, establishing which values are required at runtime and which fall back to defaults: name fields, `SamAccountName`, target OU, role group, an optional Linux access switch, and the initial password. A pre-flight check will then query Active Directory for an existing account with the same `SamAccountName` so that a duplicate is caught before any object is created.
+
+### Step Two - Implement Account Creation and Group Assignment
+
+Account creation will be implemented using `New-ADUser` to create the account in the target OU, followed by `Add-ADGroupMember` to assign the specified role group and, when Linux access is requested, `Linux-Admins`.
+
+### Step Three - Implement Validation Logic
+
+Validation logic will be added to query Active Directory after creation using `Get-ADUser` and `Get-ADPrincipalGroupMembership`, confirming that the account exists, is enabled, resides in the correct OU, and holds the expected group memberships, rather than relying on the success of the preceding cmdlets.
+
+### Step Four - Run New-LabUser.ps1 Against a Test Account
+
+The completed script will be run against a test account from WIN11-CLIENT01. The resulting output will be recorded, including any errors or mismatches surfaced by the validation logic.
+
+### Step Five - Confirm Linux Access via SSH
+
+SSH access to the Ubuntu Server host will be tested for the provisioned account. An account created with Linux access is expected to authenticate successfully; an account created without it is expected to be denied at the PAM authorization step, consistent with `testuser01` behavior in Lab 06.
+
+### Step Six - Write Remove-LabUser.ps1
+
+The offboarding script will be written to disable the account, remove its removable group memberships while leaving the primary group intact, and validate the resulting state by querying Active Directory.
+
+### Step Seven - Run Remove-LabUser.ps1 Against the Test Account
+
+The offboarding script will be run against the account provisioned in Step Four, and its output recorded.
+
+### Step Eight - Confirm SSH Access Denied After Offboarding
+
+SSH access will be attempted as the offboarded account to confirm that access is denied. Whether the SSSD cache delay described in the Troubleshooting section was encountered will be noted.
 
 ---
 
 ## Validation
 
-Not yet started. Planned validation includes:
+Validation will confirm:
 
 - new account confirmed to exist in the correct OU via `Get-ADUser`
 - group membership confirmed via `Get-ADPrincipalGroupMembership`
@@ -112,9 +142,9 @@ Not yet started. Planned validation includes:
 
 ---
 
-## Troubleshooting and Adjustments
+## Troubleshooting
 
-Not yet started. Two issues are anticipated and should be documented as they are actually encountered, rather than assumed:
+Two issues are anticipated:
 
 **Primary group cannot be removed via `Remove-ADPrincipalGroupMembership`.** Every AD user has a primary group (Domain Users by default, RID 513). `Remove-ADPrincipalGroupMembership` cannot remove a user from their primary group and will error if asked to. An offboarding script that naively pipes every group returned by `Get-ADPrincipalGroupMembership` into removal will fail on the primary group. The intended behavior is therefore to remove *removable* security-group memberships, not literally all groups. The implementation must confirm what `Get-ADPrincipalGroupMembership` returns for the account and filter the primary group out of the removal set. This is why the offboarding language throughout this doc says "removable security-group memberships" rather than "all groups."
 
@@ -149,7 +179,7 @@ Research references consulted during the planning phase of this lab.
 - [New-ADUser](https://learn.microsoft.com/en-us/powershell/module/activedirectory/new-aduser) - core provisioning cmdlet; `SamAccountName` is required, `Path` sets OU placement, accounts created without a password are disabled by default
 - [Set-ADUser](https://learn.microsoft.com/en-us/powershell/module/activedirectory/set-aduser) - modifying existing account properties post-creation
 - [Get-ADPrincipalGroupMembership](https://learn.microsoft.com/en-us/powershell/module/activedirectory/get-adprincipalgroupmembership) - used for validation (confirming group assignment) and as the input to offboarding group removal
-- [Remove-ADPrincipalGroupMembership](https://learn.microsoft.com/en-us/powershell/module/activedirectory/remove-adprincipalgroupmembership) - strips all group memberships during offboarding; accepts piped identity objects from `Get-ADPrincipalGroupMembership`
+- [Remove-ADPrincipalGroupMembership](https://learn.microsoft.com/en-us/powershell/module/activedirectory/remove-adprincipalgroupmembership) - removes removable security-group memberships during offboarding; accepts piped identity objects from `Get-ADPrincipalGroupMembership`, but cannot remove a user's primary group
 - [Disable-ADAccount](https://learn.microsoft.com/en-us/powershell/module/activedirectory/disable-adaccount) - disables rather than deletes the account object during offboarding
 
 **SSSD cache behavior (Red Hat / upstream SSSD docs)**
@@ -161,6 +191,6 @@ Research references consulted during the planning phase of this lab.
 **Account offboarding practice (disable vs. delete)**
 
 - [Delete or Disable an Active Directory Account? One Best Practice - Imanami](https://www.imanami.com/delete-or-disable-an-active-directory-account-one-best-practice/) - summarizes the standard tradeoff: disabling preserves the SID and account history for reversibility and auditing, deleting removes access immediately but is not easily reversible
-- [Best Practices - Disabling Users in Active Directory - ITAdminTools](https://www.itadmintools.com/2013/08/best-practices-disabling-users-in.html) - supports the offboarding approach used here (disable, strip group memberships, retain the account object) over outright deletion
+- [Best Practices - Disabling Users in Active Directory - ITAdminTools](https://www.itadmintools.com/2013/08/best-practices-disabling-users-in.html) - supports the offboarding approach used here (disable, remove removable group memberships, retain the account object) over outright deletion
 
-These sources informed the Design Decisions and Troubleshooting sections above. Deployment-stage sources (any additional documentation consulted while writing and debugging the actual scripts) will be appended here as they come up, rather than backfilled at the end.
+These sources informed the Design Decisions and Troubleshooting sections above.
