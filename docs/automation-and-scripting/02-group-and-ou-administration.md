@@ -2,7 +2,7 @@
 
 ## Status
 
-- In progress. Step One (test account provisioning) is complete: `jsmith`, `mjohnson`, and `akim` were provisioned via `New-LabUser.ps1` and all four validation checks passed for each account. Step Two (`Add-LabGroupMembers.ps1`) is in progress: the open question on `Add-ADGroupMember`'s handling of an invalid member has been verified against live AD behavior, the script's design has been finalized incorporating that finding, and the script has been created on WIN11-CLIENT01 (`C:\Scripts\Add-LabGroupMembers.ps1`), but it has not yet been run against the Step One test accounts. Steps Three through Five have not yet started.
+- In progress. Step One (test account provisioning) is complete: `jsmith`, `mjohnson`, and `akim` were provisioned via `New-LabUser.ps1` and all four validation checks passed for each account. Step Two (`Add-LabGroupMembers.ps1`) is complete: the open question on `Add-ADGroupMember`'s handling of an invalid member was verified against live AD behavior, the script's design was finalized incorporating that finding, the script was created on WIN11-CLIENT01 (`C:\Scripts\Add-LabGroupMembers.ps1`), a live run against `members.csv` successfully added `jsmith` and `mjohnson` to `IT-Admins` and `akim` to `Linux-Admins` with all three post-add checks returning PASS, and a second run against a deliberately invalid CSV confirmed the partial-success batch model holds end to end (the invalid member was excluded and reported, while the valid member in the same batch was still added). Steps Three through Five have not yet started.
 
 ---
 
@@ -288,7 +288,81 @@ With the verification and implementation above complete, the finalized script wa
   <em>Add-LabGroupMembers.ps1 open in the editor on WIN11-CLIENT01 and saved to C:\Scripts, shown alongside New-LabUser.ps1 and Remove-LabUser.ps1 in the directory listing.</em>
 </p>
 
-The finalized script is also saved to `infrastructure/automation-and-scripting/group-and-ou-administration/Add-LabGroupMembers.ps1` in the repository's script library. It has not yet been run against live data. The first live run, against a CSV targeting the `jsmith`, `mjohnson`, and `akim` accounts from Step One, is the next action in this lab.
+The finalized script is also saved to `infrastructure/automation-and-scripting/group-and-ou-administration/Add-LabGroupMembers.ps1` in the repository's script library.
+
+#### Running Add-LabGroupMembers.ps1 Against the Step One Test Accounts
+
+`members.csv` was created in `C:\Scripts` on WIN11-CLIENT01, mapping `jsmith` and `mjohnson` into `IT-Admins` and `akim` into `Linux-Admins`:
+
+```powershell
+@"
+GroupName,SamAccountName
+IT-Admins,jsmith
+IT-Admins,mjohnson
+Linux-Admins,akim
+"@ | Set-Content -Path "C:\Scripts\members.csv" -Encoding ASCII
+```
+
+Before the script was run, the file was checked with `Get-Content`, which echoed the four lines exactly as written, and `Import-Csv`, which parsed it into three objects with the expected `GroupName` and `SamAccountName` properties. With the CSV confirmed, `Add-LabGroupMembers.ps1` was run from `C:\Scripts`:
+
+```powershell
+.\Add-LabGroupMembers.ps1 -CsvPath "C:\Scripts\members.csv"
+```
+
+The script ran end to end with no errors. The CSV imported with 3 row(s), confirming both expected columns were present. Rows were grouped into two batches, `IT-Admins` (2 requested members) and `Linux-Admins` (1 requested member), matching the grouped-by-group design in the Design Decisions section. For each batch, the target group and every requested member were pre-validated successfully, since `jsmith`, `mjohnson`, `akim`, `IT-Admins`, and `Linux-Admins` all already existed in AD, `Add-ADGroupMember` was called once per group with the full validated member array, and the post-add validation query against `Get-ADGroupMember` returned PASS for all three:
+
+- **PASS**: `jsmith` is a member of `IT-Admins`
+- **PASS**: `mjohnson` is a member of `IT-Admins`
+- **PASS**: `akim` is a member of `Linux-Admins`
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/02-group-and-ou-administration/04-run-add-labgroupmembers.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Add-LabGroupMembers.ps1 run against members.csv from WIN11-CLIENT01, showing the CSV import, both group batches processed with their validated members, and all three post-add PASS checks.</em>
+</p>
+
+This confirms the grouped-by-group design and the per-member pre-validation resolved during the Add-ADGroupMember verification work correctly against real data: two members were added to `IT-Admins` in a single `Add-ADGroupMember` call, one member was added to `Linux-Admins`, and every addition was confirmed by querying group membership back from AD rather than trusting the cmdlet's exit code, consistent with Lab 01's validate-by-querying-back pattern.
+
+This run exercised only valid group and member names. A CSV row naming a nonexistent group or account, which would confirm the partial-success batch model from the Design Decisions section actually holds, had not yet been tested at this point.
+
+#### Testing the Partial-Success Batch Model with an Invalid Member
+
+The verification step earlier in this section confirmed that `Add-ADGroupMember` itself fails an entire `-Members` array if one name in it is invalid, which is why `Add-LabGroupMembers.ps1` pre-validates every member individually before calling it. That diagnostic tested the raw cmdlet directly against a disposable group; it did not test whether the finished script's own pre-validation logic actually delivers partial success end to end. A second, separate CSV was created to test that, `members.csv` was left untouched:
+
+```powershell
+@"
+GroupName,SamAccountName
+IT-Admins,akim
+IT-Admins,doesnotexist999
+"@ | Set-Content -Path "C:\Scripts\members-negative-test.csv" -Encoding ASCII
+```
+
+This targets `IT-Admins` with two members in the same batch: `akim`, a real account not yet in that group, and `doesnotexist999`, a deliberately invalid name. `Get-Content` and `Import-Csv` confirmed the file was written and parsed correctly, two rows with the expected columns, before the script was run against it:
+
+```powershell
+.\Add-LabGroupMembers.ps1 -CsvPath "C:\Scripts\members-negative-test.csv"
+```
+
+The CSV imported with 2 row(s) and was grouped into a single `IT-Admins` batch with both requested members. During per-member pre-validation, `doesnotexist999` failed the `Get-ADUser -Identity` check and was excluded from the batch, while `akim` passed and was added; `Add-ADGroupMember` was called with only `akim` in its `-Members` array, and the post-add validation query confirmed it:
+
+```text
+Processing group 'IT-Admins' (2 requested member(s))...
+FAIL: 'doesnotexist999' does not exist; excluded from this group's batch.
+Adding 1 validated member(s) to 'IT-Admins'...
+PASS: 'akim' is a member of 'IT-Admins'.
+```
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/02-group-and-ou-administration/05-negative-test-partial-success.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Add-LabGroupMembers.ps1 run against members-negative-test.csv, showing doesnotexist999 rejected and excluded during pre-validation while akim was still added to IT-Admins and confirmed PASS.</em>
+</p>
+
+This confirms the partial-success batch model from the Design Decisions section holds end to end, not just at the level of the raw `Add-ADGroupMember` behavior verified earlier. The invalid name did not block the valid member in the same group's batch, `IT-Admins` still received `akim`, and the script reported exactly which row failed and why, rather than either silently dropping the whole batch or silently ignoring the bad row.
 
 ### Step Three - Build Get-LabOUReport.ps1
 
