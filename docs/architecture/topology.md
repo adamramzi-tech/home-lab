@@ -232,7 +232,7 @@ The environment will evolve across three planned tracks as defined in ADR-014:
 
 **Track 3: Infrastructure Automation and Scripting**
 
-PowerShell automation of Active Directory administration workflows. No topology changes. The existing environment serves as the automation target.
+PowerShell automation of Active Directory administration workflows. No topology changes; the existing environment serves as the automation target. Lab 01 (User Lifecycle Automation) is complete: `New-LabUser.ps1` and `Remove-LabUser.ps1` run from WIN11-CLIENT01 against DC01, per [ADR-016](decisions/016-run-automation-scripts-from-domain-joined-client.md), and were validated end to end including the AD → SSSD → PAM → SSH identity chain on Ubuntu Server.
 
 **Track 4: Cloud and Hybrid Identity**
 

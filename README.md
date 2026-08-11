@@ -8,11 +8,11 @@ The project is organized into five tracks:
 
 - **Linux Infrastructure** - Ubuntu Server, Docker, reverse proxy, monitoring, and remote administration
 - **Enterprise Infrastructure** - Virtualization, Windows Server, Active Directory, Group Policy, cross-platform integration, and security monitoring
-- **Infrastructure Automation and Scripting** - PowerShell automation against the existing Active Directory environment *(planned)*
+- **Infrastructure Automation and Scripting** - PowerShell automation against the existing Active Directory environment *(in progress)*
 - **Cloud and Hybrid Identity** - Entra ID, Microsoft Entra Connect, and hybrid identity architecture *(planned)*
 - **Network Infrastructure** - Perimeter firewall, VLAN segmentation, access control policy, and network-layer security *(planned)*
 
-The Linux and enterprise infrastructure tracks are completed and fully documented. The remaining three tracks are planned and will be implemented sequentially as documented in [ADR-014](docs/architecture/decisions/014-establish-long-term-infrastructure-expansion-roadmap.md).
+The Linux and enterprise infrastructure tracks are completed and fully documented. The infrastructure automation and scripting track is in progress, with Lab 01 (User Lifecycle Automation) complete. The remaining two tracks are planned and will be implemented sequentially as documented in [ADR-014](docs/architecture/decisions/014-establish-long-term-infrastructure-expansion-roadmap.md).
 
 ---
 
@@ -68,6 +68,12 @@ The project emphasizes:
 
 The Windows 11 workstation serves as the primary management endpoint and virtualization host for enterprise labs.
 
+### Infrastructure Automation and Scripting
+
+- `New-LabUser.ps1` and `Remove-LabUser.ps1`: PowerShell scripts run from WIN11-CLIENT01 via RSAT, provisioning and offboarding Active Directory users end to end, including optional `Linux-Admins` access validated over SSH against Ubuntu Server
+- both scripts self-validate by querying Active Directory back after execution rather than trusting cmdlet exit codes
+- cross-platform identity chain (AD → SSSD → PAM → SSH) proven in both directions against a live test account (`jdoe`)
+
 ---
 
 ## Infrastructure Tracks
@@ -94,7 +100,7 @@ The enterprise infrastructure track focuses on:
 - cross-platform identity integration
 - security monitoring and SIEM deployment
 
-### Infrastructure Automation and Scripting Track *(planned)*
+### Infrastructure Automation and Scripting Track *(in progress)*
 
 The infrastructure automation and scripting track focuses on:
 - PowerShell scripting against the existing Active Directory environment
@@ -174,6 +180,18 @@ These documents live separately from the lab walkthroughs so implementation deta
 | [06 - Linux and AD Integration Lab](docs/enterprise-infrastructure/06-linux-ad-integration-lab.md) | Cross-platform identity integration using realmd, SSSD, Kerberos, and centralized authentication; Linux-Admins group-based access control; SSH authentication and denial validation |
 | [07 - Security and Monitoring Lab](docs/enterprise-infrastructure/07-security-monitoring-lab.md) | Wazuh SIEM deployment as a Docker Compose stack; agent enrollment on DC01, WIN11-CLIENT01, and Ubuntu Server; Windows Security and Linux authentication event collection validated |
 
+### Infrastructure Automation and Scripting
+
+#### Completed Labs
+
+| Lab | Focus Area |
+|---|---|
+| [01 - User Lifecycle Automation](docs/automation-and-scripting/01-user-lifecycle-automation.md) | `New-LabUser.ps1` and `Remove-LabUser.ps1`: scripted AD user provisioning and offboarding with OU placement, group assignment, self-validation, and cross-platform SSH access validation on Ubuntu Server |
+
+#### Planned Labs
+
+See the [Automation and Scripting Track README](docs/automation-and-scripting/README.md) for the full lab sequence (Group and OU Administration, Group Policy Reporting and Audit, Cross-Platform Validation, Scheduled Health Reporting).
+
 ---
 
 ## Repository Structure
@@ -191,11 +209,13 @@ home-lab/
 │
 ├── images/
 │   ├── linux-infrastructure/
-│   └── enterprise-infrastructure/
+│   ├── enterprise-infrastructure/
+│   └── automation-and-scripting/
 │
 ├── infrastructure/
 │   ├── linux-infrastructure/
-│   └── enterprise-infrastructure/
+│   ├── enterprise-infrastructure/
+│   └── automation-and-scripting/
 │
 └── README.md
 ```
@@ -317,6 +337,17 @@ Completed:
 - Windows Security event collection validated on DC01 and WIN11-CLIENT01 via intentional failed logon events
 - Linux authentication event collection validated on Ubuntu Server via failed SSH attempt
 - default Wazuh credentials documented; passwords changed after lab completion
+
+### Infrastructure Automation and Scripting Track
+
+Completed:
+
+- `New-LabUser.ps1` authored and run from WIN11-CLIENT01: pre-flight duplicate check, AD account creation, OU placement, role group assignment, optional `Linux-Admins` membership, and four-point self-validation querying AD back after creation
+- `Remove-LabUser.ps1` authored and run from WIN11-CLIENT01: pre-flight existence check, account disablement, removal of removable group memberships while preserving the primary group and account object, and three-point self-validation
+- both scripts run end to end against a live test account (`jdoe`): provisioned with Linux access, SSH access confirmed via an authenticated session with a valid Kerberos ticket, offboarded, and SSH access confirmed denied afterward
+- cross-platform identity chain (AD group membership → SSSD resolution → PAM authorization → SSH) validated in both directions against a real account
+- SSSD cache behavior documented: a negative-cache entry for a never-resolved new account required a full `systemctl restart sssd` rather than `sss_cache -u`; post-offboarding cache updates were observed to apply per-attribute rather than atomically per-account
+- [ADR-016](docs/architecture/decisions/016-run-automation-scripts-from-domain-joined-client.md) established WIN11-CLIENT01, not DC01, as the standing execution endpoint for all scripts in this track
 
 ---
 
