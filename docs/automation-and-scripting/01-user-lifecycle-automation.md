@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress. `New-LabUser.ps1` is complete and validated end to end: Steps One through Five are done. The provisioning script was authored (parameters and pre-flight check, account creation and group assignment, self-validation), run successfully against the test account `jdoe` with Linux access with all four validation checks passing, and confirmed on Ubuntu Server by an authenticated SSH session with a valid Kerberos ticket and correct group membership. Remaining: Step Six (`Remove-LabUser.ps1` offboarding script), and Steps Seven and Eight (offboarding run and post-offboarding SSH denial). The test account `jdoe` currently exists in Active Directory and is offboarded in Step Seven.
+In progress. `New-LabUser.ps1` is complete and validated end to end: Steps One through Five are done. The provisioning script was authored (parameters and pre-flight check, account creation and group assignment, self-validation), run successfully against the test account `jdoe` with Linux access with all four validation checks passing, and confirmed on Ubuntu Server by an authenticated SSH session with a valid Kerberos ticket and correct group membership. `Remove-LabUser.ps1` is now authored (Step Six). Remaining: Step Seven (run offboarding against `jdoe`) and Step Eight (confirm SSH denied afterward). The test account `jdoe` currently exists in Active Directory and is offboarded in Step Seven.
 
 ---
 
@@ -442,7 +442,72 @@ klist
 
 ### Step Six - Write Remove-LabUser.ps1
 
-The offboarding script will be written to disable the account, remove its removable group memberships while leaving the primary group intact, and validate the resulting state by querying Active Directory.
+`Remove-LabUser.ps1` was created in `C:\Scripts` alongside `New-LabUser.ps1`, following the same execution-location convention. It takes a single mandatory parameter, `SamAccountName`, since offboarding operates on an account that already exists and needs no additional attributes.
+
+```powershell
+[CmdletBinding()]
+param (
+    [Parameter(Mandatory = $true)]
+    [string]$SamAccountName
+)
+
+Import-Module ActiveDirectory
+```
+
+The pre-flight check mirrors `New-LabUser.ps1`'s, but with the branches reversed: provisioning aborts if the account already exists, offboarding aborts if it does not. Both use the same `Get-ADUser -Identity` and `ADIdentityNotFoundException` pattern, so the two scripts reason about account existence identically.
+
+```powershell
+# Abort if the account does not exist
+Write-Host "Checking whether '$SamAccountName' exists in Active Directory..." -ForegroundColor Cyan
+
+try {
+    $user = Get-ADUser -Identity $SamAccountName -Properties Enabled, PrimaryGroup -ErrorAction Stop
+    Write-Host "OK: found '$SamAccountName' ($($user.DistinguishedName))." -ForegroundColor Green
+}
+catch [Microsoft.ActiveDirectory.Management.ADIdentityNotFoundException] {
+    Write-Host "ABORT: no account named '$SamAccountName' exists." -ForegroundColor Red
+    return
+}
+catch {
+    Write-Host "ERROR: could not query Active Directory ($($_.Exception.Message))." -ForegroundColor Red
+    return
+}
+```
+
+The account is disabled before any group work is done. Disabling is the highest-priority security action, it immediately blocks logon, so it happens first rather than after cleanup; if group removal encountered a problem partway through, the account would already be secured rather than sitting disabled-in-progress with standing access.
+
+```powershell
+# Disable the account first; this is the immediate security action
+Write-Host "Disabling '$SamAccountName'..." -ForegroundColor Cyan
+Disable-ADAccount -Identity $SamAccountName
+```
+
+Group removal is the concrete implementation of the Troubleshooting section's primary-group problem: `Get-ADPrincipalGroupMembership` returns every group the account belongs to, and `Where-Object` filters out the one matching `$user.PrimaryGroup` (captured during the pre-flight query) before any removal is attempted. This is what "removable security-group memberships" means in practice, everything except the primary group.
+
+```powershell
+# Strip removable security-group memberships, preserving the primary group
+Write-Host "Removing removable group memberships from '$SamAccountName'..." -ForegroundColor Cyan
+
+$groups = Get-ADPrincipalGroupMembership -Identity $SamAccountName |
+    Where-Object { $_.DistinguishedName -ne $user.PrimaryGroup }
+
+foreach ($group in $groups) {
+    Write-Host "Removing '$SamAccountName' from '$($group.Name)'..." -ForegroundColor Cyan
+    Remove-ADPrincipalGroupMembership -Identity $SamAccountName -MemberOf $group -Confirm:$false
+}
+```
+
+`-Confirm:$false` suppresses the interactive confirmation `Remove-ADPrincipalGroupMembership` normally prompts for on each removal, which is what makes the script run unattended rather than requiring a manual confirmation per group. This is a deliberate tradeoff for a lab tool operating on a known test account; a production offboarding script handling arbitrary accounts would warrant additional safeguards before suppressing confirmation, and this is revisited in Security Considerations.
+
+The script was written but not executed at this stage, consistent with the build-then-run discipline used for `New-LabUser.ps1`. The first live run is performed in Step Seven, against `jdoe`.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/01-user-lifecycle-automation/10-offboarding-code.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Remove-LabUser.ps1 in the editor showing the reversed pre-flight check, account disable, and primary-group-preserving removal loop.</em>
+</p>
 
 ### Step Seven - Run Remove-LabUser.ps1 Against the Test Account
 
@@ -469,7 +534,7 @@ Validation will confirm:
 
 ## Troubleshooting
 
-**Primary group cannot be removed via `Remove-ADPrincipalGroupMembership`.** Every AD user has a primary group (Domain Users by default, RID 513). `Remove-ADPrincipalGroupMembership` cannot remove a user from their primary group and will error if asked to. An offboarding script that naively pipes every group returned by `Get-ADPrincipalGroupMembership` into removal will fail on the primary group. The intended behavior is therefore to remove *removable* security-group memberships, not literally all groups. The implementation must confirm what `Get-ADPrincipalGroupMembership` returns for the account and filter the primary group out of the removal set. This is why the offboarding language throughout this doc says "removable security-group memberships" rather than "all groups."
+**Primary group cannot be removed via `Remove-ADPrincipalGroupMembership`.** Every AD user has a primary group (Domain Users by default, RID 513). `Remove-ADPrincipalGroupMembership` cannot remove a user from their primary group and will error if asked to. An offboarding script that naively pipes every group returned by `Get-ADPrincipalGroupMembership` into removal will fail on the primary group. The intended behavior is therefore to remove *removable* security-group memberships, not literally all groups. `Remove-LabUser.ps1` implements this by capturing the account's `PrimaryGroup` distinguished name during the pre-flight query and filtering it out of the removal set with `Where-Object` before the removal loop runs. This is why the offboarding language throughout this doc says "removable security-group memberships" rather than "all groups."
 
 **SSSD did not resolve a freshly created account, and `sss_cache` did not fix it (encountered in Step Five).** After `jdoe` was created in AD, Ubuntu Server could not resolve it (`id: 'jdoe@corp.home.arpa': no such user`), which caused SSH to fail at the password prompt. The plan anticipated a stale-cache scenario resolved by targeted invalidation, but the actual behavior was different and worth recording:
 
@@ -477,13 +542,13 @@ Validation will confirm:
 - `sss_cache -E` (expire everything) also did not make the account resolve. A negative-lookup result (SSSD having recorded that the name did not exist) persisted in memory and continued to suppress re-queries to AD.
 - `sudo systemctl restart sssd` resolved it immediately. Restarting the daemon clears the in-memory negative cache that `sss_cache` does not reach, forcing a fresh lookup against AD on the next request.
 
-The practical lesson: for a stale membership change on an account SSSD has already cached, `sss_cache -u <user>` or `-g <group>` is the correct targeted tool. But for an account SSSD has never successfully resolved (a brand-new account queried too soon, where a negative-cache entry is created), a service restart is the reliable fix. Per the SSSD documentation, `sss_cache` invalidates cached records so they are re-pulled from AD on the next lookup, but it operates on existing cache objects, which is why it had nothing to act on here.
+The practical lesson: for a stale membership change on an account SSSD has already cached, `sss_cache -u <user>` or `-g <group>` is the correct targeted tool. But for an account SSSD has never successfully resolved (a brand-new account queried too soon, where a negative-cache entry is created), a service restart is the reliable fix. Per the SSSD documentation, `sss_cache` invalidates cached records so they are re-pulled from AD on the next lookup, but it operates on existing cache objects, which is why it had nothing to act on here. This is directly relevant to Step Eight: if the same resolution gap recurs after offboarding, the same restart may be needed to confirm denial promptly.
 
 ---
 
 ## Security Considerations
 
-Not yet started. To address: least-privilege for the account running the scripts, avoiding plaintext password handling for initial credentials, and confirming `Remove-LabUser.ps1` disables rather than deletes accounts so no AD object history or SID is lost.
+Not yet started. To address: least-privilege for the account running the scripts, avoiding plaintext password handling for initial credentials, confirming `Remove-LabUser.ps1` disables rather than deletes accounts so no AD object history or SID is lost, and evaluating whether `-Confirm:$false` on group removal in `Remove-LabUser.ps1` is appropriate outside a lab context.
 
 ---
 
