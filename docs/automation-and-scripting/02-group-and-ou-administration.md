@@ -2,7 +2,7 @@
 
 ## Status
 
-- Planning and research phase
+- In progress. Step One (test account provisioning) is complete: `jsmith`, `mjohnson`, and `akim` were provisioned via `New-LabUser.ps1` and all four validation checks passed for each account. Steps Two through Five (building and running the bulk membership and reporting scripts) have not yet started.
 
 ---
 
@@ -106,11 +106,36 @@ All three scripts originate from WIN11-CLIENT01 against DC01, consistent with AD
 
 ---
 
-## Implementation Plan
+## Implementation
 
 ### Step One - Provision Test Accounts for Bulk Membership Testing
 
-Before the bulk membership script can be meaningfully tested, several additional test accounts need to exist. The plan is to run `New-LabUser.ps1` (Lab 01) two or three times to create a small set of throwaway accounts, giving `Add-LabGroupMembers.ps1` a realistic multi-row CSV to operate on rather than a single-row file that would not exercise the grouping logic in the Design Decisions above.
+Before the bulk membership script can be meaningfully tested, several additional test accounts needed to exist. `New-LabUser.ps1` (Lab 01) was run three times from `C:\Scripts` on WIN11-CLIENT01, the same execution context established in Lab 01 and ADR-016, to create `jsmith`, `mjohnson`, and `akim` as throwaway accounts. All three were created with default parameters, `Domain-Users-Standard` role group membership and no `-LinuxAccess`, since Linux access is not relevant to this lab and these accounts exist solely to give `Add-LabGroupMembers.ps1` a realistic multi-row CSV to operate on in Step Two.
+
+```powershell
+.\New-LabUser.ps1 -FirstName John -LastName Smith -SamAccountName jsmith
+.\New-LabUser.ps1 -FirstName Mary -LastName Johnson -SamAccountName mjohnson
+.\New-LabUser.ps1 -FirstName Alex -LastName Kim -SamAccountName akim
+```
+
+All three runs completed cleanly with no errors. For each account, the pre-flight check confirmed the `SamAccountName` did not already exist, the account was created in `OU=User Accounts,DC=corp,DC=home,DC=arpa`, it was added to `Domain-Users-Standard`, and all four of `New-LabUser.ps1`'s validation checks returned PASS:
+
+- **PASS**: account exists and is enabled
+- **PASS**: account is in the target OU (`OU=User Accounts,DC=corp,DC=home,DC=arpa`)
+- **PASS**: member of role group `Domain-Users-Standard`
+- **PASS**: not a member of `Linux-Admins` (Linux access not requested)
+
+This result was identical for `jsmith`, `mjohnson`, and `akim`, confirming `New-LabUser.ps1` behaves consistently across repeated runs against different account names, which Lab 01 validated for a single account (`jdoe`) but had not exercised back-to-back for several accounts in the same session.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/02-group-and-ou-administration/01-provision-test-accounts.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>New-LabUser.ps1 run three times from WIN11-CLIENT01 to provision jsmith, mjohnson, and akim, each showing the pre-flight pass, account creation, Domain-Users-Standard assignment, and all four validation checks returning PASS.</em>
+</p>
+
+No issues were encountered in this step. The domain now has three additional accounts (`jsmith`, `mjohnson`, `akim`) beyond `labadmin`, `testuser01`, and the disabled `jdoe`, available as bulk-add targets for Step Two.
 
 ### Step Two - Build Add-LabGroupMembers.ps1
 
