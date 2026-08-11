@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress. `New-LabUser.ps1` is complete and validated end to end: Steps One through Five are done. The provisioning script was authored (parameters and pre-flight check, account creation and group assignment, self-validation), run successfully against the test account `jdoe` with Linux access with all four validation checks passing, and confirmed on Ubuntu Server by an authenticated SSH session with a valid Kerberos ticket and correct group membership. `Remove-LabUser.ps1` is now authored (Step Six). Remaining: Step Seven (run offboarding against `jdoe`) and Step Eight (confirm SSH denied afterward). The test account `jdoe` currently exists in Active Directory and is offboarded in Step Seven.
+In progress. Both scripts are complete, validated, and have been run against a live test account. `New-LabUser.ps1` provisioned `jdoe` with Linux access (Steps One through Four), confirmed by an authenticated SSH session with a valid Kerberos ticket (Step Five). `Remove-LabUser.ps1` was authored with self-validation (Step Six) and run against `jdoe` (Step Seven): the account is now disabled, stripped of its removable group memberships, with the primary group and account object preserved, all three validation checks passing. Remaining: Step Eight (confirm SSH access is now denied).
 
 ---
 
@@ -499,23 +499,83 @@ foreach ($group in $groups) {
 
 `-Confirm:$false` suppresses the interactive confirmation `Remove-ADPrincipalGroupMembership` normally prompts for on each removal, which is what makes the script run unattended rather than requiring a manual confirmation per group. This is a deliberate tradeoff for a lab tool operating on a known test account; a production offboarding script handling arbitrary accounts would warrant additional safeguards before suppressing confirmation, and this is revisited in Security Considerations.
 
-The script was written but not executed at this stage, consistent with the build-then-run discipline used for `New-LabUser.ps1`. The first live run is performed in Step Seven, against `jdoe`.
+Finally, the script validates its own result the same way `New-LabUser.ps1` does, by re-querying AD rather than trusting the preceding cmdlets. Three checks compare post-offboarding state against what was intended: the account must be disabled, every group targeted for removal must actually be gone, and the primary group (and therefore the account object itself) must be unchanged.
+
+```powershell
+# Validate the result by querying AD back, rather than trusting the cmdlets above
+Write-Host "Validating offboarded account against Active Directory..." -ForegroundColor Cyan
+
+$final = Get-ADUser -Identity $SamAccountName -Properties Enabled, PrimaryGroup
+$remainingGroups = Get-ADPrincipalGroupMembership -Identity $SamAccountName | Select-Object -ExpandProperty Name
+
+# Account is disabled
+if (-not $final.Enabled) {
+    Write-Host "PASS: account is disabled." -ForegroundColor Green
+}
+else {
+    Write-Host "FAIL: account is still enabled." -ForegroundColor Red
+}
+
+# Removable groups are gone
+if ($groups.Count -eq 0) {
+    Write-Host "PASS: no removable group memberships were present." -ForegroundColor Green
+}
+else {
+    $stillRemoved = $groups | Where-Object { $remainingGroups -notcontains $_.Name }
+    if ($stillRemoved.Count -eq $groups.Count) {
+        Write-Host "PASS: all removable group memberships were removed." -ForegroundColor Green
+    }
+    else {
+        Write-Host "FAIL: some group memberships were not removed." -ForegroundColor Red
+    }
+}
+
+# Primary group and account object are preserved
+if ($final.PrimaryGroup -eq $user.PrimaryGroup) {
+    Write-Host "PASS: primary group preserved; account object retained." -ForegroundColor Green
+}
+else {
+    Write-Host "FAIL: primary group changed unexpectedly." -ForegroundColor Red
+}
+```
+
+The group-removal check reuses `$groups`, the set captured before removal, and compares it against a fresh post-removal query (`$remainingGroups`), so it confirms the groups are actually gone rather than assuming the loop succeeded because it didn't error. The primary-group check is the concrete proof that "disable and strip, don't delete" held: if `$final.PrimaryGroup` still equals the value captured in the pre-flight check, the account object survived intact. With this in place, `Remove-LabUser.ps1` is complete end to end: pre-flight check, disable, group removal, self-validation. The first live run is performed in Step Seven, against `jdoe`.
 
 <p align="center">
   <img src="../../images/automation-and-scripting/01-user-lifecycle-automation/10-offboarding-code.jpg" width="900">
 </p>
 
 <p align="center">
-  <em>Remove-LabUser.ps1 in the editor showing the reversed pre-flight check, account disable, and primary-group-preserving removal loop.</em>
+  <em>Remove-LabUser.ps1 in the editor showing the reversed pre-flight check, account disable, primary-group-preserving removal loop, and post-offboarding self-validation.</em>
 </p>
 
 ### Step Seven - Run Remove-LabUser.ps1 Against the Test Account
 
-The offboarding script will be run against the account provisioned in Step Four, and its output recorded.
+The completed offboarding script was run from WIN11-CLIENT01, executing as `labadmin`, against `jdoe`, the account provisioned in Step Four and SSH-tested in Step Five.
+
+```powershell
+.\Remove-LabUser.ps1 -SamAccountName jdoe
+```
+
+The script ran end to end: the pre-flight check found `jdoe` (`CN=Jane Doe,OU=User Accounts,DC=corp,DC=home,DC=arpa`), disabled the account, removed it from `Domain-Users-Standard` and `Linux-Admins`, and all three validation checks returned PASS.
+
+- **PASS**: account is disabled
+- **PASS**: all removable group memberships were removed
+- **PASS**: primary group preserved; account object retained
+
+The two groups removed, `Domain-Users-Standard` (the role group assigned in Step Four) and `Linux-Admins` (the Linux access group), are exactly the two non-primary groups `jdoe` held. `Domain Users`, the primary group, was correctly excluded from the removal loop and confirmed unchanged, and the account object itself still exists in AD, disabled rather than deleted, consistent with the offboarding objective. `jdoe` is now offboarded; Step Eight confirms this is reflected on the Linux side.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/01-user-lifecycle-automation/11-run-offboarding.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Remove-LabUser.ps1 run against jdoe, showing the account found, disabled, both non-primary groups removed, and all three validation checks returning PASS.</em>
+</p>
 
 ### Step Eight - Confirm SSH Access Denied After Offboarding
 
-SSH access will be attempted as the offboarded account to confirm that access is denied. Whether the SSSD cache delay encountered in Step Five recurs will be noted.
+SSH access will be attempted as the offboarded account to confirm that access is denied. Whether the SSSD cache delay encountered in Step Five recurs, this time in the opposite direction (SSSD still treating `jdoe` as authorized after the removal), will be noted.
 
 ---
 
@@ -534,7 +594,7 @@ Validation will confirm:
 
 ## Troubleshooting
 
-**Primary group cannot be removed via `Remove-ADPrincipalGroupMembership`.** Every AD user has a primary group (Domain Users by default, RID 513). `Remove-ADPrincipalGroupMembership` cannot remove a user from their primary group and will error if asked to. An offboarding script that naively pipes every group returned by `Get-ADPrincipalGroupMembership` into removal will fail on the primary group. The intended behavior is therefore to remove *removable* security-group memberships, not literally all groups. `Remove-LabUser.ps1` implements this by capturing the account's `PrimaryGroup` distinguished name during the pre-flight query and filtering it out of the removal set with `Where-Object` before the removal loop runs. This is why the offboarding language throughout this doc says "removable security-group memberships" rather than "all groups."
+**Primary group cannot be removed via `Remove-ADPrincipalGroupMembership`.** Every AD user has a primary group (Domain Users by default, RID 513). `Remove-ADPrincipalGroupMembership` cannot remove a user from their primary group and will error if asked to. An offboarding script that naively pipes every group returned by `Get-ADPrincipalGroupMembership` into removal will fail on the primary group. The intended behavior is therefore to remove *removable* security-group memberships, not literally all groups. `Remove-LabUser.ps1` implements this by capturing the account's `PrimaryGroup` distinguished name during the pre-flight query and filtering it out of the removal set with `Where-Object` before the removal loop runs, confirmed against `jdoe` in Step Seven: `Domain-Users-Standard` and `Linux-Admins` were removed while `Domain Users` was correctly left untouched.
 
 **SSSD did not resolve a freshly created account, and `sss_cache` did not fix it (encountered in Step Five).** After `jdoe` was created in AD, Ubuntu Server could not resolve it (`id: 'jdoe@corp.home.arpa': no such user`), which caused SSH to fail at the password prompt. The plan anticipated a stale-cache scenario resolved by targeted invalidation, but the actual behavior was different and worth recording:
 
@@ -542,7 +602,7 @@ Validation will confirm:
 - `sss_cache -E` (expire everything) also did not make the account resolve. A negative-lookup result (SSSD having recorded that the name did not exist) persisted in memory and continued to suppress re-queries to AD.
 - `sudo systemctl restart sssd` resolved it immediately. Restarting the daemon clears the in-memory negative cache that `sss_cache` does not reach, forcing a fresh lookup against AD on the next request.
 
-The practical lesson: for a stale membership change on an account SSSD has already cached, `sss_cache -u <user>` or `-g <group>` is the correct targeted tool. But for an account SSSD has never successfully resolved (a brand-new account queried too soon, where a negative-cache entry is created), a service restart is the reliable fix. Per the SSSD documentation, `sss_cache` invalidates cached records so they are re-pulled from AD on the next lookup, but it operates on existing cache objects, which is why it had nothing to act on here. This is directly relevant to Step Eight: if the same resolution gap recurs after offboarding, the same restart may be needed to confirm denial promptly.
+The practical lesson: for a stale membership change on an account SSSD has already cached, `sss_cache -u <user>` or `-g <group>` is the correct targeted tool. But for an account SSSD has never successfully resolved (a brand-new account queried too soon, where a negative-cache entry is created), a service restart is the reliable fix. Per the SSSD documentation, `sss_cache` invalidates cached records so they are re-pulled from AD on the next lookup, but it operates on existing cache objects, which is why it had nothing to act on here. This is directly relevant to Step Eight: if SSSD still shows `jdoe` as authorized immediately after offboarding, a service restart is again the fastest way to confirm denial.
 
 ---
 
