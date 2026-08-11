@@ -257,7 +257,75 @@ The creation and assignment logic was written but not executed at this stage. Be
 
 ### Step Three - Implement Validation Logic
 
-Validation logic will be added to query Active Directory after creation using `Get-ADUser` and `Get-ADPrincipalGroupMembership`, confirming that the account exists, is enabled, resides in the correct OU, and holds the expected group memberships, rather than relying on the success of the preceding cmdlets.
+After creation and group assignment, the script validates the result by querying Active Directory back rather than trusting that the preceding cmdlets silently succeeded. Two queries gather the current state: `Get-ADUser` returns the account with its `Enabled` and `DistinguishedName` properties, and `Get-ADPrincipalGroupMembership` returns the account's group memberships, reduced to their names. `Get-ADPrincipalGroupMembership` is used here because it is the same cmdlet the offboarding script relies on in Step Six, so provisioning-validation and offboarding reason about group membership through one consistent tool.
+
+```powershell
+# Validate the result by querying AD back, rather than trusting the cmdlets above
+Write-Host "Validating provisioned account against Active Directory..." -ForegroundColor Cyan
+
+$created = Get-ADUser -Identity $SamAccountName -Properties Enabled, DistinguishedName
+$groups  = Get-ADPrincipalGroupMembership -Identity $SamAccountName | Select-Object -ExpandProperty Name
+```
+
+Four checks then compare the current state against what was requested, each printing an explicit PASS or FAIL. The account must exist and be enabled, must reside in the requested OU, and must be a member of its role group.
+
+```powershell
+# Account exists and is enabled
+if ($created -and $created.Enabled) {
+    Write-Host "PASS: account exists and is enabled." -ForegroundColor Green
+}
+else {
+    Write-Host "FAIL: account missing or not enabled." -ForegroundColor Red
+}
+
+# Account resides in the requested OU
+if ($created.DistinguishedName -like "*$TargetOU") {
+    Write-Host "PASS: account is in the target OU ($TargetOU)." -ForegroundColor Green
+}
+else {
+    Write-Host "FAIL: account is not in the expected OU. Found: $($created.DistinguishedName)" -ForegroundColor Red
+}
+
+# Role group membership
+if ($groups -contains $RoleGroup) {
+    Write-Host "PASS: member of role group '$RoleGroup'." -ForegroundColor Green
+}
+else {
+    Write-Host "FAIL: not a member of role group '$RoleGroup'." -ForegroundColor Red
+}
+```
+
+The Linux-Admins check is deliberately two-sided: it passes only when membership matches the request in either direction. With `-LinuxAccess`, the account must be a member; without it, the account must not be. Checking both directions catches not only a missing membership when Linux access was requested, but also an erroneous membership when it was not, which a one-sided check would miss.
+
+```powershell
+# Linux-Admins membership matches what was requested
+if ($LinuxAccess) {
+    if ($groups -contains "Linux-Admins") {
+        Write-Host "PASS: member of Linux-Admins (Linux access requested)." -ForegroundColor Green
+    }
+    else {
+        Write-Host "FAIL: Linux access requested but not a member of Linux-Admins." -ForegroundColor Red
+    }
+}
+else {
+    if ($groups -notcontains "Linux-Admins") {
+        Write-Host "PASS: not a member of Linux-Admins (Linux access not requested)." -ForegroundColor Green
+    }
+    else {
+        Write-Host "FAIL: not requested, but unexpectedly a member of Linux-Admins." -ForegroundColor Red
+    }
+}
+```
+
+The OU check uses a `-like` suffix match against the distinguished name. This is a simple, readable comparison suited to the lab; if it proves too loose during the live run in Step Four, it can be tightened to parse the DN's OU components explicitly. With this logic in place, `New-LabUser.ps1` is complete end to end: pre-flight check, creation, group assignment, and self-validation. The first live run is performed in Step Four.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/01-user-lifecycle-automation/06-validation-code.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>New-LabUser.ps1 validation logic querying AD back after creation and printing PASS/FAIL for account existence, enabled state, OU placement, role group, and two-sided Linux-Admins membership.</em>
+</p>
 
 ### Step Four - Run New-LabUser.ps1 Against a Test Account
 
