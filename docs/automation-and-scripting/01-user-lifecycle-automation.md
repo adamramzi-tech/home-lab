@@ -329,7 +329,28 @@ The OU check uses a `-like` suffix match against the distinguished name. This is
 
 ### Step Four - Run New-LabUser.ps1 Against a Test Account
 
-The completed script will be run against a test account from WIN11-CLIENT01. The resulting output will be recorded, including any errors or mismatches surfaced by the validation logic.
+The completed script was run from WIN11-CLIENT01, executing as `labadmin`, to provision the test account `jdoe` with Linux access. This is the account that is SSH-tested in Step Five and offboarded in Step Seven.
+
+```powershell
+.\New-LabUser.ps1 -FirstName Jane -LastName Doe -SamAccountName jdoe -RoleGroup Domain-Users-Standard -LinuxAccess
+```
+
+A complex password satisfying the domain password policy was entered at the `InitialPassword` prompt. The script ran end to end: the pre-flight check confirmed `jdoe` did not exist, the account was created in `OU=User Accounts`, it was added to `Domain-Users-Standard` and to `Linux-Admins`, and all four validation checks returned PASS.
+
+- **PASS**: account exists and is enabled
+- **PASS**: account is in the target OU (`OU=User Accounts,DC=corp,DC=home,DC=arpa`)
+- **PASS**: member of role group `Domain-Users-Standard`
+- **PASS**: member of `Linux-Admins` (Linux access requested)
+
+The OU `-like` suffix match resolved correctly against the account's real distinguished name, so no adjustment to that check was needed. Because `-ChangePasswordAtLogon` was set, `jdoe` will be required to set a new password at first logon, which is exercised during the SSH test in Step Five.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/01-user-lifecycle-automation/07-run-account-creation.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>New-LabUser.ps1 run against jdoe with -LinuxAccess, showing the pre-flight pass, account creation, role group and Linux-Admins assignment, and all four validation checks returning PASS.</em>
+</p>
 
 ### Step Five - Confirm Linux Access via SSH
 
