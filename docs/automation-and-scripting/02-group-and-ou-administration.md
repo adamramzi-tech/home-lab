@@ -2,7 +2,7 @@
 
 ## Status
 
-- In progress. Step One (test account provisioning) is complete: `jsmith`, `mjohnson`, and `akim` were provisioned via `New-LabUser.ps1` and all four validation checks passed for each account. Steps Two through Five (building and running the bulk membership and reporting scripts) have not yet started.
+- In progress. Step One (test account provisioning) is complete: `jsmith`, `mjohnson`, and `akim` were provisioned via `New-LabUser.ps1` and all four validation checks passed for each account. Step Two (`Add-LabGroupMembers.ps1`) is in progress: the open question on `Add-ADGroupMember`'s handling of an invalid member has been verified against live AD behavior, the script's design has been finalized incorporating that finding, and the script has been created on WIN11-CLIENT01 (`C:\Scripts\Add-LabGroupMembers.ps1`), but it has not yet been run against the Step One test accounts. Steps Three through Five have not yet started.
 
 ---
 
@@ -139,7 +139,43 @@ No issues were encountered in this step. The domain now has three additional acc
 
 ### Step Two - Build Add-LabGroupMembers.ps1
 
-Planned parameter structure:
+#### Verifying Add-ADGroupMember's Behavior on Invalid Members
+
+Before writing the script's error-handling logic, the open question from the planning phase, whether `Add-ADGroupMember` fails an entire `-Members` array call if one name in it is invalid, or adds the valid names and fails only on the bad one, was verified directly against DC01 rather than assumed. A disposable test group was created, a mixed valid/invalid `-Members` array was passed to `Add-ADGroupMember` against it, the result was queried back, and the test group was removed:
+
+```powershell
+New-ADGroup -Name "Test-BulkAdd-Verify" -GroupScope Global -GroupCategory Security -Path "OU=Groups,DC=corp,DC=home,DC=arpa"
+
+Add-ADGroupMember -Identity "Test-BulkAdd-Verify" -Members "jsmith","doesnotexist999"
+
+Get-ADGroupMember -Identity "Test-BulkAdd-Verify"
+
+Remove-ADGroup -Identity "Test-BulkAdd-Verify" -Confirm:$false
+```
+
+The `Add-ADGroupMember` call failed outright with a terminating `ADIdentityNotFoundException` on `doesnotexist999`:
+
+```text
+Add-ADGroupMember : Cannot find an object with identity: 'doesnotexist999' under: 'DC=corp,DC=home,DC=arpa'.
++ CategoryInfo          : ObjectNotFound: (doesnotexist999:ADPrincipal) [Add-ADGroupMember], ADIdentityNotFoundException
++ FullyQualifiedErrorId : SetADGroupMember.ValidateMembersParameter,Microsoft.ActiveDirectory.Management.Commands.AddADGroupMember
+```
+
+The `FullyQualifiedErrorId` (`SetADGroupMember.ValidateMembersParameter`) shows the entire `-Members` array is validated before any change is made, not processed member-by-member. The subsequent `Get-ADGroupMember -Identity "Test-BulkAdd-Verify"` returned no output, confirming `jsmith`, the one valid name in the array, was **not** added despite being valid; the invalid name blocked the whole call.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/02-group-and-ou-administration/02-verify-addadgroupmember-behavior.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Test-BulkAdd-Verify diagnostic showing Add-ADGroupMember failing outright on the invalid member doesnotexist999, Get-ADGroupMember confirming jsmith was not added despite being valid, and the disposable test group removed afterward.</em>
+</p>
+
+This resolves the open question from planning: `Add-ADGroupMember` validates its entire `-Members` array atomically, so a single bad `SamAccountName` in a group's batch would silently block every valid member alongside it if the script called `Add-ADGroupMember` directly against the raw CSV rows. To preserve the partial-success batch model from the Design Decisions above, at the row level and not just at the group level, each requested member is pre-validated individually with `Get-ADUser -Identity` before `Add-ADGroupMember` is ever called for that group, and only the members that pass are included in the array.
+
+#### Script Implementation
+
+The finalized parameter block matches the planning-stage design, a single mandatory `-CsvPath`:
 
 ```powershell
 [CmdletBinding()]
@@ -147,19 +183,112 @@ param (
     [Parameter(Mandatory = $true)]
     [string]$CsvPath
 )
+
+Import-Module ActiveDirectory
 ```
 
-A single mandatory `-CsvPath` parameter is planned, consistent with `Remove-LabUser.ps1`'s minimal parameter set: the script's input is the file, not a set of individually-specified accounts. The CSV format follows the two-column `GroupName,SamAccountName` shape shown in Microsoft's documented example (see Sources), one row per account-to-group assignment.
+The CSV is imported and checked for both expected columns before any row is processed:
 
-Planned logic, in order:
+```powershell
+Write-Host "Importing CSV from '$CsvPath'..." -ForegroundColor Cyan
 
-1. Import the CSV with `Import-Csv` and validate that both expected columns (`GroupName`, `SamAccountName`) are present before processing any rows.
-2. Group the imported rows by `GroupName` (the grouping decision above).
-3. For each group, verify the group itself exists (`Get-ADGroup -Identity`) before attempting any membership change, aborting only that group's batch, not the whole script, if it does not.
-4. Call `Add-ADGroupMember -Identity <group> -Members <array>` once per group with every valid `SamAccountName` destined for that group.
-5. Validate by querying `Get-ADGroupMember -Identity <group>` back afterward and confirming every requested `SamAccountName` is now present, printing PASS/FAIL per group, consistent with Lab 01's validate-by-querying-back pattern.
+$rows = Import-Csv -Path $CsvPath
 
-Handling for a CSV row naming a `SamAccountName` that does not exist in AD is still open at this planning stage: whether to pre-validate every account name before any group is touched, or let `Add-ADGroupMember` fail on the bad name and catch that failure per group, is a decision the Troubleshooting section below flags as needing to be resolved once the script is actually being written against real error behavior.
+if (-not ($rows | Get-Member -Name "GroupName") -or -not ($rows | Get-Member -Name "SamAccountName")) {
+    Write-Host "ABORT: CSV must contain 'GroupName' and 'SamAccountName' columns." -ForegroundColor Red
+    return
+}
+
+Write-Host "OK: CSV imported with $($rows.Count) row(s)." -ForegroundColor Green
+```
+
+Rows are grouped by `GroupName` per the Design Decisions section, so each group is written to once rather than once per member:
+
+```powershell
+$groupedRows = $rows | Group-Object -Property GroupName
+
+foreach ($groupBatch in $groupedRows) {
+    $groupName = $groupBatch.Name
+    $requestedMembers = $groupBatch.Group | Select-Object -ExpandProperty SamAccountName
+
+    Write-Host "`nProcessing group '$groupName' ($($requestedMembers.Count) requested member(s))..." -ForegroundColor Cyan
+```
+
+The target group is confirmed to exist before anything else is attempted for that batch, using the same `Get-ADUser`/`ADIdentityNotFoundException` pattern Lab 01 established, applied here to `Get-ADGroup`:
+
+```powershell
+    try {
+        Get-ADGroup -Identity $groupName -ErrorAction Stop | Out-Null
+    }
+    catch [Microsoft.ActiveDirectory.Management.ADIdentityNotFoundException] {
+        Write-Host "FAIL: group '$groupName' does not exist. Skipping this group's batch." -ForegroundColor Red
+        continue
+    }
+    catch {
+        Write-Host "ERROR: could not query group '$groupName' ($($_.Exception.Message)). Skipping this group's batch." -ForegroundColor Red
+        continue
+    }
+```
+
+Each requested member is then pre-validated individually, the direct consequence of the verification above. A member that does not exist is reported and excluded, but does not stop the remaining members in the same group's batch from being processed:
+
+```powershell
+    $validMembers = @()
+    foreach ($member in $requestedMembers) {
+        try {
+            Get-ADUser -Identity $member -ErrorAction Stop | Out-Null
+            $validMembers += $member
+        }
+        catch [Microsoft.ActiveDirectory.Management.ADIdentityNotFoundException] {
+            Write-Host "FAIL: '$member' does not exist; excluded from this group's batch." -ForegroundColor Red
+        }
+        catch {
+            Write-Host "ERROR: could not query '$member' ($($_.Exception.Message)); excluded from this group's batch." -ForegroundColor Red
+        }
+    }
+
+    if ($validMembers.Count -eq 0) {
+        Write-Host "FAIL: no valid members remain for '$groupName'; nothing to add." -ForegroundColor Red
+        continue
+    }
+```
+
+Only the validated members are passed to `Add-ADGroupMember`, which by this point cannot fail on an unknown identity, since every name in `$validMembers` has already been confirmed to exist:
+
+```powershell
+    Write-Host "Adding $($validMembers.Count) validated member(s) to '$groupName'..." -ForegroundColor Cyan
+    Add-ADGroupMember -Identity $groupName -Members $validMembers
+```
+
+Finally, the result is validated by querying the group's membership back, per member, rather than trusting the call above, consistent with Lab 01's validate-by-querying-back pattern:
+
+```powershell
+    $currentMembers = Get-ADGroupMember -Identity $groupName | Select-Object -ExpandProperty SamAccountName
+
+    foreach ($member in $validMembers) {
+        if ($currentMembers -contains $member) {
+            Write-Host "PASS: '$member' is a member of '$groupName'." -ForegroundColor Green
+        }
+        else {
+            Write-Host "FAIL: '$member' was not found in '$groupName' after the add." -ForegroundColor Red
+        }
+    }
+}
+```
+
+#### Creating the Script on WIN11-CLIENT01
+
+With the verification and implementation above complete, the finalized script was created in `C:\Scripts` on WIN11-CLIENT01, the same execution environment used for `New-LabUser.ps1` and `Remove-LabUser.ps1` in Lab 01, consistent with the execution-location convention established in [ADR-016](../architecture/decisions/016-run-automation-scripts-from-domain-joined-client.md). No execution policy change was needed; `RemoteSigned` at `CurrentUser` scope was already set on WIN11-CLIENT01 during Lab 01 and persisted. The script was pasted into a new file in the editor and saved as `C:\Scripts\Add-LabGroupMembers.ps1`.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/02-group-and-ou-administration/03-create-script-file.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Add-LabGroupMembers.ps1 open in the editor on WIN11-CLIENT01 and saved to C:\Scripts, shown alongside New-LabUser.ps1 and Remove-LabUser.ps1 in the directory listing.</em>
+</p>
+
+The finalized script is also saved to `infrastructure/automation-and-scripting/group-and-ou-administration/Add-LabGroupMembers.ps1` in the repository's script library. It has not yet been run against live data. The first live run, against a CSV targeting the `jsmith`, `mjohnson`, and `akim` accounts from Step One, is the next action in this lab.
 
 ### Step Three - Build Get-LabOUReport.ps1
 
