@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress
+In progress. `New-LabUser.ps1` is complete and validated: Steps One through Four are done, with the provisioning script authored (parameters and pre-flight check, account creation and group assignment, self-validation) and run successfully against the test account `jdoe` with Linux access, all four validation checks passing. Remaining: Step Five (SSH access confirmation on Ubuntu Server), Step Six (`Remove-LabUser.ps1` offboarding script), and Steps Seven and Eight (offboarding run and post-offboarding SSH denial). The test account `jdoe` currently exists in Active Directory and is offboarded in Step Seven.
 
 ---
 
