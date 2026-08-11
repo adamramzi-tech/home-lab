@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress. Both scripts are complete, validated, and have been run against a live test account. `New-LabUser.ps1` provisioned `jdoe` with Linux access (Steps One through Four), confirmed by an authenticated SSH session with a valid Kerberos ticket (Step Five). `Remove-LabUser.ps1` was authored with self-validation (Step Six) and run against `jdoe` (Step Seven): the account is now disabled, stripped of its removable group memberships, with the primary group and account object preserved, all three validation checks passing. Remaining: Step Eight (confirm SSH access is now denied).
+Complete. Both `New-LabUser.ps1` and `Remove-LabUser.ps1` are authored, self-validating, and have been run end to end against a live test account (`jdoe`): provisioned with Linux access, confirmed via an authenticated SSH session with a valid Kerberos ticket, offboarded (disabled, stripped of removable group memberships, primary group and account object preserved), and confirmed denied on Linux after offboarding. All eight implementation steps are done.
 
 ---
 
@@ -575,20 +575,67 @@ The two groups removed, `Domain-Users-Standard` (the role group assigned in Step
 
 ### Step Eight - Confirm SSH Access Denied After Offboarding
 
-SSH access will be attempted as the offboarded account to confirm that access is denied. Whether the SSSD cache delay encountered in Step Five recurs, this time in the opposite direction (SSSD still treating `jdoe` as authorized after the removal), will be noted.
+With `jdoe` disabled and stripped of its removable group memberships, SSH access was attempted from WIN11-CLIENT01 using the credentials `jdoe` set during Step Five.
+
+```powershell
+ssh jdoe@corp.home.arpa@192.168.1.226
+```
+
+The login was denied, `Permission denied, please try again`, without ever reaching a shell. Unlike the failed attempt in Step Five, this denial has a different cause: `jdoe` is no longer resolution-blind, the account is disabled in AD, so authentication is refused regardless of the password.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/01-user-lifecycle-automation/12-ssh-denied-post-offboarding.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>SSH login attempt as jdoe after offboarding, denied at the password prompt.</em>
+</p>
+
+Checking the Linux-side view against AD directly surfaced a partial cache lag, the mirror image of Step Five's issue. Immediately after offboarding, SSSD still resolved `jdoe` with a stale group list:
+
+```bash
+id jdoe@corp.home.arpa
+# uid=1366001112(jdoe@corp.home.arpa) gid=1366000513(domain users@corp.home.arpa)
+# groups=1366000513(domain users@corp.home.arpa),1366001106(domain-users-standard@corp.home.arpa)
+```
+
+`Linux-Admins` was already gone from this list, correctly reflecting the removal that gated SSH, but `Domain-Users-Standard` was still present, even though `Remove-LabUser.ps1`'s own validation had confirmed it removed in AD. Querying AD directly, bypassing SSSD entirely, confirmed AD was correct and the script had not left anything behind:
+
+```powershell
+Get-ADPrincipalGroupMembership -Identity jdoe | Select-Object Name
+# Domain Users
+```
+
+Only the primary group remained in AD. The discrepancy was entirely on the SSSD side: its cache had picked up the `Linux-Admins` removal but not the `Domain-Users-Standard` removal, showing that cache staleness can apply unevenly across a single account's attributes rather than all-or-nothing. This did not affect the SSH denial, since PAM's `simple_allow_groups` gates only on `Linux-Admins`, which was already correctly reflected. Restarting SSSD resolved the remaining lag:
+
+```bash
+sudo systemctl restart sssd
+id jdoe@corp.home.arpa
+# uid=1366001112(jdoe@corp.home.arpa) gid=1366000513(domain users@corp.home.arpa)
+# groups=1366000513(domain users@corp.home.arpa)
+```
+
+After the restart, SSSD's view matches AD exactly: only the primary group. This closes the lifecycle loop end to end. A single PowerShell script provisioned `jdoe` with correct AD and Linux access; a single PowerShell script offboarded it, correctly disabling the account and stripping its removable groups while preserving the account object; and both endpoints of the cross-platform identity chain, AD and SSSD, ultimately agree on the result.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/01-user-lifecycle-automation/13-sssd-cache-post-offboarding.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>SSSD showing a stale Domain-Users-Standard membership immediately after offboarding despite Linux-Admins already being removed; systemctl restart sssd resolves it so the cached group list matches AD (primary group only).</em>
+</p>
 
 ---
 
 ## Validation
 
-Validation will confirm:
+- **PASS**: `jdoe` confirmed to exist in the correct OU (`OU=User Accounts,DC=corp,DC=home,DC=arpa`) via `Get-ADUser` (Step Four)
+- **PASS**: group membership confirmed via `Get-ADPrincipalGroupMembership` (`Domain-Users-Standard`, `Linux-Admins`) (Step Four)
+- **PASS**: with `-LinuxAccess`, SSH login to Ubuntu Server succeeded and created a home directory on first login (Step Five)
+- **PASS**: offboarded account confirmed disabled via `Get-ADUser`, with removable security-group memberships stripped via `Get-ADPrincipalGroupMembership`; the account object itself and its primary group were confirmed to remain (Step Seven)
+- **PASS**: offboarded account's SSH access confirmed denied on Ubuntu Server (Step Eight)
 
-- new account confirmed to exist in the correct OU via `Get-ADUser`
-- group membership confirmed via `Get-ADPrincipalGroupMembership`
-- with `-LinuxAccess`, SSH login to Ubuntu Server succeeds and creates a home directory on first login
-- without `-LinuxAccess`, SSH login to Ubuntu Server is denied at the PAM authorization step, consistent with `testuser01` behavior in Lab 06
-- offboarded account confirmed disabled via `Get-ADUser`, with removable security-group memberships stripped via `Get-ADPrincipalGroupMembership` (the account object itself and its primary group are expected to remain, see Troubleshooting)
-- offboarded account's SSH access confirmed denied on Ubuntu Server
+The one objective not independently re-tested in this run is the negative case for provisioning without `-LinuxAccess` (SSH denied at the PAM authorization step for a non-member account). This was validated by `testuser01` in Lab 06 under the identical `simple_allow_groups` mechanism this lab relies on, and `New-LabUser.ps1`'s two-sided validation logic (Step Three) confirms the script correctly withholds `Linux-Admins` membership when `-LinuxAccess` is not supplied. Running `New-LabUser.ps1` without `-LinuxAccess` against a fresh account would be a reasonable follow-up test but was not required to meet the lab's objectives, since the underlying access-control mechanism was already proven and the script's group-assignment logic is validated directly.
 
 ---
 
@@ -602,25 +649,39 @@ Validation will confirm:
 - `sss_cache -E` (expire everything) also did not make the account resolve. A negative-lookup result (SSSD having recorded that the name did not exist) persisted in memory and continued to suppress re-queries to AD.
 - `sudo systemctl restart sssd` resolved it immediately. Restarting the daemon clears the in-memory negative cache that `sss_cache` does not reach, forcing a fresh lookup against AD on the next request.
 
-The practical lesson: for a stale membership change on an account SSSD has already cached, `sss_cache -u <user>` or `-g <group>` is the correct targeted tool. But for an account SSSD has never successfully resolved (a brand-new account queried too soon, where a negative-cache entry is created), a service restart is the reliable fix. Per the SSSD documentation, `sss_cache` invalidates cached records so they are re-pulled from AD on the next lookup, but it operates on existing cache objects, which is why it had nothing to act on here. This is directly relevant to Step Eight: if SSSD still shows `jdoe` as authorized immediately after offboarding, a service restart is again the fastest way to confirm denial.
+The practical lesson: for a stale membership change on an account SSSD has already cached, `sss_cache -u <user>` or `-g <group>` is the correct targeted tool. But for an account SSSD has never successfully resolved (a brand-new account queried too soon, where a negative-cache entry is created), a service restart is the reliable fix. Per the SSSD documentation, `sss_cache` invalidates cached records so they are re-pulled from AD on the next lookup, but it operates on existing cache objects, which is why it had nothing to act on here.
+
+**SSSD's cache updated unevenly across a single account's group memberships after offboarding (encountered in Step Eight).** Immediately after `jdoe` was disabled and stripped of `Domain-Users-Standard` and `Linux-Admins` in AD, SSSD's cached view of `jdoe` had already dropped `Linux-Admins` but still showed `Domain-Users-Standard`, even though `Get-ADPrincipalGroupMembership` run directly against AD confirmed only the primary group remained. This shows that SSSD's cache can update per-attribute rather than atomically per-account, so a partially-stale result does not necessarily mean the underlying AD change failed; it is worth confirming against AD directly (bypassing SSSD, as with `Get-ADPrincipalGroupMembership` from WIN11-CLIENT01) before assuming a script defect. In this case the stale attribute did not affect access control, since `Linux-Admins` (the group PAM actually authorizes on) was already correctly reflected, but a full `systemctl restart sssd` was used to bring the entire cached record back in sync with AD.
 
 ---
 
 ## Security Considerations
 
-Not yet started. To address: least-privilege for the account running the scripts, avoiding plaintext password handling for initial credentials, confirming `Remove-LabUser.ps1` disables rather than deletes accounts so no AD object history or SID is lost, and evaluating whether `-Confirm:$false` on group removal in `Remove-LabUser.ps1` is appropriate outside a lab context.
+**Least privilege for the executing account.** Both scripts were run as `labadmin`, an account with sufficient AD permissions to create, modify, disable, and query users and groups. In a production deployment, a dedicated service account scoped to only the operations these scripts perform (create/disable users, add/remove group membership within specific OUs) would be preferable to running lifecycle automation under a broad administrative identity.
+
+**Plaintext password handling.** `New-LabUser.ps1` accepts the initial password as a mandatory `[SecureString]` entered at runtime, never as a plaintext parameter, and it is never written to disk, logged, or committed to the repository. Combined with `-ChangePasswordAtLogon $true`, the administrator running the script never learns the account's eventual password, limiting the value of that credential even if the administrator's session were compromised.
+
+**Disable rather than delete.** `Remove-LabUser.ps1` disables the account and removes its removable group memberships but never deletes the AD object, confirmed in Step Seven's validation (`PASS: primary group preserved; account object retained`). This preserves the account's SID and history for auditing and reversibility, consistent with the offboarding practice sources cited below, at the cost of AD accumulating disabled objects over time that a real deployment would need a separate retention or cleanup policy for.
+
+**`-Confirm:$false` on group removal.** `Remove-LabUser.ps1` suppresses the interactive confirmation prompt on each group removal so it can run unattended, which is appropriate for a lab tool operating on a known test account. A production offboarding tool acting on arbitrary accounts at scale would warrant additional safeguards before suppressing confirmation outright, such as a `-WhatIf`-compatible dry-run mode, logging of every removal to a file external to the console, or requiring a separate explicit `-Force` switch distinct from the account-targeting parameter itself.
 
 ---
 
 ## Outcome
 
-Not yet started.
+Both `New-LabUser.ps1` and `Remove-LabUser.ps1` meet every objective set out at the start of the lab. A single script run provisions a new AD user account, places it in the correct OU, assigns it to the correct role group, optionally grants Linux access via `Linux-Admins`, and validates the result by querying AD back rather than trusting the provisioning cmdlets' exit codes. A single script run offboards that user: disables the account, strips its removable group memberships while preserving the primary group and the account object itself, and validates that result the same way.
+
+The cross-platform claim, that AD group membership determines SSH access on Ubuntu Server through SSSD and PAM, was proven in both directions against a real account rather than assumed from Lab 06's earlier manual result: `jdoe` gained working, Kerberos-authenticated SSH access upon being added to `Linux-Admins`, and lost it upon removal. Both directions surfaced genuine SSSD cache behavior, a negative-cache entry for a never-resolved account, and per-attribute staleness for an already-cached one, that the original plan anticipated only in general terms. Documenting the actual behavior, including the cases where the anticipated fix (`sss_cache`) did not work and a service restart was required instead, makes this lab's Troubleshooting section a more accurate reference than the plan alone would have produced.
 
 ---
 
 ## Lessons Learned
 
-Not yet started.
+**Anticipated troubleshooting steps should be treated as hypotheses to verify, not facts to assert.** The plan's Troubleshooting section, written before any code existed, predicted that `sss_cache` targeted invalidation would resolve SSSD staleness. In practice it did not, twice, for two different reasons (no cache entry to invalidate on first resolution; a stubborn negative-cache entry that survived a full expire). Writing the documentation against what actually happened, rather than what the plan predicted would happen, produced a more useful and more honest troubleshooting reference. This reinforces the working agreement established for this lab, that nothing gets documented as done before it has actually happened and been verified.
+
+**Self-validation catches what console output alone would hide.** `Remove-LabUser.ps1`'s validation block, added deliberately to match `New-LabUser.ps1`'s standard rather than shipped without it, was what made the Step Eight SSSD discrepancy visible in the first place. Without a script that re-queries AD and states plainly what it found, a partially-stale cache on the Linux side could easily have been mistaken for a partially-failed offboarding script. Querying the source of truth directly, rather than trusting either the script's own success message or a single downstream system's cached view, was what resolved the ambiguity correctly and quickly.
+
+**Cache staleness is not always all-or-nothing.** Both SSSD issues encountered in this lab refined the same underlying lesson from different angles: a cache miss on a brand-new account behaves differently from a cache miss on a modified attribute of an already-known account, and even within one account's record, individual group memberships can update independently of each other. A troubleshooting mental model of "the cache is either fresh or stale" is not accurate enough for SSSD in practice; the safer default is to verify the authoritative source (AD) directly whenever a Linux-side result looks surprising, rather than assuming either total staleness or a script defect.
 
 ---
 
