@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress. `New-LabUser.ps1` is complete and validated: Steps One through Four are done, with the provisioning script authored (parameters and pre-flight check, account creation and group assignment, self-validation) and run successfully against the test account `jdoe` with Linux access, all four validation checks passing. Remaining: Step Five (SSH access confirmation on Ubuntu Server), Step Six (`Remove-LabUser.ps1` offboarding script), and Steps Seven and Eight (offboarding run and post-offboarding SSH denial). The test account `jdoe` currently exists in Active Directory and is offboarded in Step Seven.
+In progress. `New-LabUser.ps1` is complete and validated end to end: Steps One through Five are done. The provisioning script was authored (parameters and pre-flight check, account creation and group assignment, self-validation), run successfully against the test account `jdoe` with Linux access with all four validation checks passing, and confirmed on Ubuntu Server by an authenticated SSH session with a valid Kerberos ticket and correct group membership. Remaining: Step Six (`Remove-LabUser.ps1` offboarding script), and Steps Seven and Eight (offboarding run and post-offboarding SSH denial). The test account `jdoe` currently exists in Active Directory and is offboarded in Step Seven.
 
 ---
 
@@ -354,7 +354,91 @@ The OU `-like` suffix match resolved correctly against the account's real distin
 
 ### Step Five - Confirm Linux Access via SSH
 
-SSH access to the Ubuntu Server host will be tested for the provisioned account. An account created with Linux access is expected to authenticate successfully; an account created without it is expected to be denied at the PAM authorization step, consistent with `testuser01` behavior in Lab 06.
+With `jdoe` provisioned in AD and confirmed to be a member of `Linux-Admins`, SSH access to Ubuntu Server was tested from WIN11-CLIENT01. This is the cross-platform proof at the center of the lab: it confirms the identity chain end to end, from the PowerShell script writing to AD, to AD replicating the account and group membership, to SSSD resolving it on Linux, to PAM authorizing the session on the basis of `Linux-Admins` membership.
+
+#### SSSD cache: account not yet resolvable
+
+The first SSH attempt failed at the password prompt with `Permission denied`. The cause was not authorization but resolution: SSSD on Ubuntu Server had no record of the freshly created account yet, so it could not authenticate a user it could not resolve. Querying the account directly on Ubuntu Server confirmed this:
+
+```bash
+id jdoe@corp.home.arpa
+# id: 'jdoe@corp.home.arpa': no such user
+```
+
+The targeted cache invalidation from the plan did not apply, because there was no cached entry to invalidate:
+
+```bash
+sudo sss_cache -u jdoe@corp.home.arpa
+# No cache object matched the specified search
+```
+
+A full-cache expire also failed to make the account resolvable:
+
+```bash
+sudo sss_cache -E
+id jdoe@corp.home.arpa
+# id: 'jdoe@corp.home.arpa': no such user
+```
+
+The account became resolvable only after restarting the SSSD service, which clears the in-memory negative-cache entry that `sss_cache` did not reach:
+
+```bash
+sudo systemctl restart sssd
+id jdoe@corp.home.arpa
+# uid=1366001112(jdoe@corp.home.arpa) gid=1366000513(domain users@corp.home.arpa)
+# groups=1366000513(domain users@corp.home.arpa),1366001110(linux-admins@corp.home.arpa),1366001106(domain-users-standard@corp.home.arpa)
+```
+
+The resolved identity shows `linux-admins@corp.home.arpa` in the group list, confirming that the script's group assignment reached Linux intact. See the Troubleshooting section for why a service restart, rather than `sss_cache`, was required here.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/01-user-lifecycle-automation/08-sssd-cache-resolution.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>SSSD failing to resolve jdoe (no such user), sss_cache finding no entry to invalidate and a full expire not helping, then systemctl restart sssd making the account resolve with linux-admins membership present.</em>
+</p>
+
+#### Authenticated SSH session
+
+With resolution working, the SSH login proceeded. Because `-ChangePasswordAtLogon` was set at creation, PAM required a password change on first login before completing the session:
+
+```text
+WARNING: Your password has expired.
+You must change your password now and log in again!
+Current Password:
+New password:
+Retype new password:
+passwd: password updated successfully
+Connection to 192.168.1.226 closed.
+```
+
+This is the forced-password-change design working end to end: the administrator set only a temporary password, and `jdoe` set its own password on first login, which the administrator never knows. The session closed after the change, as expected, requiring a reconnect with the new password.
+
+Reconnecting with the new password produced a working, authorized session. Three checks confirm it is a genuine AD-sourced login:
+
+```bash
+whoami
+# jdoe@corp.home.arpa
+
+id
+# uid=1366001112(jdoe@corp.home.arpa) gid=1366000513(domain users@corp.home.arpa)
+# groups=...,1366001110(linux-admins@corp.home.arpa),1366001106(domain-users-standard@corp.home.arpa)
+
+klist
+# Default principal: jdoe@CORP.HOME.ARPA
+# Valid TGT: krbtgt/CORP.HOME.ARPA@CORP.HOME.ARPA
+```
+
+`whoami` returns the fully qualified AD identity, `id` shows the correct UID and `Linux-Admins` membership, and `klist` shows a valid Kerberos ticket-granting ticket issued by DC01 at login. The home directory was created on first login. This completes the provisioning half of the lifecycle: a single PowerShell run on Windows produced a fully functional, Kerberos-authenticated, correctly authorized Linux account.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/01-user-lifecycle-automation/09-ssh-session-success.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Authenticated SSH session as jdoe@corp.home.arpa showing whoami, id with linux-admins membership, and klist with a valid Kerberos TGT for jdoe@CORP.HOME.ARPA.</em>
+</p>
 
 ### Step Six - Write Remove-LabUser.ps1
 
@@ -366,7 +450,7 @@ The offboarding script will be run against the account provisioned in Step Four,
 
 ### Step Eight - Confirm SSH Access Denied After Offboarding
 
-SSH access will be attempted as the offboarded account to confirm that access is denied. Whether the SSSD cache delay described in the Troubleshooting section was encountered will be noted.
+SSH access will be attempted as the offboarded account to confirm that access is denied. Whether the SSSD cache delay encountered in Step Five recurs will be noted.
 
 ---
 
@@ -385,11 +469,15 @@ Validation will confirm:
 
 ## Troubleshooting
 
-Two issues are anticipated:
-
 **Primary group cannot be removed via `Remove-ADPrincipalGroupMembership`.** Every AD user has a primary group (Domain Users by default, RID 513). `Remove-ADPrincipalGroupMembership` cannot remove a user from their primary group and will error if asked to. An offboarding script that naively pipes every group returned by `Get-ADPrincipalGroupMembership` into removal will fail on the primary group. The intended behavior is therefore to remove *removable* security-group memberships, not literally all groups. The implementation must confirm what `Get-ADPrincipalGroupMembership` returns for the account and filter the primary group out of the removal set. This is why the offboarding language throughout this doc says "removable security-group memberships" rather than "all groups."
 
-**SSSD cache delay.** SSSD caching may cause a delay between an AD-side group membership change and Ubuntu Server correctly reflecting it. If this occurs during validation, document the cache behavior and the targeted `sss_cache` invalidation step required (`sss_cache -u <user>` or `-g <group>`), rather than treating it as a script defect. Per the SSSD documentation, `sss_cache` invalidates rather than deletes cached records, so SSSD re-pulls from AD on the next lookup while retaining offline fallback.
+**SSSD did not resolve a freshly created account, and `sss_cache` did not fix it (encountered in Step Five).** After `jdoe` was created in AD, Ubuntu Server could not resolve it (`id: 'jdoe@corp.home.arpa': no such user`), which caused SSH to fail at the password prompt. The plan anticipated a stale-cache scenario resolved by targeted invalidation, but the actual behavior was different and worth recording:
+
+- `sss_cache -u jdoe@corp.home.arpa` returned `No cache object matched the specified search`. `sss_cache` can only expire an entry that already exists in the cache; because the account had never been successfully looked up, there was no positive entry to invalidate.
+- `sss_cache -E` (expire everything) also did not make the account resolve. A negative-lookup result (SSSD having recorded that the name did not exist) persisted in memory and continued to suppress re-queries to AD.
+- `sudo systemctl restart sssd` resolved it immediately. Restarting the daemon clears the in-memory negative cache that `sss_cache` does not reach, forcing a fresh lookup against AD on the next request.
+
+The practical lesson: for a stale membership change on an account SSSD has already cached, `sss_cache -u <user>` or `-g <group>` is the correct targeted tool. But for an account SSSD has never successfully resolved (a brand-new account queried too soon, where a negative-cache entry is created), a service restart is the reliable fix. Per the SSSD documentation, `sss_cache` invalidates cached records so they are re-pulled from AD on the next lookup, but it operates on existing cache objects, which is why it had nothing to act on here.
 
 ---
 
@@ -426,7 +514,7 @@ Research references consulted during the planning phase of this lab.
 **SSSD cache behavior (Red Hat / upstream SSSD docs)**
 
 - [Managing the SSSD Cache - Red Hat Enterprise Linux Deployment Guide](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/6/html/deployment_guide/sssd-cache) and the [System-Level Authentication Guide troubleshooting appendix](https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/7/html/system-level_authentication_guide/trouble) - confirms `sss_cache` invalidates cached records so SSSD re-pulls them from AD on next lookup, rather than clearing the cache outright
-- [sss_cache(8) man page](https://linux.die.net/man/8/sss_cache) - flag reference (`-u` for a single user, `-g` for a single group) used to plan targeted cache invalidation for validation rather than a full cache flush
+- [sss_cache(8) man page](https://linux.die.net/man/8/sss_cache) - flag reference (`-u` for a single user, `-g` for a single group) used to plan targeted cache invalidation; in practice `sss_cache` operates only on existing cache objects, so a negative-lookup entry for a never-resolved account required a service restart instead
 - [How To Clear The SSSD Cache In Linux](https://www.rootusers.com/how-to-clear-the-sssd-cache-in-linux/) - clarifies that `sss_cache` marks entries expired rather than deleting them, which preserves offline fallback if AD is briefly unreachable during validation
 
 **Account offboarding practice (disable vs. delete)**
