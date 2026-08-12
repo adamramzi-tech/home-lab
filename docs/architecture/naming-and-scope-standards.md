@@ -283,6 +283,7 @@ The infrastructure automation and scripting track focuses on:
 - GPO reporting and administration workflows
 - scheduled maintenance task automation
 - log parsing and operational scripting
+- static analysis and automated testing of the script library
 
 This phase deepens the operational value of existing infrastructure without requiring new hardware or topology changes.
 

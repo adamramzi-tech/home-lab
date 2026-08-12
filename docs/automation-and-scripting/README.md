@@ -39,6 +39,7 @@ This track builds directly on the enterprise infrastructure track. The following
 - PowerShell with the Group Policy module
 - Windows Task Scheduler for recurring automation
 - Bash for cross-platform validation steps on Ubuntu Server where appropriate
+- PSScriptAnalyzer and Pester for static analysis and unit testing of the script library, per [ADR-017](../architecture/decisions/017-adopt-powershell-static-analysis-and-unit-testing.md)
 
 ---
 
@@ -48,9 +49,10 @@ This track builds directly on the enterprise infrastructure track. The following
 |---|---|
 | [01 - User Lifecycle Automation](01-user-lifecycle-automation.md) | User provisioning and offboarding scripts covering account creation, group assignment, disablement, and cleanup |
 | [02 - Group and OU Administration](02-group-and-ou-administration.md) | Bulk group membership management, OU reporting, and account inventory automation |
-| [03 - Group Policy Reporting and Audit](03-group-policy-reporting-and-audit.md) | GPO inventory, RSoP reporting, and policy compliance validation scripts |
-| [04 - Cross-Platform Validation](04-cross-platform-validation.md) | End-to-end automation spanning AD provisioning and Linux SSH access validation |
-| [05 - Scheduled Health Reporting](05-scheduled-health-reporting.md) | Recurring environment health report covering AD service state, Wazuh agent enrollment, and Docker service status |
+| [03 - Static Analysis and Unit Testing](03-static-analysis-and-unit-testing.md) | PSScriptAnalyzer static analysis and Pester unit testing across the Lab 01 and Lab 02 script library, per [ADR-017](../architecture/decisions/017-adopt-powershell-static-analysis-and-unit-testing.md) |
+| [04 - Group Policy Reporting and Audit](04-group-policy-reporting-and-audit.md) | GPO inventory, RSoP reporting, and policy compliance validation scripts |
+| [05 - Cross-Platform Validation](05-cross-platform-validation.md) | End-to-end automation spanning AD provisioning and Linux SSH access validation |
+| [06 - Scheduled Health Reporting](06-scheduled-health-reporting.md) | Recurring environment health report covering AD service state, Wazuh agent enrollment, and Docker service status |
 
 ---
 
@@ -72,9 +74,10 @@ Each script is documented with purpose, usage, parameters, expected output, and 
 |---|---|
 | 01 - User Lifecycle Automation | Complete |
 | 02 - Group and OU Administration | Complete |
-| 03 - Group Policy Reporting and Audit | Planned |
-| 04 - Cross-Platform Validation | Planned |
-| 05 - Scheduled Health Reporting | Planned |
+| 03 - Static Analysis and Unit Testing | Planned |
+| 04 - Group Policy Reporting and Audit | Planned |
+| 05 - Cross-Platform Validation | Planned |
+| 06 - Scheduled Health Reporting | Planned |
 
 ---
 
@@ -88,3 +91,4 @@ This track is considered complete when:
 - a scheduled job produces a regular health report covering AD service state, Wazuh agent enrollment, and Docker service status
 - all scripts are documented to lab standard: purpose, usage, parameters, expected output, and validation steps
 - the `infrastructure/automation-and-scripting/` directory contains a coherent operational script library that can be used without additional context
+- the script library passes a documented PSScriptAnalyzer standard and carries Pester unit tests covering the decision logic of its scripts, per [ADR-017](../architecture/decisions/017-adopt-powershell-static-analysis-and-unit-testing.md)

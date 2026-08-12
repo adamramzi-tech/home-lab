@@ -1,5 +1,17 @@
 # Home Lab Infrastructure Project
 
+A documentation-first homelab portfolio spanning Linux infrastructure, Windows enterprise infrastructure, and PowerShell automation, built, validated, and documented as a single evolving environment rather than a set of disconnected tutorials.
+
+**What this demonstrates:** end-to-end systems administration across Linux and Windows, centralized identity with Active Directory, cross-platform authentication, security monitoring, and repeatable PowerShell automation, with every significant decision recorded as an architecture decision record and every deployment documented through a plan, validation, and lessons-learned lifecycle.
+
+**Core stack:** Ubuntu Server, Docker, NGINX Proxy Manager, Prometheus, Grafana, Tailscale, Windows Server 2022, Active Directory, AD-integrated DNS, Group Policy, PowerShell (RSAT), SSSD and Kerberos, Wazuh SIEM.
+
+**Current focus:** Infrastructure Automation and Scripting track, PowerShell against the live `corp.home.arpa` domain. The Linux and Enterprise Infrastructure tracks are complete; Automation Labs 01 and 02 are complete, with Lab 03 in planning.
+
+New here? Skim the [Current Environment](#current-environment) for what is running, or the [architecture decision records](docs/architecture/decisions/) for the reasoning behind it.
+
+---
+
 ## Overview
 
 This repository documents the design, deployment, administration, and ongoing development of a hybrid homelab environment spanning Linux infrastructure, containerized services, and Windows enterprise infrastructure.
@@ -110,6 +122,7 @@ The infrastructure automation and scripting track focuses on:
 - GPO reporting and administration workflows
 - scheduled maintenance task automation
 - log parsing and operational scripting
+- static analysis and automated testing of the script library
 
 ### Cloud and Hybrid Identity Track *(planned)*
 
@@ -193,7 +206,7 @@ These documents live separately from the lab walkthroughs so implementation deta
 
 #### Planned Labs
 
-See the [Automation and Scripting Track README](docs/automation-and-scripting/README.md) for the full lab sequence (Group Policy Reporting and Audit, Cross-Platform Validation, Scheduled Health Reporting).
+See the [Automation and Scripting Track README](docs/automation-and-scripting/README.md) for the full lab sequence (Static Analysis and Unit Testing, Group Policy Reporting and Audit, Cross-Platform Validation, Scheduled Health Reporting).
 
 ---
 

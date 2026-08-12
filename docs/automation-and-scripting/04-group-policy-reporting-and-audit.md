@@ -1,4 +1,4 @@
-# 03 - Group Policy Reporting and Audit
+# 04 - Group Policy Reporting and Audit
 
 ## Status
 
@@ -14,6 +14,8 @@ This lab will automate reporting and audit workflows for the Group Policy enviro
 
 The lab will produce three read-only PowerShell scripts: a Group Policy Object inventory, a per-OU link and inheritance report, and a Resultant Set of Policy (RSoP) report for the domain-joined client. Consistent with ADR-015, the lab introduces no new infrastructure. It reports on and audits the three GPOs, their OU links, and their security filtering that already exist and were validated once by hand in the enterprise infrastructure track, and it makes that reporting repeatable instead of a one-time manual `gpresult` exercise.
 
+Because Lab 03 established the track's static analysis and unit testing standard immediately before this lab, these three scripts are the first written under that standard rather than retrofitted with tests afterward.
+
 ---
 
 ## Objectives
@@ -26,6 +28,7 @@ The primary goals of this lab are to:
 - keep all three scripts read-only with respect to Group Policy: reporting and RSoP generation only, with no cmdlet capable of creating, linking, unlinking, or modifying a GPO anywhere in the lab
 - reuse the reporting-output convention established in Lab 02 (formatted console table plus an optional `-ExportPath` CSV) wherever the data is tabular, so this lab extends an existing pattern rather than inventing a new one
 - cross-check each report's output against the documented Group Policy design from enterprise infrastructure Lab 05, confirming the scripts report the real state rather than trusting their own output
+- author all three scripts under the static analysis and unit testing standard established in Lab 03, so each ships PSScriptAnalyzer-clean and with Pester tests covering its decision logic, per [ADR-017](../architecture/decisions/017-adopt-powershell-static-analysis-and-unit-testing.md)
 
 ---
 
@@ -39,7 +42,9 @@ The enterprise infrastructure track built the Group Policy environment this lab 
 
 That validation was a single manual checkpoint. Nothing in the environment currently answers the same questions repeatably: which GPOs exist and what state they are in, where each is linked and in what precedence, and what actually resolves onto WIN11-CLIENT01 for a given user. Reproducing that today means opening the Group Policy Management Console and clicking through it, or re-running `gpresult` interactively per user. Both are exactly the manual overhead ADR-015 scoped this track to eliminate.
 
-This lab also continues a pattern the track depends on. Lab 02 established the reporting shape this track expects later labs to reuse: a formatted console table by default, with an optional CSV export for point-in-time record keeping. This lab reuses that shape for its tabular reports and extends it to Group Policy, and Lab 05 (Scheduled Health Reporting) is expected to fold GPO and RSoP state into a scheduled report built on the same reporting precedent. Getting the Group Policy reporting shape right here gives that later lab a pattern to follow rather than one to invent.
+This lab also continues a pattern the track depends on. Lab 02 established the reporting shape this track expects later labs to reuse: a formatted console table by default, with an optional CSV export for point-in-time record keeping. This lab reuses that shape for its tabular reports and extends it to Group Policy, and Lab 06 (Scheduled Health Reporting) is expected to fold GPO and RSoP state into a scheduled report built on the same reporting precedent. Getting the Group Policy reporting shape right here gives that later lab a pattern to follow rather than one to invent.
+
+It is also the first administrative lab to follow Lab 03's testing standard. Where Labs 01 and 02 were proven by a single live run and are being retrofitted with tests in Lab 03, this lab's scripts carry Pester tests of their decision logic from the outset, so a later change to a reused pattern cannot silently break them without a test failing.
 
 ---
 
@@ -57,7 +62,7 @@ Group Policy state has three genuinely different shapes. GPO inventory is a flat
 
 **Decision:** `Get-LabGPOInventory.ps1` and `Get-LabGPOLinkReport.ps1` will write a formatted table to the console by default and support an optional `-ExportPath` parameter that writes the same data to CSV via `Export-Csv`, exactly as Lab 02's reporting scripts do.
 
-These two scripts report a state rather than validate a change, so the PASS/FAIL model from Lab 01 does not fit them, the same reasoning Lab 02 applied to `Get-LabOUReport.ps1` and `Get-LabAccountInventory.ps1`. Rather than reinvent an output convention, this lab reuses the one Lab 02 already established and validated, which also keeps the track's reporting scripts consistent with one another and gives Lab 05 (Scheduled Health Reporting) a single convention to build on.
+These two scripts report a state rather than validate a change, so the PASS/FAIL model from Lab 01 does not fit them, the same reasoning Lab 02 applied to `Get-LabOUReport.ps1` and `Get-LabAccountInventory.ps1`. Rather than reinvent an output convention, this lab reuses the one Lab 02 already established and validated, which also keeps the track's reporting scripts consistent with one another and gives Lab 06 (Scheduled Health Reporting) a single convention to build on.
 
 ### Use native Group Policy report format for RSoP rather than a hand-built table
 
@@ -131,6 +136,8 @@ The inventory and link reports are directory-side: they query GPO objects and OU
 ## Implementation Plan
 
 *(Titled "Implementation Plan" during the planning and research phase. It will be renamed to "Implementation" and rewritten in past tense as each step is actually performed, matching the workflow used in Lab 01 and Lab 02.)*
+
+Per the Lab 03 standard, each script built in the steps below is written to pass PSScriptAnalyzer and is accompanied by Pester tests of its decision logic. That analysis and test coverage is treated as part of building each script, alongside the live validation in Step Five, not as separate later work.
 
 ### Step One - Confirm the Group Policy Module and Establish the Known-Good Baseline
 

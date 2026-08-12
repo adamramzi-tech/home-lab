@@ -33,7 +33,7 @@ The enterprise infrastructure track built the OU and group structure this lab re
 
 ADR-015 scoped this track to be AD-centric, with every lab automating a real, previously-manual administrative task against infrastructure that already exists. Lab 01 picked the highest-value single-account workflow. This lab picks the next two highest-value gaps: group membership no longer scales past one account at a time, and there is no automated way to see the current state of the OU and group structure without opening ADUC and clicking through it manually. Both are realistic, frequently repeated administrative tasks in any AD environment, not lab-specific busywork.
 
-This lab also begins exercising a pattern the rest of the track depends on: scripts that operate on a batch of inputs rather than a single named account, and read-only reporting scripts that produce a snapshot of environment state rather than changing it. Lab 03 (GPO Reporting and Audit) and Lab 05 (Scheduled Health Reporting) both build on reporting patterns; getting the reporting shape right here, console output plus an optional CSV export, gives those later labs a precedent to follow rather than inventing their own from scratch.
+This lab also begins exercising a pattern the rest of the track depends on: scripts that operate on a batch of inputs rather than a single named account, and read-only reporting scripts that produce a snapshot of environment state rather than changing it. Lab 04 (GPO Reporting and Audit) and Lab 06 (Scheduled Health Reporting) both build on reporting patterns; getting the reporting shape right here, console output plus an optional CSV export, gives those later labs a precedent to follow rather than inventing their own from scratch.
 
 ---
 
@@ -55,7 +55,7 @@ Lab 01's scripts operate on a single account and abort outright on a pre-flight 
 
 **Decision:** Both reporting scripts (`Get-LabOUReport.ps1` and `Get-LabAccountInventory.ps1`) write a formatted table to the console by default and support an optional `-ExportPath` parameter that writes the same data to CSV via `Export-Csv`.
 
-Lab 01's scripts print PASS/FAIL lines because they are validating a change they just made. These two scripts are not validating a change, they are reporting a state, so a PASS/FAIL model does not fit. A table is the more natural output for "here is what currently exists." Making CSV export optional rather than mandatory keeps the scripts useful for a quick interactive check (no file left behind) while still supporting the point-in-time record-keeping use case an inventory report exists for. This also establishes the reporting output convention Lab 03 (GPO Reporting and Audit) and Lab 05 (Scheduled Health Reporting) are expected to reuse.
+Lab 01's scripts print PASS/FAIL lines because they are validating a change they just made. These two scripts are not validating a change, they are reporting a state, so a PASS/FAIL model does not fit. A table is the more natural output for "here is what currently exists." Making CSV export optional rather than mandatory keeps the scripts useful for a quick interactive check (no file left behind) while still supporting the point-in-time record-keeping use case an inventory report exists for. This also establishes the reporting output convention Lab 04 (GPO Reporting and Audit) and Lab 06 (Scheduled Health Reporting) are expected to reuse.
 
 ### Script and folder naming
 
