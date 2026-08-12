@@ -2,7 +2,7 @@
 
 ## Status
 
-- In progress. Step One (test account provisioning) is complete: `jsmith`, `mjohnson`, and `akim` were provisioned via `New-LabUser.ps1` and all four validation checks passed for each account. Step Two (`Add-LabGroupMembers.ps1`) is complete: the open question on `Add-ADGroupMember`'s handling of an invalid member was verified against live AD behavior, the script's design was finalized incorporating that finding, the script was created on WIN11-CLIENT01 (`C:\Scripts\Add-LabGroupMembers.ps1`), a live run against `members.csv` successfully added `jsmith` and `mjohnson` to `IT-Admins` and `akim` to `Linux-Admins` with all three post-add checks returning PASS, and a second run against a deliberately invalid CSV confirmed the partial-success batch model holds end to end (the invalid member was excluded and reported, while the valid member in the same batch was still added). Step Three (`Get-LabOUReport.ps1`) is complete: the script's design was finalized following the planning-phase logic (OU enumeration via `Get-ADOrganizationalUnit`, per-OU user/computer counts via `-SearchScope OneLevel`, console table plus optional CSV export), the script was created on WIN11-CLIENT01 (`C:\Scripts\Get-LabOUReport.ps1`), a first live run against the console correctly reported all 5 OUs in the domain, including the built-in `Domain Controllers` OU, with per-OU user and computer counts matching the environment's known state, and a second run with `-ExportPath` confirmed the CSV export matches the console output exactly. Step Four (`Get-LabAccountInventory.ps1`) is complete: the script's design was finalized (full-domain `Get-ADUser` query, per-account group membership resolution via `Get-ADPrincipalGroupMembership` with the primary group excluded using the same comparison pattern established in Lab 01's `Remove-LabUser.ps1`, `LastLogonDate` left blank rather than substituted when AD returns no value), the script was created on WIN11-CLIENT01 (`C:\Scripts\Get-LabAccountInventory.ps1`), a first live run against the console correctly reported all 9 user accounts in the domain with the primary group `Domain Users` absent from every `Groups` field and blank `LastLogonDate` values preserved where AD returned no value, and a second run with `-ExportPath` confirmed the CSV export matches the console output exactly, including the joined `Groups` field and blank timestamp values surviving the round trip intact. Step Five's plan was revised (the original plan to re-run all three scripts was replaced with a set of standalone interactive queries cross-checking Steps Two through Four's already-documented results, since re-running the scripts would only reproduce real results already captured), but no live execution for Step Five has occurred yet.
+- Complete. Step One (test account provisioning) is complete: `jsmith`, `mjohnson`, and `akim` were provisioned via `New-LabUser.ps1` and all four validation checks passed for each account. Step Two (`Add-LabGroupMembers.ps1`) is complete: the open question on `Add-ADGroupMember`'s handling of an invalid member was verified against live AD behavior, the script's design was finalized incorporating that finding, the script was created on WIN11-CLIENT01 (`C:\Scripts\Add-LabGroupMembers.ps1`), a live run against `members.csv` successfully added `jsmith` and `mjohnson` to `IT-Admins` and `akim` to `Linux-Admins` with all three post-add checks returning PASS, and a second run against a deliberately invalid CSV confirmed the partial-success batch model holds end to end (the invalid member was excluded and reported, while the valid member in the same batch was still added). Step Three (`Get-LabOUReport.ps1`) is complete: the script's design was finalized following the planning-phase logic (OU enumeration via `Get-ADOrganizationalUnit`, per-OU user/computer counts via `-SearchScope OneLevel`, console table plus optional CSV export), the script was created on WIN11-CLIENT01 (`C:\Scripts\Get-LabOUReport.ps1`), a first live run against the console correctly reported all 5 OUs in the domain, including the built-in `Domain Controllers` OU, with per-OU user and computer counts matching the environment's known state, and a second run with `-ExportPath` confirmed the CSV export matches the console output exactly. Step Four (`Get-LabAccountInventory.ps1`) is complete: the script's design was finalized (full-domain `Get-ADUser` query, per-account group membership resolution via `Get-ADPrincipalGroupMembership` with the primary group excluded using the same comparison pattern established in Lab 01's `Remove-LabUser.ps1`, `LastLogonDate` left blank rather than substituted when AD returns no value), the script was created on WIN11-CLIENT01 (`C:\Scripts\Get-LabAccountInventory.ps1`), a first live run against the console correctly reported all 9 user accounts in the domain with the primary group `Domain Users` absent from every `Groups` field and blank `LastLogonDate` values preserved where AD returned no value, and a second run with `-ExportPath` confirmed the CSV export matches the console output exactly, including the joined `Groups` field and blank timestamp values surviving the round trip intact. Step Five is complete: its plan was revised (the original plan to re-run all three scripts was replaced with a set of standalone interactive queries cross-checking Steps Two through Four's already-documented results, since re-running the scripts would only reproduce real results already captured), and all four planned checks were run and matched their corresponding steps' documented results, `Get-ADGroupMember` independently confirmed `Add-LabGroupMembers.ps1`'s Step Two memberships, `Get-ADUser`/`Get-ADComputer` independently confirmed `Get-LabOUReport.ps1`'s Step Three counts for two OUs, `(Get-ADUser -Filter *).Count` and `Get-ADPrincipalGroupMembership` independently confirmed `Get-LabAccountInventory.ps1`'s Step Four results, and a review of all three scripts confirmed no AD-modifying cmdlet beyond the additive `Add-ADGroupMember` call is present anywhere in the lab. Lab 02 (Group and OU Administration) is complete.
 
 ---
 
@@ -630,6 +630,50 @@ What those three steps did not include is a standalone, independently-typed `Get
 2. **Cross-check `Get-LabOUReport.ps1` (against Step Three):** `Get-ADUser -SearchBase <OU DN> -SearchScope OneLevel -Filter *` and the equivalent `Get-ADComputer` call, run interactively for at least two OUs, checked against Step Three's table.
 3. **Cross-check `Get-LabAccountInventory.ps1` (against Step Four):** `(Get-ADUser -Filter *).Count` run interactively, checked against the reported count of 9, and `Get-ADPrincipalGroupMembership -Identity akim | Select Name` run interactively, checked against `akim`'s `Groups` field from Step Four.
 4. **Confirm no unintended AD writes:** a reasoning-based review, not a live query, of the three finalized scripts confirming the two reporting scripts call only `Get-*` cmdlets and `Add-LabGroupMembers.ps1` calls only `Add-ADGroupMember`, never a removal cmdlet.
+
+#### Running the Independent Verification Queries
+
+All three planned queries were run interactively from `C:\Scripts` on WIN11-CLIENT01, outside of any script.
+
+**Cross-check against Step Two.** `Get-ADGroupMember -Identity IT-Admins | Select-Object SamAccountName` returned `labadmin`, `jsmith`, `mjohnson`, and `akim`. `Get-ADGroupMember -Identity Linux-Admins | Select-Object SamAccountName` returned `labadmin` and `akim`.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/02-group-and-ou-administration/12-verify-add-labgroupmembers-independent.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Get-ADGroupMember run independently against IT-Admins and Linux-Admins, confirming the memberships Add-LabGroupMembers.ps1 reported as PASS in Step Two.</em>
+</p>
+
+Both `jsmith` and `mjohnson` appear in `IT-Admins`, and `akim` appears in both `IT-Admins` and `Linux-Admins`, matching every PASS result from Step Two's `members.csv` run and negative test. `labadmin` also appears in both groups; this was not added by `Add-LabGroupMembers.ps1` and was already known from Step Four's account inventory, where `labadmin`'s `Groups` field read `Domain Admins; IT-Admins; Linux-Admins`, so its presence here is consistent with prior evidence rather than a new or unexpected result.
+
+**Cross-check against Step Three.** For `OU=User Accounts`, `Get-ADUser -SearchBase "OU=User Accounts,DC=corp,DC=home,DC=arpa" -SearchScope OneLevel -Filter *` returned 5 user objects (`akim`, `jdoe`, `jsmith`, `mjohnson`, `testuser01`), and the equivalent `Get-ADComputer` call returned no objects. For `OU=Workstations`, `Get-ADUser` with the same scope returned no objects, and `Get-ADComputer` returned 2 computer objects (`UBUNTU-SERVER`, `WIN11-CLIENT01`).
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/02-group-and-ou-administration/13-verify-get-labouereport-independent.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Get-ADUser and Get-ADComputer run independently with -SearchScope OneLevel against the User Accounts and Workstations OUs, confirming Get-LabOUReport.ps1's counts from Step Three.</em>
+</p>
+
+This matches Step Three's table exactly: `User Accounts` at 5 users / 0 computers, `Workstations` at 0 users / 2 computers.
+
+**Cross-check against Step Four.** `(Get-ADUser -Filter *).Count` returned `9`. `Get-ADPrincipalGroupMembership -Identity akim | Select-Object Name` returned `Domain Users`, `IT-Admins`, `Domain-Users-Standard`, and `Linux-Admins`.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/02-group-and-ou-administration/14-verify-get-labaccountinventory-independent.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>(Get-ADUser -Filter *).Count and Get-ADPrincipalGroupMembership run independently against akim, confirming Get-LabAccountInventory.ps1's total row count and one account's group membership from Step Four.</em>
+</p>
+
+The count of 9 matches the total Step Four reported. `akim`'s membership list matches Step Four's `Groups` field for that account (`IT-Admins; Domain-Users-Standard; Linux-Admins`) once `Domain Users` is set aside, the same primary group the script's own filter excludes; its presence in this unfiltered, independent query is expected and confirms the script's exclusion logic is removing the correct group rather than coincidentally omitting something else.
+
+**No unintended AD writes.** Re-reading the three finalized scripts confirms `Get-LabOUReport.ps1` and `Get-LabAccountInventory.ps1` call only `Get-ADOrganizationalUnit`, `Get-ADUser`, `Get-ADComputer`, and `Get-ADPrincipalGroupMembership`, no cmdlet in either script can modify Active Directory. `Add-LabGroupMembers.ps1` calls `Get-ADGroup`, `Get-ADUser`, `Add-ADGroupMember`, and `Get-ADGroupMember` for its post-add check; the only AD-modifying cmdlet present anywhere across all three scripts is `Add-ADGroupMember`, and it is never paired with a `Remove-*` cmdlet in this script.
+
+With all four planned checks complete and matching their corresponding steps' documented results, Step Five is complete, and Lab 02 (Group and OU Administration) is complete.
 
 ---
 
