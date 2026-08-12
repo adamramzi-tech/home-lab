@@ -2,7 +2,7 @@
 
 ## Status
 
-- In progress. Step One (test account provisioning) is complete: `jsmith`, `mjohnson`, and `akim` were provisioned via `New-LabUser.ps1` and all four validation checks passed for each account. Step Two (`Add-LabGroupMembers.ps1`) is complete: the open question on `Add-ADGroupMember`'s handling of an invalid member was verified against live AD behavior, the script's design was finalized incorporating that finding, the script was created on WIN11-CLIENT01 (`C:\Scripts\Add-LabGroupMembers.ps1`), a live run against `members.csv` successfully added `jsmith` and `mjohnson` to `IT-Admins` and `akim` to `Linux-Admins` with all three post-add checks returning PASS, and a second run against a deliberately invalid CSV confirmed the partial-success batch model holds end to end (the invalid member was excluded and reported, while the valid member in the same batch was still added). Step Three (`Get-LabOUReport.ps1`) is complete: the script's design was finalized following the planning-phase logic (OU enumeration via `Get-ADOrganizationalUnit`, per-OU user/computer counts via `-SearchScope OneLevel`, console table plus optional CSV export), the script was created on WIN11-CLIENT01 (`C:\Scripts\Get-LabOUReport.ps1`), a first live run against the console correctly reported all 5 OUs in the domain, including the built-in `Domain Controllers` OU, with per-OU user and computer counts matching the environment's known state, and a second run with `-ExportPath` confirmed the CSV export matches the console output exactly. Steps Four and Five have not yet started.
+- In progress. Step One (test account provisioning) is complete: `jsmith`, `mjohnson`, and `akim` were provisioned via `New-LabUser.ps1` and all four validation checks passed for each account. Step Two (`Add-LabGroupMembers.ps1`) is complete: the open question on `Add-ADGroupMember`'s handling of an invalid member was verified against live AD behavior, the script's design was finalized incorporating that finding, the script was created on WIN11-CLIENT01 (`C:\Scripts\Add-LabGroupMembers.ps1`), a live run against `members.csv` successfully added `jsmith` and `mjohnson` to `IT-Admins` and `akim` to `Linux-Admins` with all three post-add checks returning PASS, and a second run against a deliberately invalid CSV confirmed the partial-success batch model holds end to end (the invalid member was excluded and reported, while the valid member in the same batch was still added). Step Three (`Get-LabOUReport.ps1`) is complete: the script's design was finalized following the planning-phase logic (OU enumeration via `Get-ADOrganizationalUnit`, per-OU user/computer counts via `-SearchScope OneLevel`, console table plus optional CSV export), the script was created on WIN11-CLIENT01 (`C:\Scripts\Get-LabOUReport.ps1`), a first live run against the console correctly reported all 5 OUs in the domain, including the built-in `Domain Controllers` OU, with per-OU user and computer counts matching the environment's known state, and a second run with `-ExportPath` confirmed the CSV export matches the console output exactly. Step Four (`Get-LabAccountInventory.ps1`) is complete: the script's design was finalized (full-domain `Get-ADUser` query, per-account group membership resolution via `Get-ADPrincipalGroupMembership` with the primary group excluded using the same comparison pattern established in Lab 01's `Remove-LabUser.ps1`, `LastLogonDate` left blank rather than substituted when AD returns no value), the script was created on WIN11-CLIENT01 (`C:\Scripts\Get-LabAccountInventory.ps1`), a first live run against the console correctly reported all 9 user accounts in the domain with the primary group `Domain Users` absent from every `Groups` field and blank `LastLogonDate` values preserved where AD returned no value, and a second run with `-ExportPath` confirmed the CSV export matches the console output exactly, including the joined `Groups` field and blank timestamp values surviving the round trip intact. Step Five has not yet started.
 
 ---
 
@@ -487,7 +487,9 @@ This confirms `Export-Csv` is writing the same report data reflected in the cons
 
 ### Step Four - Build Get-LabAccountInventory.ps1
 
-Planned parameter structure:
+#### Script Implementation
+
+Like `Get-LabOUReport.ps1`, `Get-LabAccountInventory.ps1` is read-only: it makes no changes to Active Directory, so it reports status messages while it runs and a table (plus optional CSV) as output, with no PASS/FAIL validation model. The parameter block matches that same convention, a single optional `-ExportPath`:
 
 ```powershell
 [CmdletBinding()]
@@ -495,9 +497,126 @@ param (
     [Parameter(Mandatory = $false)]
     [string]$ExportPath
 )
+
+Import-Module ActiveDirectory
 ```
 
-Planned logic: query every user account in the domain with `Get-ADUser -Filter * -Properties Enabled, DistinguishedName, whenCreated, PasswordLastSet, LastLogonDate`, then, for each account, resolve its group memberships with `Get-ADPrincipalGroupMembership`, the same cmdlet Lab 01 already uses for validation, joined into a single delimited string field so it fits one CSV row per account. The attribute set is chosen to be meaningful in this specific environment (this domain has no populated Department, Title, or Manager attributes, since accounts here are lab test accounts rather than a real HR-driven directory) rather than copying a generic inventory template that would mostly report empty fields.
+Every user account in the domain is queried in one call with `Get-ADUser -Filter *`, requesting the properties the report needs beyond the cmdlet's default set, `Enabled`, `DistinguishedName`, `whenCreated`, `PasswordLastSet`, `LastLogonDate`, and `PrimaryGroup`. No `-SearchBase` is supplied since the goal is every account in the domain regardless of which OU it lives in. The result is piped through `Sort-Object SamAccountName` so the report's row order is stable and alphabetical, the same ordering approach used for the OU report:
+
+```powershell
+Write-Host "Querying all user accounts in corp.home.arpa..." -ForegroundColor Cyan
+
+$users = Get-ADUser -Filter * -Properties Enabled, DistinguishedName, whenCreated, PasswordLastSet, LastLogonDate, PrimaryGroup |
+    Sort-Object SamAccountName
+
+Write-Host "Found $($users.Count) user account(s). Resolving group memberships per account..." -ForegroundColor Cyan
+```
+
+For each account, `Get-ADPrincipalGroupMembership` resolves its current group memberships, the same cmdlet `Remove-LabUser.ps1` (Lab 01) already uses. The result is filtered to exclude the account's primary group (`Domain Users` for every account in this domain) by comparing each returned group's `DistinguishedName` against the user's `PrimaryGroup` property, the identical comparison pattern `Remove-LabUser.ps1` uses to distinguish removable memberships from the primary group. Since every account shares the same primary group, including it in every row would add no differentiating signal; the filtered list is then joined into a single `"; "`-delimited string so each account still fits one CSV row:
+
+```powershell
+$report = foreach ($user in $users) {
+    $groups = Get-ADPrincipalGroupMembership -Identity $user.SamAccountName |
+        Where-Object { $_.DistinguishedName -ne $user.PrimaryGroup } |
+        Select-Object -ExpandProperty Name
+
+    [PSCustomObject]@{
+        Name              = $user.Name
+        SamAccountName    = $user.SamAccountName
+        Enabled           = $user.Enabled
+        DistinguishedName = $user.DistinguishedName
+        WhenCreated       = $user.whenCreated
+        PasswordLastSet   = $user.PasswordLastSet
+        LastLogonDate     = $user.LastLogonDate
+        Groups            = $groups -join "; "
+    }
+}
+```
+
+`LastLogonDate` is left as whatever `Get-ADUser` returns, including `$null`, rather than substituted with a placeholder value. It is a replicated attribute that updates periodically rather than on every logon, so `$null` legitimately means an account has no recorded logon, not that the query failed. The attribute set as a whole (`Enabled`, `DistinguishedName`, `WhenCreated`, `PasswordLastSet`, `LastLogonDate`, `Groups`) was chosen to be meaningful in this specific environment; this domain has no populated `Department`, `Title`, or `Manager` attributes, since accounts here are lab test accounts rather than a real HR-driven directory, so a generic inventory template built around those fields would mostly report empty values.
+
+The report prints to the console as a table by default, and is additionally written to CSV via `Export-Csv` if `-ExportPath` is supplied, matching `Get-LabOUReport.ps1`'s output convention exactly:
+
+```powershell
+$report | Format-Table -AutoSize
+
+if ($ExportPath) {
+    $report | Export-Csv -Path $ExportPath -NoTypeInformation
+    Write-Host "Report exported to '$ExportPath'." -ForegroundColor Green
+}
+```
+
+#### Creating the Script on WIN11-CLIENT01
+
+With the design and implementation above finalized, the script was created in `C:\Scripts` on WIN11-CLIENT01, the same execution environment used for the other scripts in this track, consistent with the execution-location convention established in [ADR-016](../architecture/decisions/016-run-automation-scripts-from-domain-joined-client.md). It was pasted into a new file in the editor and saved as `C:\Scripts\Get-LabAccountInventory.ps1`, alongside `New-LabUser.ps1`, `Remove-LabUser.ps1`, `Add-LabGroupMembers.ps1`, and `Get-LabOUReport.ps1`.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/02-group-and-ou-administration/09-create-get-labaccountinventory.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Get-LabAccountInventory.ps1 open in the editor on WIN11-CLIENT01 and saved to C:\Scripts, shown alongside the other scripts and CSV files from the earlier Lab 02 steps in the directory listing.</em>
+</p>
+
+The finalized script is also saved to `infrastructure/automation-and-scripting/group-and-ou-administration/Get-LabAccountInventory.ps1` in the repository's script library.
+
+#### Running Get-LabAccountInventory.ps1 Against the Live Environment
+
+The script was run from `C:\Scripts` on WIN11-CLIENT01, with no `-ExportPath`, so the report was written to the console only:
+
+```powershell
+.\Get-LabAccountInventory.ps1
+```
+
+The script ran end to end with no errors, reporting 9 user account(s):
+
+| Name | SamAccountName | Enabled | WhenCreated | PasswordLastSet | LastLogonDate | Groups |
+|---|---|---|---|---|---|---|
+| Administrator | Administrator | True | 6/4/2026 5:00:48 PM | 5/30/2026 3:56:10 PM | 8/10/2026 1:29:08 PM | Administrators; Schema Admins; Enterprise Admins; Domain Admins; Group Policy Creator Owners |
+| Alex Kim | akim | True | 8/11/2026 6:05:18 PM | *(blank)* | *(blank)* | IT-Admins; Domain-Users-Standard; Linux-Admins |
+| Guest | Guest | False | 6/4/2026 5:00:48 PM | *(blank)* | *(blank)* | Guests |
+| Jane Doe | jdoe | False | 8/10/2026 8:08:49 PM | 8/11/2026 12:03:55 PM | 8/11/2026 12:02:44 PM | *(blank)* |
+| John Smith | jsmith | True | 8/11/2026 6:05:03 PM | *(blank)* | *(blank)* | IT-Admins; Domain-Users-Standard |
+| krbtgt | krbtgt | False | 6/4/2026 5:01:33 PM | 6/4/2026 5:01:33 PM | *(blank)* | Denied RODC Password Replication Group |
+| labadmin | labadmin | True | 6/4/2026 6:47:04 PM | 6/4/2026 6:47:04 PM | 8/10/2026 1:28:01 PM | Domain Admins; IT-Admins; Linux-Admins |
+| Mary Johnson | mjohnson | True | 8/11/2026 6:05:10 PM | *(blank)* | *(blank)* | IT-Admins; Domain-Users-Standard |
+| testuser01 | testuser01 | True | 6/4/2026 6:50:56 PM | 6/4/2026 6:50:56 PM | 6/6/2026 1:12:41 PM | Domain-Users-Standard |
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/02-group-and-ou-administration/10-run-get-labaccountinventory.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Get-LabAccountInventory.ps1 run from WIN11-CLIENT01 with no -ExportPath, showing all 9 user accounts in the domain with their identity, enabled state, OU placement, timestamps, and resolved group memberships.</em>
+</p>
+
+The `DistinguishedName` column, though not shown in the excerpt above, was also populated for every row, placing each account in its expected OU (`CN=Users` for the built-in `Administrator`, `Guest`, and `krbtgt` accounts, `OU=IT` for `labadmin`, and `OU=User Accounts` for `akim`, `jdoe`, `jsmith`, `mjohnson`, and `testuser01`). Group memberships were resolved for every account, and no row lists `Domain Users`, the domain's built-in primary group, confirming the primary-group exclusion filter is working as designed; the distinct, similarly-named `Domain-Users-Standard` role group (created in the enterprise infrastructure track, not the same object as the built-in primary group) correctly still appears where an account is a member of it. `LastLogonDate` is blank for `akim`, `jsmith`, `mjohnson`, and `Guest`, accounts with no recorded logon, confirming the script preserves AD's `$null` rather than substituting a placeholder value.
+
+#### Testing the -ExportPath CSV Export
+
+The script was run again, this time with `-ExportPath` supplied, to confirm the CSV export path works and produces output consistent with the console table:
+
+```powershell
+.\Get-LabAccountInventory.ps1 -ExportPath "C:\Scripts\account-inventory.csv"
+```
+
+The console output matched the first run exactly, the same 9 accounts with the same `Enabled`, `DistinguishedName`, `WhenCreated`, `PasswordLastSet`, `LastLogonDate`, and `Groups` values, followed by a confirmation line, `Report exported to 'C:\Scripts\account-inventory.csv'.` The exported file was then checked directly:
+
+```powershell
+Import-Csv "C:\Scripts\account-inventory.csv"
+```
+
+This returned the same 9 records with identical values to the console table for every field. The two fields most likely to behave unexpectedly through `Export-Csv`, held up correctly: `PasswordLastSet` and `LastLogonDate` remained genuinely blank for `akim`, `Guest`, `jsmith`, and `mjohnson` (`krbtgt`'s `LastLogonDate` also stayed blank), rather than appearing as a literal `NULL` or empty-string artifact, and `Groups`, a single delimited field, stayed intact as one `"; "`-joined value per account (for example, `akim`'s `Groups` field still reads `IT-Admins; Domain-Users-Standard; Linux-Admins`) rather than being split across columns. `jdoe`'s `Groups` field was blank in both the console and the CSV, consistent with `jdoe` having no group memberships beyond the excluded primary group.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/02-group-and-ou-administration/11-run-get-labaccountinventory-exportpath.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Get-LabAccountInventory.ps1 run with -ExportPath, showing the console table followed by the export confirmation line, and Import-Csv against the resulting file returning the same 9 records with matching data.</em>
+</p>
+
+This confirms `Export-Csv` is writing the same report data reflected in the console, not a stale or differently-scoped copy, and that the two fields specific to this script, `LastLogonDate` and the joined `Groups` string, survive the round trip to CSV intact.
 
 ### Step Five - Run All Three Scripts and Validate Against Known State
 
