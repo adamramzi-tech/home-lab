@@ -71,7 +71,7 @@ Each script is documented with purpose, usage, parameters, expected output, and 
 | Lab | Status |
 |---|---|
 | 01 - User Lifecycle Automation | Complete |
-| 02 - Group and OU Administration | Planned |
+| 02 - Group and OU Administration | Complete |
 | 03 - Group Policy Reporting and Audit | Planned |
 | 04 - Cross-Platform Validation | Planned |
 | 05 - Scheduled Health Reporting | Planned |

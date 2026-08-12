@@ -12,7 +12,7 @@ The project is organized into five tracks:
 - **Cloud and Hybrid Identity** - Entra ID, Microsoft Entra Connect, and hybrid identity architecture *(planned)*
 - **Network Infrastructure** - Perimeter firewall, VLAN segmentation, access control policy, and network-layer security *(planned)*
 
-The Linux and enterprise infrastructure tracks are completed and fully documented. The infrastructure automation and scripting track is in progress, with Lab 01 (User Lifecycle Automation) complete. The remaining two tracks are planned and will be implemented sequentially as documented in [ADR-014](docs/architecture/decisions/014-establish-long-term-infrastructure-expansion-roadmap.md).
+The Linux and enterprise infrastructure tracks are completed and fully documented. The infrastructure automation and scripting track is in progress, with Lab 01 (User Lifecycle Automation) and Lab 02 (Group and OU Administration) complete. The remaining two tracks are planned and will be implemented sequentially as documented in [ADR-014](docs/architecture/decisions/014-establish-long-term-infrastructure-expansion-roadmap.md).
 
 ---
 
@@ -73,6 +73,8 @@ The Windows 11 workstation serves as the primary management endpoint and virtual
 - `New-LabUser.ps1` and `Remove-LabUser.ps1`: PowerShell scripts run from WIN11-CLIENT01 via RSAT, provisioning and offboarding Active Directory users end to end, including optional `Linux-Admins` access validated over SSH against Ubuntu Server
 - both scripts self-validate by querying Active Directory back after execution rather than trusting cmdlet exit codes
 - cross-platform identity chain (AD → SSSD → PAM → SSH) proven in both directions against a live test account (`jdoe`)
+- `Add-LabGroupMembers.ps1`, `Get-LabOUReport.ps1`, and `Get-LabAccountInventory.ps1`: PowerShell scripts run from WIN11-CLIENT01, covering CSV-driven bulk group membership with a partial-success batch model, per-OU user/computer census reporting, and full account inventory reporting with resolved group memberships
+- every script's reported result independently cross-checked against a standalone Active Directory query, not just trusted on its own self-validation
 
 ---
 
@@ -187,10 +189,11 @@ These documents live separately from the lab walkthroughs so implementation deta
 | Lab | Focus Area |
 |---|---|
 | [01 - User Lifecycle Automation](docs/automation-and-scripting/01-user-lifecycle-automation.md) | `New-LabUser.ps1` and `Remove-LabUser.ps1`: scripted AD user provisioning and offboarding with OU placement, group assignment, self-validation, and cross-platform SSH access validation on Ubuntu Server |
+| [02 - Group and OU Administration](docs/automation-and-scripting/02-group-and-ou-administration.md) | `Add-LabGroupMembers.ps1`, `Get-LabOUReport.ps1`, and `Get-LabAccountInventory.ps1`: CSV-driven bulk group membership with a partial-success batch model, per-OU user/computer census reporting, and full account inventory reporting, each independently cross-checked against standalone AD queries |
 
 #### Planned Labs
 
-See the [Automation and Scripting Track README](docs/automation-and-scripting/README.md) for the full lab sequence (Group and OU Administration, Group Policy Reporting and Audit, Cross-Platform Validation, Scheduled Health Reporting).
+See the [Automation and Scripting Track README](docs/automation-and-scripting/README.md) for the full lab sequence (Group Policy Reporting and Audit, Cross-Platform Validation, Scheduled Health Reporting).
 
 ---
 
@@ -348,6 +351,10 @@ Completed:
 - cross-platform identity chain (AD group membership → SSSD resolution → PAM authorization → SSH) validated in both directions against a real account
 - SSSD cache behavior documented: a negative-cache entry for a never-resolved new account required a full `systemctl restart sssd` rather than `sss_cache -u`; post-offboarding cache updates were observed to apply per-attribute rather than atomically per-account
 - [ADR-016](docs/architecture/decisions/016-run-automation-scripts-from-domain-joined-client.md) established WIN11-CLIENT01, not DC01, as the standing execution endpoint for all scripts in this track
+- `Add-LabGroupMembers.ps1` authored and run from WIN11-CLIENT01: CSV-driven bulk group membership additions grouped by target group, per-member pre-validation before `Add-ADGroupMember` is called (confirmed via live diagnostic that the cmdlet validates its `-Members` array atomically), and a partial-success batch model proven with a real negative test (an invalid account excluded and reported while a valid account in the same batch still succeeded)
+- `Get-LabOUReport.ps1` authored and run from WIN11-CLIENT01: per-OU user and computer census using `-SearchScope OneLevel`, correctly enumerating all 5 OUs in the domain including the built-in `Domain Controllers` OU, with console output and optional `-ExportPath` CSV export confirmed to match exactly
+- `Get-LabAccountInventory.ps1` authored and run from WIN11-CLIENT01: full domain account inventory with resolved group memberships, reusing `Remove-LabUser.ps1`'s primary-group exclusion pattern, blank `LastLogonDate` values preserved rather than substituted, and console output and optional `-ExportPath` CSV export confirmed to match exactly
+- every script's reported result independently cross-checked against a standalone AD query run outside of any script (`Get-ADGroupMember`, `Get-ADUser`/`Get-ADComputer`, `Get-ADPrincipalGroupMembership`), rather than relying solely on each script's own internal self-validation
 
 ---
 
