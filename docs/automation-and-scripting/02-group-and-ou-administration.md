@@ -2,7 +2,7 @@
 
 ## Status
 
-- In progress. Step One (test account provisioning) is complete: `jsmith`, `mjohnson`, and `akim` were provisioned via `New-LabUser.ps1` and all four validation checks passed for each account. Step Two (`Add-LabGroupMembers.ps1`) is complete: the open question on `Add-ADGroupMember`'s handling of an invalid member was verified against live AD behavior, the script's design was finalized incorporating that finding, the script was created on WIN11-CLIENT01 (`C:\Scripts\Add-LabGroupMembers.ps1`), a live run against `members.csv` successfully added `jsmith` and `mjohnson` to `IT-Admins` and `akim` to `Linux-Admins` with all three post-add checks returning PASS, and a second run against a deliberately invalid CSV confirmed the partial-success batch model holds end to end (the invalid member was excluded and reported, while the valid member in the same batch was still added). Steps Three through Five have not yet started.
+- In progress. Step One (test account provisioning) is complete: `jsmith`, `mjohnson`, and `akim` were provisioned via `New-LabUser.ps1` and all four validation checks passed for each account. Step Two (`Add-LabGroupMembers.ps1`) is complete: the open question on `Add-ADGroupMember`'s handling of an invalid member was verified against live AD behavior, the script's design was finalized incorporating that finding, the script was created on WIN11-CLIENT01 (`C:\Scripts\Add-LabGroupMembers.ps1`), a live run against `members.csv` successfully added `jsmith` and `mjohnson` to `IT-Admins` and `akim` to `Linux-Admins` with all three post-add checks returning PASS, and a second run against a deliberately invalid CSV confirmed the partial-success batch model holds end to end (the invalid member was excluded and reported, while the valid member in the same batch was still added). Step Three (`Get-LabOUReport.ps1`) is complete: the script's design was finalized following the planning-phase logic (OU enumeration via `Get-ADOrganizationalUnit`, per-OU user/computer counts via `-SearchScope OneLevel`, console table plus optional CSV export), the script was created on WIN11-CLIENT01 (`C:\Scripts\Get-LabOUReport.ps1`), a first live run against the console correctly reported all 5 OUs in the domain, including the built-in `Domain Controllers` OU, with per-OU user and computer counts matching the environment's known state, and a second run with `-ExportPath` confirmed the CSV export matches the console output exactly. Steps Four and Five have not yet started.
 
 ---
 
@@ -366,7 +366,9 @@ This confirms the partial-success batch model from the Design Decisions section 
 
 ### Step Three - Build Get-LabOUReport.ps1
 
-Planned parameter structure:
+#### Script Implementation
+
+`Get-LabOUReport.ps1` is read-only: unlike `Add-LabGroupMembers.ps1`, it makes no changes to Active Directory, so there is no PASS/FAIL validation model here, only status messages while it runs and a table (plus optional CSV) as output, consistent with the reporting-output convention in the Design Decisions section. The parameter block matches the planning-stage design, a single optional `-ExportPath`:
 
 ```powershell
 [CmdletBinding()]
@@ -374,9 +376,114 @@ param (
     [Parameter(Mandatory = $false)]
     [string]$ExportPath
 )
+
+Import-Module ActiveDirectory
 ```
 
-Planned logic: enumerate every OU under the domain with `Get-ADOrganizationalUnit -Filter *`, and for each OU, count user objects (`Get-ADUser -SearchBase <OU> -SearchScope OneLevel -Filter *`) and computer objects (`Get-ADComputer -SearchBase <OU> -SearchScope OneLevel -Filter *`) directly within it. `-SearchScope OneLevel` is the deliberate choice here rather than the cmdlet's `Subtree` default: the current OU structure is flat (no nested OUs beneath `IT`, `User Accounts`, `Workstations`, or `Groups`), so `OneLevel` and `Subtree` would return identical counts today, but writing the report against `OneLevel` per OU now means it will still report accurately, rather than silently rolling child-OU counts into a parent's total, if the structure is ever nested later. Output is a table of OU name, distinguished name, user count, and computer count, written to console and optionally to CSV via `-ExportPath`.
+Every OU in the domain is enumerated with `Get-ADOrganizationalUnit -Filter *`, no `-SearchBase` is needed since the goal is every OU, not a subset. `Get-ADOrganizationalUnit` does not guarantee return order, so the result is piped through `Sort-Object Name` to keep the report's row order stable and alphabetical:
+
+```powershell
+Write-Host "Enumerating organizational units under corp.home.arpa..." -ForegroundColor Cyan
+
+$ous = Get-ADOrganizationalUnit -Filter * | Sort-Object Name
+
+Write-Host "Found $($ous.Count) OU(s). Counting user and computer objects per OU (SearchScope OneLevel)..." -ForegroundColor Cyan
+```
+
+For each OU, `Get-ADUser` and `Get-ADComputer` are queried with `-SearchBase` set to that OU's distinguished name and `-SearchScope OneLevel`, rather than the cmdlets' `Subtree` default. The current OU structure (`IT`, `User Accounts`, `Workstations`, `Groups`) is flat, so `OneLevel` and `Subtree` return identical counts today, but `OneLevel` means each OU's row reflects only objects directly inside it. If an OU is ever nested under another later, `Subtree` would silently fold the child OU's objects into the parent's count; `OneLevel` keeps each row accurate to what is actually placed in that specific OU. Each `Get-ADUser`/`Get-ADComputer` call is wrapped in `@(...)` before `.Count` is read, so an OU with zero matching objects reports `0` reliably rather than depending on how PowerShell handles `.Count` on a `$null` result:
+
+```powershell
+$report = foreach ($ou in $ous) {
+    $userCount = @(Get-ADUser -SearchBase $ou.DistinguishedName -SearchScope OneLevel -Filter *).Count
+    $computerCount = @(Get-ADComputer -SearchBase $ou.DistinguishedName -SearchScope OneLevel -Filter *).Count
+
+    [PSCustomObject]@{
+        Name              = $ou.Name
+        DistinguishedName = $ou.DistinguishedName
+        UserCount         = $userCount
+        ComputerCount     = $computerCount
+    }
+}
+```
+
+The report prints to the console as a table by default, and is additionally written to CSV via `Export-Csv` if `-ExportPath` is supplied:
+
+```powershell
+$report | Format-Table -AutoSize
+
+if ($ExportPath) {
+    $report | Export-Csv -Path $ExportPath -NoTypeInformation
+    Write-Host "Report exported to '$ExportPath'." -ForegroundColor Green
+}
+```
+
+#### Creating the Script on WIN11-CLIENT01
+
+With the design and implementation above finalized, the script was created in `C:\Scripts` on WIN11-CLIENT01, the same execution environment used for the other scripts in this track, consistent with the execution-location convention established in [ADR-016](../architecture/decisions/016-run-automation-scripts-from-domain-joined-client.md). It was pasted into a new file in the editor and saved as `C:\Scripts\Get-LabOUReport.ps1`, alongside `New-LabUser.ps1`, `Remove-LabUser.ps1`, and `Add-LabGroupMembers.ps1`.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/02-group-and-ou-administration/06-create-get-labouereport.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Get-LabOUReport.ps1 open in the editor on WIN11-CLIENT01 and saved to C:\Scripts, shown alongside the other scripts and CSV files from Step Two in the directory listing.</em>
+</p>
+
+The finalized script is also saved to `infrastructure/automation-and-scripting/group-and-ou-administration/Get-LabOUReport.ps1` in the repository's script library.
+
+#### Running Get-LabOUReport.ps1 Against the Live Environment
+
+The script was run from `C:\Scripts` on WIN11-CLIENT01, with no `-ExportPath`, so the report was written to the console only:
+
+```powershell
+.\Get-LabOUReport.ps1
+```
+
+The script ran end to end with no errors, reporting 5 OU(s):
+
+| Name | DistinguishedName | UserCount | ComputerCount |
+|---|---|---|---|
+| Domain Controllers | `OU=Domain Controllers,DC=corp,DC=home,DC=arpa` | 0 | 1 |
+| Groups | `OU=Groups,DC=corp,DC=home,DC=arpa` | 0 | 0 |
+| IT | `OU=IT,DC=corp,DC=home,DC=arpa` | 1 | 0 |
+| User Accounts | `OU=User Accounts,DC=corp,DC=home,DC=arpa` | 5 | 0 |
+| Workstations | `OU=Workstations,DC=corp,DC=home,DC=arpa` | 0 | 2 |
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/02-group-and-ou-administration/07-run-get-labouereport.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Get-LabOUReport.ps1 run from WIN11-CLIENT01 with no -ExportPath, showing all 5 OUs in the domain sorted alphabetically with their per-OU user and computer counts.</em>
+</p>
+
+The result matched what was independently expected from the environment's known state: `IT` holding `labadmin` (1 user), `User Accounts` holding `testuser01`, the disabled `jdoe`, and the three Step One accounts `jsmith`/`mjohnson`/`akim` (5 users), `Workstations` holding the `WIN11-CLIENT01` and Ubuntu Server computer objects (2 computers) with no users, `Groups` holding neither users nor computers since it only contains group objects that this script does not count, and the built-in `Domain Controllers` OU, not one of the four custom OUs but a real OU nonetheless, correctly appearing with DC01's computer object (1 computer). Sorting by `Name` produced the alphabetical row order seen above rather than whatever order `Get-ADOrganizationalUnit` returned OUs in. This confirms the `-SearchScope OneLevel` design reports each OU's directly-contained objects correctly, and that `Get-ADOrganizationalUnit -Filter *` was right to enumerate every OU in the domain rather than only the four created by hand in the enterprise infrastructure track.
+
+#### Testing the -ExportPath CSV Export
+
+The script was run again, this time with `-ExportPath` supplied, to confirm the CSV export path works and produces output consistent with the console table:
+
+```powershell
+.\Get-LabOUReport.ps1 -ExportPath "C:\Scripts\ou-report.csv"
+```
+
+The console output matched the first run exactly, the same 5 OUs with the same `UserCount`/`ComputerCount` values, followed by a confirmation line, `Report exported to 'C:\Scripts\ou-report.csv'.` The exported file was then checked directly:
+
+```powershell
+Import-Csv "C:\Scripts\ou-report.csv"
+```
+
+This returned the same 5 rows with identical `Name`, `DistinguishedName`, `UserCount`, and `ComputerCount` values as the console table, `Domain Controllers` 0/1, `Groups` 0/0, `IT` 1/0, `User Accounts` 5/0, `Workstations` 0/2.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/02-group-and-ou-administration/08-run-get-labouereport-exportpath.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Get-LabOUReport.ps1 run with -ExportPath, showing the console table, the export confirmation line, and Import-Csv against the resulting file returning matching data.</em>
+</p>
+
+This confirms `Export-Csv` is writing the same report data reflected in the console, not a stale or differently-scoped copy, closing out the last untested part of the script's design.
 
 ### Step Four - Build Get-LabAccountInventory.ps1
 
