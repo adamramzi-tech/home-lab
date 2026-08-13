@@ -2,9 +2,9 @@
 
 ## Status
 
-- Planning and research phase
+- Implementation in progress
 
-This lab is scoped and researched but not yet implemented. The sections below describe the intended work in forward-looking terms: the tooling this lab will introduce, the standard it will establish for the script library, and the plan for retrofitting the existing Lab 01 and Lab 02 scripts. Implementation, validation, troubleshooting, and outcome content will be added as the work is actually performed, in the same lifecycle order the previous labs in this track followed. The decision to adopt this tooling and to place it here in the sequence is recorded in [ADR-017](../architecture/decisions/017-adopt-powershell-static-analysis-and-unit-testing.md).
+Step One (install PSScriptAnalyzer and baseline the script library) is complete. Steps Two through Five remain. Completed steps below are rewritten in past tense with actual results as they are performed; steps not yet reached remain in the forward-looking planning language established during the research phase, in the same lifecycle order the previous labs in this track followed. The decision to adopt this tooling and to place it here in the sequence is recorded in [ADR-017](../architecture/decisions/017-adopt-powershell-static-analysis-and-unit-testing.md).
 
 ---
 
@@ -114,18 +114,57 @@ Unlike every prior lab in the track, this lab does not query or modify DC01 when
 
 ---
 
-## Implementation Plan
-
-*(Titled "Implementation Plan" during the planning and research phase. It will be renamed to "Implementation" and rewritten in past tense as each step is actually performed, matching the workflow used in Lab 01 and Lab 02.)*
+## Implementation
 
 ### Step One - Install PSScriptAnalyzer and Baseline the Library
 
-The plan is to install PSScriptAnalyzer (`Install-Module -Name PSScriptAnalyzer`) on WIN11-CLIENT01 and run `Invoke-ScriptAnalyzer` across all five scripts to capture the initial set of findings as a starting baseline. Based on the rule set, `PSAvoidUsingWriteHost` is expected to fire on every script, since each uses `Write-Host` for its colored status output; the baseline will confirm which other rules, if any, also fire.
+PSScriptAnalyzer was installed on WIN11-CLIENT01 with `Install-Module -Name PSScriptAnalyzer -Scope CurrentUser`. The install prompted twice before completing: once for PowerShellGet to install and import the NuGet provider it needs to talk to Gallery-based repositories, and once to confirm installing from PSGallery, which is untrusted by default. Both prompts were accepted.
 
 ```powershell
 Install-Module -Name PSScriptAnalyzer -Scope CurrentUser
-Invoke-ScriptAnalyzer -Path .\infrastructure\automation-and-scripting\ -Recurse
 ```
+
+Module availability was then verified:
+
+```powershell
+Get-Module -Name PSScriptAnalyzer -ListAvailable
+```
+
+This confirmed PSScriptAnalyzer 1.25.0 installed under the `CurrentUser` scope (`C:\Users\labadmin.CORP\Documents\WindowsPowerShell\Modules`), exporting `Get-ScriptAnalyzerRule`, `Invoke-ScriptAnalyzer`, and `Invoke-Formatter`.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/03-static-analysis-and-unit-testing/01-install-and-verify-psscriptanalyzer.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Install-Module -Name PSScriptAnalyzer -Scope CurrentUser completing after accepting the NuGet provider and untrusted-repository prompts, followed by Get-Module -Name PSScriptAnalyzer -ListAvailable confirming version 1.25.0 installed under the CurrentUser scope.</em>
+</p>
+
+#### Baseline Scan
+
+```powershell
+Invoke-ScriptAnalyzer -Path C:\Scripts -Recurse
+```
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/03-static-analysis-and-unit-testing/02-baseline-scan-output.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Invoke-ScriptAnalyzer -Path C:\Scripts -Recurse baseline output, showing PSAvoidUsingWriteHost findings against Add-LabGroupMembers.ps1.</em>
+</p>
+
+The baseline returned findings for a single rule, `PSAvoidUsingWriteHost` (Warning severity, always enabled), across all five scripts: 52 findings total, and no findings from any other rule.
+
+| Script | Findings | Lines |
+|---|---|---|
+| `New-LabUser.ps1` | 19 | 39, 43, 47, 50, 58, 73, 78, 82, 86, 93, 96, 101, 104, 109, 112, 118, 121, 126, 129 |
+| `Remove-LabUser.ps1` | 15 | 20, 24, 27, 31, 36, 40, 46, 51, 58, 61, 66, 71, 74, 80, 83 |
+| `Add-LabGroupMembers.ps1` | 12 | 28, 33, 37, 46, 53, 57, 71, 74, 79, 83, 91, 94 |
+| `Get-LabAccountInventory.ps1` | 3 | 30, 35, 58 |
+| `Get-LabOUReport.ps1` | 3 | 25, 29, 47 |
+
+This confirms the Design Decisions section's prediction that `PSAvoidUsingWriteHost` would fire on every script, and establishes that it is the only rule the baseline surfaces, no unapproved-verb, alias, or uninitialized-variable findings, or anything else, fired against any of the five scripts. The `PSAvoidUsingWriteHost` decision described in Design Decisions is the only finding Step Two has to resolve to bring the library to a clean pass.
 
 ### Step Two - Settle the Rule Set and Resolve Findings
 
