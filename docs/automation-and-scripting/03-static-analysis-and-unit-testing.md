@@ -4,7 +4,7 @@
 
 - Implementation in progress
 
-Step One (install PSScriptAnalyzer and baseline the script library) is complete. Steps Two through Five remain. Completed steps below are rewritten in past tense with actual results as they are performed; steps not yet reached remain in the forward-looking planning language established during the research phase, in the same lifecycle order the previous labs in this track followed. The decision to adopt this tooling and to place it here in the sequence is recorded in [ADR-017](../architecture/decisions/017-adopt-powershell-static-analysis-and-unit-testing.md).
+Step One (install PSScriptAnalyzer and baseline the script library) and Step Two (resolve `PSAvoidUsingWriteHost` and bring the library to a clean pass) are complete. Steps Three through Five remain. Completed steps below are rewritten in past tense with actual results as they are performed; steps not yet reached remain in the forward-looking planning language established during the research phase, in the same lifecycle order the previous labs in this track followed. The decision to adopt this tooling and to place it here in the sequence is recorded in [ADR-017](../architecture/decisions/017-adopt-powershell-static-analysis-and-unit-testing.md).
 
 ---
 
@@ -168,7 +168,43 @@ This confirms the Design Decisions section's prediction that `PSAvoidUsingWriteH
 
 ### Step Two - Settle the Rule Set and Resolve Findings
 
-The plan is to resolve the `PSAvoidUsingWriteHost` decision described in the Design Decisions section (documented suppression versus migration to `Write-Information`), capture the agreed rule set in `PSScriptAnalyzerSettings.psd1`, and resolve or justify every remaining finding until the library passes cleanly against that settings file. Any suppression will carry a written justification so a turned-off rule is an explicit, reviewable choice.
+The `PSAvoidUsingWriteHost` decision described in Design Decisions was resolved in favor of a documented suppression, not a migration to `Write-Information`. The colored PASS/FAIL/ABORT status lines are intentional operator-facing display, not pipeline data; the scripts' actual report data flows through the pipeline and `Export-Csv`, and the status lines are feedback only. The scripts target Windows PowerShell 5.1, where `Write-Host` writes to the information stream (stream 6) and is therefore capturable and redirectable, so the rule's core objection, that `Write-Host` output "cannot be suppressed, captured, or redirected," applies only prior to PS 5.0, per the rule's own message. Migrating to `Write-Information` was considered and rejected: it is silent by default (requires `-InformationAction Continue` or `$InformationPreference = 'Continue'`) and carries no `-ForegroundColor`, which would degrade the operator experience for no practical gain.
+
+The agreed rule set was captured in `PSScriptAnalyzerSettings.psd1`, committed to the repository at `infrastructure/automation-and-scripting/`. It excludes only `PSAvoidUsingWriteHost`, with the reasoning above recorded as a comment directly in the file; every other default PSScriptAnalyzer rule remains active.
+
+```powershell
+@{
+    ExcludeRules = @(
+        'PSAvoidUsingWriteHost'
+    )
+}
+```
+
+A copy was placed in `C:\Scripts` on WIN11-CLIENT01 so it could be used with the live scan.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/03-static-analysis-and-unit-testing/03-settings-file-placed-in-scripts.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>PSScriptAnalyzerSettings.psd1, with the PSAvoidUsingWriteHost exclusion and its written justification, placed in C:\Scripts alongside the script library.</em>
+</p>
+
+The library was re-scanned against the pinned settings file:
+
+```powershell
+Invoke-ScriptAnalyzer -Path C:\Scripts -Settings C:\Scripts\PSScriptAnalyzerSettings.psd1 -Recurse
+```
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/03-static-analysis-and-unit-testing/04-clean-rescan-output.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Invoke-ScriptAnalyzer re-run with -Settings pointed at PSScriptAnalyzerSettings.psd1, returning to the prompt with no output: a clean pass across all five scripts.</em>
+</p>
+
+The command returned no output, confirming a clean pass: with `PSAvoidUsingWriteHost` excluded, zero findings remain against any of the five scripts under the pinned rule set. This resolves the lab's central design decision and gives the library a clean, reproducible baseline to build the Pester suite against in Steps Three and Four.
 
 ### Step Three - Install Pester and Test the Lab 01 Scripts
 
