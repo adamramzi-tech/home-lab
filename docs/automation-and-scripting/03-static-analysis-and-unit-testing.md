@@ -4,7 +4,7 @@
 
 - Implementation in progress
 
-Step One (install PSScriptAnalyzer and baseline the script library) and Step Two (resolve `PSAvoidUsingWriteHost` and bring the library to a clean pass) are complete. Steps Three through Five remain. Completed steps below are rewritten in past tense with actual results as they are performed; steps not yet reached remain in the forward-looking planning language established during the research phase, in the same lifecycle order the previous labs in this track followed. The decision to adopt this tooling and to place it here in the sequence is recorded in [ADR-017](../architecture/decisions/017-adopt-powershell-static-analysis-and-unit-testing.md).
+Step One (install PSScriptAnalyzer and baseline the script library), Step Two (resolve `PSAvoidUsingWriteHost` and bring the library to a clean pass), and Step Three (install Pester and test the Lab 01 scripts) are complete. Steps Four and Five remain. Completed steps below are rewritten in past tense with actual results as they are performed; steps not yet reached remain in the forward-looking planning language established during the research phase, in the same lifecycle order the previous labs in this track followed. The decision to adopt this tooling and to place it here in the sequence is recorded in [ADR-017](../architecture/decisions/017-adopt-powershell-static-analysis-and-unit-testing.md).
 
 ---
 
@@ -76,7 +76,7 @@ ADR-017 deferred standing up CI as a larger step than the track currently needs,
 
 - PowerShell 5.1 (run from WIN11-CLIENT01, per ADR-016, though no live domain is required for this lab)
 - PSScriptAnalyzer: `Invoke-ScriptAnalyzer` for static analysis, installed from the PowerShell Gallery
-- Pester (v5 or later; current release v6): `Invoke-Pester` with `Describe`, `Context`, `It`, `Should`, and `Mock` for unit testing with mocked cmdlets
+- Pester 5.6.1, pinned via `-RequiredVersion` rather than whatever version the Gallery resolves by default: `Invoke-Pester` with `Describe`, `Context`, `It`, `Should`, and `Mock` for unit testing with mocked cmdlets
 - `PSScriptAnalyzerSettings.psd1` to pin the agreed rule set
 - The existing script library from Labs 01 and 02 (`New-LabUser.ps1`, `Remove-LabUser.ps1`, `Add-LabGroupMembers.ps1`, `Get-LabOUReport.ps1`, `Get-LabAccountInventory.ps1`)
 
@@ -208,13 +208,66 @@ The command returned no output, confirming a clean pass: with `PSAvoidUsingWrite
 
 ### Step Three - Install Pester and Test the Lab 01 Scripts
 
-The plan is to install Pester (`Install-Module -Name Pester`), settle the `*.Tests.ps1` layout, and write the first unit tests for `New-LabUser.ps1` and `Remove-LabUser.ps1`. These tests will mock the Active Directory cmdlets and assert the decision branches: the duplicate and existence pre-flight checks, OU placement and group assignment, the optional `Linux-Admins` handling, and the query-back self-validation, including the failure branches that are awkward to trigger against a live domain.
+Pester was installed pinned to a specific version, 5.6.1, rather than whatever version the Gallery resolves by default:
 
 ```powershell
-Install-Module -Name Pester -Scope CurrentUser
-# Describe / Context / It / Should, with Mock Get-ADUser, Mock New-ADUser, etc.
-Invoke-Pester -Path .\infrastructure\automation-and-scripting\ -Output Detailed
+Install-Module Pester -RequiredVersion 5.6.1 -Scope CurrentUser -Force -SkipPublisherCheck
+Import-Module Pester -RequiredVersion 5.6.1 -Force
+(Get-Module Pester).Version
 ```
+
+`(Get-Module Pester).Version` confirmed `5.6.1.0` imported. Pinning mattered here specifically because this suite leans on `-ParameterFilter` scriptblocks and the `$PesterBoundParameters` variable Pester defines inside them (see below); reproducing the suite on another machine depends on that same major version being present, not on whichever version `Install-Module` would otherwise resolve.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/03-static-analysis-and-unit-testing/05-install-and-verify-pester.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Install-Module Pester -RequiredVersion 5.6.1, Import-Module Pester -RequiredVersion 5.6.1 -Force, and (Get-Module Pester).Version confirming 5.6.1.0 imported.</em>
+</p>
+
+With Pester in place, the `*.Tests.ps1` layout question left open in Design Decisions was settled in favor of colocation over a shared `tests/` subfolder: `New-LabUser.Tests.ps1` and `Remove-LabUser.Tests.ps1` were placed directly in `infrastructure/automation-and-scripting/user-lifecycle-automation/`, next to the scripts they test. Pester's discovery is recursive regardless of layout, so the choice does not affect whether `Invoke-Pester` finds the tests; colocation was chosen so a script and the suite that exercises it are visible together in the same folder rather than split across two trees.
+
+#### Proving the Harness Before Expanding
+
+Rather than writing the full suite for both scripts at once, a single smoke test was written first, for `New-LabUser.ps1` only: `Get-ADUser` mocked to throw `Microsoft.ActiveDirectory.Management.ADIdentityNotFoundException` (simulating no existing account), the script invoked with test parameters, and the test asserting only that the script did not throw and that `New-ADUser` was called once.
+
+The first run of that smoke test failed, not because the script misbehaved, but because the mock itself was miswired. `New-LabUser.ps1` calls `Get-ADUser` twice: once as a pre-flight check with no `-Properties`, and once for post-creation validation with `-Properties Enabled, DistinguishedName`. The test tried to give each call different mocked behavior by branching each mock's `-ParameterFilter` on `$PSBoundParameters.ContainsKey('Properties')`, and both mocks matched the same call. Reading Pester 5.6.1's own source (`src/functions/Mock.ps1`) established why: a `-ParameterFilter` scriptblock does not receive `$PSBoundParameters` for the call being matched; Pester defines a separate `$PesterBoundParameters` variable for that purpose. Switching both `ParameterFilter`s to `$PesterBoundParameters` fixed the smoke test, which then passed with `New-ADUser` confirmed called exactly once, and that pattern was used consistently for every `ParameterFilter` and `Should -Invoke -ParameterFilter` written afterward.
+
+#### Expanding to the Full Suite
+
+With the harness proven, each script's entire Active Directory cmdlet surface was mocked, not just the calls central to a given test: `New-LabUser.Tests.ps1` mocks `Get-ADUser` (both call shapes), `New-ADUser`, `Add-ADGroupMember`, and `Get-ADPrincipalGroupMembership`; `Remove-LabUser.Tests.ps1` mocks `Get-ADUser`, `Disable-ADAccount`, `Get-ADPrincipalGroupMembership`, and `Remove-ADPrincipalGroupMembership`. An unmocked cmdlet anywhere on the success path could either crash the test or, worse, execute for real against a live domain.
+
+Two further mocking issues surfaced while expanding the suite, both stemming from the same cause: Pester's mock proxy preserves the real cmdlet's parameter types, so a plain string the script passes is coerced into a typed Active Directory object at bind time, not left as a string.
+
+- `Add-ADGroupMember`'s `-Identity` and `-Members` are typed `ADGroup` and `ADPrincipal[]` on the real cmdlet. `Should -Invoke -ParameterFilter` checks comparing `$PesterBoundParameters['Identity']` directly against a string always failed, even though the calls were happening, because the bound value was an `ADGroup` object, not a string. Wrapping the comparison in `"$($PesterBoundParameters['Identity'])"` to force `.ToString()` resolved it; a temporary diagnostic mock that logged the bound value's type and string form to a file confirmed the object's `.ToString()` reliably reproduces the identity string it was constructed from.
+- `Remove-ADPrincipalGroupMembership`'s `-MemberOf` is typed `ADPrincipal`. The `Get-ADPrincipalGroupMembership` mock initially returned fabricated `PSCustomObject` values, and binding those to `-MemberOf` failed outright ("the adapter cannot set the value of property"), since a `PSCustomObject` does not go through the same identity-type conversion a plain string does. Casting the group's distinguished name to a real `ADPrincipal` instance first, then adding `DistinguishedName`/`Name` note properties for the script's own filtering and narration to read, produced an object that bound without error. A second, related issue followed: those note-property overrides did not survive parameter binding, because the value actually bound to `-MemberOf` is a freshly reconstructed object built from the identity string, not the specific instance the mock returned. `.ToString()` on the bound value did reliably reproduce the full distinguished name, so `Should -Invoke -ParameterFilter` checks against `-MemberOf` compare against `"$($PesterBoundParameters['MemberOf'])"` rather than a property on the bound object.
+
+A smaller issue affected the pre-flight negative tests for `Remove-LabUser.ps1`: `Should -Invoke -Times 0` against `Disable-ADAccount` and `Remove-ADPrincipalGroupMembership` threw `Could not find Mock for command ... in script scope` until those two commands had at least a default `Mock` registered somewhere in scope. Pester requires a registered mock to exist for a command before `Should -Invoke` can assert anything about it, including that it was never called; both mocks were moved to the `Describe`-level `BeforeEach` shared by every test in the file.
+
+#### Result
+
+Both suites were run from WIN11-CLIENT01 against the synced copies in `C:\Scripts`, and the repository copies were kept in sync with each iteration.
+
+| Test file | Tests | Result |
+|---|---|---|
+| `New-LabUser.Tests.ps1` | 12 | 12 passed, 0 failed |
+| `Remove-LabUser.Tests.ps1` | 10 | 10 passed, 0 failed |
+| **Total** | **22** | **22 passed, 0 failed** |
+
+```powershell
+Invoke-Pester -Path C:\Scripts\New-LabUser.Tests.ps1, C:\Scripts\Remove-LabUser.Tests.ps1 -Output Detailed
+```
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/03-static-analysis-and-unit-testing/06-full-test-suite-passing-output.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Tail of the combined run against both test files: Tests Passed: 22, Failed: 0, Skipped: 0, Inconclusive: 0, NotRun: 0.</em>
+</p>
+
+Each suite asserts its script's decision logic, not which PASS/FAIL line the script prints for a given result: the pre-flight duplicate/not-found/error branches, the parameters passed to `New-ADUser`, role-group and `Linux-Admins` assignment, primary-group exclusion during removal, and that both scripts re-query Active Directory after writing rather than trusting the write cmdlets' own success. `Write-Host` was not mocked, per this lab's testing approach, so the scripts' colored narration prints during every test run; which specific PASS/FAIL line each query-back branch selects remains covered only by the live-environment validation in Lab 01, not by this suite.
 
 ### Step Four - Test the Lab 02 Scripts
 
@@ -273,6 +326,7 @@ The plan is to run `Invoke-ScriptAnalyzer` and `Invoke-Pester` across the whole 
 
 - [Pester quick start](https://pester.dev/docs/quick-start) - confirms the `*.Tests.ps1` convention and the `Describe`, `Context`, `It`, and `Should` keywords, and that tests run with `Invoke-Pester`; the basis for this lab's unit-testing steps
 - [Pester mocking](https://pester.dev/docs/usage/mocking) - the `Mock` keyword used to replace the Active Directory cmdlets so the tests run without a live domain, the approach chosen in the Design Decisions section
+- [Pester `Mock.ps1` source (GitHub)](https://github.com/pester/Pester/blob/main/src/functions/Mock.ps1) - confirms that a `-ParameterFilter` scriptblock receives `$PesterBoundParameters`, not `$PSBoundParameters`, for the call being matched; consulted directly in Step Three after `$PSBoundParameters`-based filters matched the wrong mocked behavior
 
 **Repository reference**
 
