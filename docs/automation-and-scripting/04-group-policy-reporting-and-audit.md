@@ -44,7 +44,7 @@ That validation was a single manual checkpoint. Nothing in the environment curre
 
 This lab also continues a pattern the track depends on. Lab 02 established the reporting shape this track expects later labs to reuse: a formatted console table by default, with an optional CSV export for point-in-time record keeping. This lab reuses that shape for its tabular reports and extends it to Group Policy, and Lab 06 (Scheduled Health Reporting) is expected to fold GPO and RSoP state into a scheduled report built on the same reporting precedent. Getting the Group Policy reporting shape right here gives that later lab a pattern to follow rather than one to invent.
 
-It is also the first administrative lab to follow Lab 03's testing standard. Where Labs 01 and 02 were proven by a single live run and are being retrofitted with tests in Lab 03, this lab's scripts carry Pester tests of their decision logic from the outset, so a later change to a reused pattern cannot silently break them without a test failing.
+It is also the first administrative lab to follow Lab 03's testing standard. Where Labs 01 and 02 were proven by a single live run and were retrofitted with tests in Lab 03, this lab's scripts carry Pester tests of their decision logic from the outset, so a later change to a reused pattern cannot silently break them without a test failing.
 
 ---
 
@@ -137,7 +137,7 @@ The inventory and link reports are directory-side: they query GPO objects and OU
 
 *(Titled "Implementation Plan" during the planning and research phase. It will be renamed to "Implementation" and rewritten in past tense as each step is actually performed, matching the workflow used in Lab 01 and Lab 02.)*
 
-Per the Lab 03 standard, each script built in the steps below is written to pass PSScriptAnalyzer and is accompanied by Pester tests of its decision logic. That analysis and test coverage is treated as part of building each script, alongside the live validation in Step Five, not as separate later work.
+Per the standard Lab 03 established, each script built in the steps below is analyzed against the committed `PSScriptAnalyzerSettings.psd1` and accompanied by a colocated `*.Tests.ps1` running under Pester 5.6.1, covering whatever decision logic the script has (see Step Four for how this applies to the RSoP script, which has little). That analysis and test coverage is treated as part of building each script, alongside the live validation in Step Five, not as separate later work.
 
 ### Step One - Confirm the Group Policy Module and Establish the Known-Good Baseline
 
@@ -181,6 +181,8 @@ Get-GPResultantSetOfPolicy -ReportType Html -Path "C:\Scripts\rsop-testuser01.ht
 # independent cross-check / fallback:
 # gpresult /r    and    gpresult /h C:\Scripts\rsop-testuser01-gpresult.html
 ```
+
+The two directory-side reporting scripts have substantial decision logic to unit-test (enumeration, per-OU counting, sorting, the `-ExportPath` branch), and their Pester coverage matches what Lab 02's reporting scripts received. `Get-LabRSoPReport.ps1` is different: it is largely a thin wrapper that hands `-User`, `-Computer`, and `-Path` to `Get-GPResultantSetOfPolicy` and writes the report file, so there is little branching to assert against mocks. Its Pester coverage is therefore limited to the parameter and output-path logic it does have, and its real proof is the live `gpresult` cross-check in Step Five, not a mocked unit test, the same boundary between unit-testable logic and live-validated behavior that Lab 03 documented.
 
 ### Step Five - Run All Three Reports and Validate Against the Known Group Policy Design
 
