@@ -2,9 +2,9 @@
 
 ## Status
 
-- Implementation in progress
+Complete. The script library passes a documented `PSScriptAnalyzerSettings.psd1` standard with zero findings across all five production scripts and all five Pester test files, and carries 49 Pester unit tests (22 from Step Three, 27 from Step Four) asserting each script's decision logic against mocked Active Directory cmdlets, with no live domain contact required to run the suite. All five implementation steps are done.
 
-Step One (install PSScriptAnalyzer and baseline the script library), Step Two (resolve `PSAvoidUsingWriteHost` and bring the library to a clean pass), and Step Three (install Pester and test the Lab 01 scripts) are complete. Steps Four and Five remain. Completed steps below are rewritten in past tense with actual results as they are performed; steps not yet reached remain in the forward-looking planning language established during the research phase, in the same lifecycle order the previous labs in this track followed. The decision to adopt this tooling and to place it here in the sequence is recorded in [ADR-017](../architecture/decisions/017-adopt-powershell-static-analysis-and-unit-testing.md).
+Step One (install PSScriptAnalyzer and baseline the script library), Step Two (resolve `PSAvoidUsingWriteHost` and bring the library to a clean pass), Step Three (install Pester and test the Lab 01 scripts), Step Four (test the Lab 02 scripts), and Step Five (run the full combined suite and document coverage) are complete. This document is written in past tense throughout, describing what was actually performed and observed. The decision to adopt this tooling and to place it here in the sequence is recorded in [ADR-017](../architecture/decisions/017-adopt-powershell-static-analysis-and-unit-testing.md).
 
 ---
 
@@ -39,8 +39,6 @@ It also fills a gap in the track's demonstrated skill set. A track whose entire 
 ---
 
 ## Design Decisions
-
-*(These are planning-stage decisions. They may be revised during implementation if a live diagnostic or the analyzer's actual output contradicts the reasoning here, in which case the change and its rationale will be documented in the implementation and troubleshooting sections.)*
 
 ### Mocked unit tests, not live-integration tests, for the repeatable suite
 
@@ -271,29 +269,139 @@ Each suite asserts its script's decision logic, not which PASS/FAIL line the scr
 
 ### Step Four - Test the Lab 02 Scripts
 
-The plan is to write mocked tests for the three Lab 02 scripts: `Add-LabGroupMembers.ps1` (CSV header validation, grouping by target group, and the partial-success model where an invalid member is excluded while a valid member in the same batch still succeeds), `Get-LabOUReport.ps1` (per-OU counting with `-SearchScope OneLevel` and the zero-count case), and `Get-LabAccountInventory.ps1` (primary-group exclusion and preservation of blank `LastLogonDate` values). These are the decision behaviors Lab 02 proved once by hand; the tests lock them in against regression.
+Following the colocation convention Step Three settled on, `Add-LabGroupMembers.Tests.ps1`, `Get-LabOUReport.Tests.ps1`, and `Get-LabAccountInventory.Tests.ps1` were placed directly in `infrastructure/automation-and-scripting/group-and-ou-administration/`, next to the three Lab 02 scripts they test.
+
+#### Extending the Mocking Patterns to the Lab 02 Cmdlet Surface
+
+Each script's Active Directory cmdlet surface was mocked in full, the same discipline Step Three established: `Add-LabGroupMembers.Tests.ps1` mocks `Get-ADGroup`, `Get-ADUser`, `Add-ADGroupMember`, and `Get-ADGroupMember`; `Get-LabOUReport.Tests.ps1` mocks `Get-ADOrganizationalUnit`, `Get-ADUser`, and `Get-ADComputer`; `Get-LabAccountInventory.Tests.ps1` mocks `Get-ADUser` and `Get-ADPrincipalGroupMembership`. The AD-type-coercion pattern Step Three proved against `Add-ADGroupMember`'s `-Identity`/`-Members` and `Remove-ADPrincipalGroupMembership`'s `-MemberOf` extended cleanly to the new cmdlets this step introduced: `Get-ADGroup`'s `-Identity`, `Get-ADUser`'s `-Identity`, and `Get-ADGroupMember`'s `-Identity` are all typed the same way on the real cmdlets, so every `ParameterFilter` and `Should -Invoke -ParameterFilter` against those parameters compares `"$($PesterBoundParameters['Identity'])"` rather than the bound value directly, consistent with Step Three's finding.
+
+`Get-LabOUReport.ps1` and `Get-LabAccountInventory.ps1` are read-only, unlike every script tested in Step Three, so neither suite has a write cmdlet of its own to assert against. Instead, each suite mocks a representative sample of the write cmdlets used elsewhere in the library (`New-ADUser`, `Set-ADUser`, `Add-ADGroupMember`, `Remove-ADPrincipalGroupMembership`, `Disable-ADAccount`) and asserts all five at `-Times 0`, so the "this script makes no writes" claim is actually exercised rather than assumed.
+
+#### New Ground: CSV Input and Output via TestDrive:
+
+`Add-LabGroupMembers.ps1` is the first script in the library driven by a CSV file rather than parameters directly, so its tests needed a way to supply CSV input without touching the real filesystem. Pester's `TestDrive:`, a temporary location Pester creates for the test run and cleans up automatically, was used for this: each test that needs a CSV writes one to `TestDrive:\members-<guid>.csv` and passes that path to `-CsvPath`. `Import-Csv` itself was left unmocked, since it is a built-in cmdlet operating on a real file, not an Active Directory cmdlet.
+
+`Get-LabOUReport.ps1` and `Get-LabAccountInventory.ps1` both build a `$report` variable internally but never return it to the caller, only piping it to `Format-Table` and, conditionally, `Export-Csv`. With no return value to capture, the `-ExportPath` branch (and, for `Get-LabOUReport.ps1`, the zero-count case) was asserted by always supplying `-ExportPath` pointed at a `TestDrive:` path and reading the resulting CSV back with `Import-Csv`, rather than trying to capture the console-formatted `Format-Table` output the scripts do not return.
+
+#### Troubleshooting: A Single-Row Import-Csv Collection Gotcha
+
+The first run of the full suite against the synced copies in `C:\Scripts` returned 25 passed, 2 failed, both failures in tests that read a CSV back with exactly one data row (`Get-LabOUReport.Tests.ps1`'s zero-count case and `Get-LabAccountInventory.Tests.ps1`'s primary-group-exclusion test), both failing the same assertion, `$csv.Count | Should -Be 1`, with `$csv.Count` evaluating to `$null` instead of `1`.
+
+The cause was a Windows PowerShell 5.1 behavior, not a defect in either script under test: when `Import-Csv` reads a file with exactly one data row, PowerShell assigns that single `PSCustomObject` directly to the variable rather than wrapping it in a one-element array, so `.Count` on it silently returns `$null` rather than throwing. The same run's output showed the identical underlying behavior surfacing cosmetically, and harmlessly, elsewhere: `Add-LabGroupMembers.ps1`'s own `Write-Host` narration printed "OK: CSV imported with  row(s)." and `Get-LabOUReport.ps1`'s printed "Found  OU(s)." with a blank count, whenever a mock or CSV produced exactly one row internally to those scripts, for the identical reason. Neither is a script defect; both scripts wrote and processed correct data. This is a property of how PowerShell 5.1 unwraps single-item collections on assignment, and it was never asserted on directly since these suites don't test `Write-Host` text.
+
+The fix was confined to the tests: every `Import-Csv` read-back of an exported report was wrapped in `@(...)` to force it to stay an array regardless of row count (for example, `$csv = @(Import-Csv -Path $exportPath)`), applied consistently across all four such read-backs in the two suites, not just the two that had failed, so a future single-row case does not silently break the same way. Re-running the suite after that change returned a clean pass.
+
+#### Result
+
+All three suites were run from WIN11-CLIENT01 against the synced copies in `C:\Scripts`, with the repository copies kept in sync with each iteration.
+
+| Test file | Tests | Result |
+|---|---|---|
+| `Add-LabGroupMembers.Tests.ps1` | 13 | 13 passed, 0 failed |
+| `Get-LabOUReport.Tests.ps1` | 7 | 7 passed, 0 failed |
+| `Get-LabAccountInventory.Tests.ps1` | 7 | 7 passed, 0 failed |
+| **Total** | **27** | **27 passed, 0 failed** |
+
+```powershell
+Invoke-Pester -Path C:\Scripts\Add-LabGroupMembers.Tests.ps1, C:\Scripts\Get-LabOUReport.Tests.ps1, C:\Scripts\Get-LabAccountInventory.Tests.ps1 -Output Detailed
+```
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/03-static-analysis-and-unit-testing/07-step-four-full-suite-passing-output.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Tail of the combined run against all three Step Four test files: Tests Passed: 27, Failed: 0, Skipped: 0, Inconclusive: 0, NotRun: 0.</em>
+</p>
+
+Each suite asserts its script's decision logic, not which PASS/FAIL line the script prints for a given result: `Add-LabGroupMembers.ps1`'s CSV header validation, group-existence check, and partial-success member validation; both read-only scripts' absence of any Active Directory write; `Get-LabOUReport.ps1`'s `-SearchScope OneLevel` counting and zero-count case; and `Get-LabAccountInventory.ps1`'s primary-group exclusion and blank-`LastLogonDate` preservation. As with the Step Three suites, `Write-Host` was not mocked, so each script's colored narration prints during every test run; which specific PASS/FAIL line a given query-back or validation branch selects remains covered only by the live-environment validation in Lab 02, not by this suite.
 
 ### Step Five - Run the Full Suite and Document Coverage
 
-The plan is to run `Invoke-ScriptAnalyzer` and `Invoke-Pester` across the whole library, record the results, and document explicitly which behaviors the mocked suite covers and which remain covered only by the live-environment validation in Labs 01 and 02 (real Active Directory writes, and the SSSD and PAM SSH access path proven in Lab 01). Making that boundary explicit is part of the deliverable: the suite is a regression safety net for logic, not a replacement for the live proof the earlier labs already provided.
+With the library and its test suite fully in place, the combined check was run against `C:\Scripts` in full: every `.ps1` and `.Tests.ps1` file the directory now contained, which for the first time in this lab included the two Step Three test files and the three Step Four test files alongside the five production scripts.
+
+```powershell
+Invoke-ScriptAnalyzer -Path C:\Scripts -Settings C:\Scripts\PSScriptAnalyzerSettings.psd1 -Recurse
+```
+
+This first full-library run was not the clean pass Steps One and Two had already established for the five production scripts. It returned one finding, at Error severity, against a file the earlier baseline had never scanned, because that file did not exist yet when Step Two's clean rescan was performed:
+
+| RuleName | Severity | ScriptName | Line | Message |
+|---|---|---|---|---|
+| `PSAvoidUsingConvertToSecureStringWithPlainText` | Error | `New-LabUser.Tests.ps1` | 31 | Uses `ConvertTo-SecureString` with plaintext. This will expose secure information. Encrypted standard strings should be used instead. |
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/03-static-analysis-and-unit-testing/08-full-library-analyzer-finding.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Invoke-ScriptAnalyzer run against the full contents of C:\Scripts for the first time, returning one Error-severity PSAvoidUsingConvertToSecureStringWithPlainText finding against New-LabUser.Tests.ps1, line 31.</em>
+</p>
+
+The finding was accurate: `New-LabUser.Tests.ps1`'s `BeforeAll` block built the `[SecureString]` that `New-LabUser.ps1`'s mandatory password parameter requires with `ConvertTo-SecureString 'P@ssw0rd123!' -AsPlainText -Force`, a literal password embedded directly in source, exactly the pattern the rule exists to catch. The value itself was never actually used for anything: `New-ADUser` is mocked in every test in this suite, so the plaintext string was decoration needed only to satisfy a parameter's type, not a credential guarding anything. The fix reflected that: line 31 was changed to `[System.Security.SecureString]::new()`, an empty `SecureString` with no plaintext value anywhere in the file, which satisfies the mandatory `[SecureString]` parameter identically for a script whose tests never inspect the password's actual value. The Pester suite was re-run after the change and confirmed all 49 tests still passed, unaffected by the substitution.
+
+The analyzer was then re-run against the corrected library:
+
+```powershell
+Invoke-ScriptAnalyzer -Path C:\Scripts -Settings C:\Scripts\PSScriptAnalyzerSettings.psd1 -Recurse
+```
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/03-static-analysis-and-unit-testing/09-full-library-clean-rescan.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Invoke-ScriptAnalyzer re-run against the full contents of C:\Scripts after the fix, returning to the prompt with no output: a clean pass across all five production scripts and all five test files.</em>
+</p>
+
+The command returned no output: with the finding resolved, the full contents of `C:\Scripts`, five production scripts and five test files, pass the pinned rule set cleanly. This is a broader clean pass than Step Two's, which only ever scanned the five production scripts because the test files did not yet exist at that point in the lab.
+
+With the analyzer clean, the full combined test suite was run in a single invocation:
+
+```powershell
+Invoke-Pester -Path C:\Scripts\New-LabUser.Tests.ps1, C:\Scripts\Remove-LabUser.Tests.ps1, C:\Scripts\Add-LabGroupMembers.Tests.ps1, C:\Scripts\Get-LabOUReport.Tests.ps1, C:\Scripts\Get-LabAccountInventory.Tests.ps1 -Output Detailed
+```
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/03-static-analysis-and-unit-testing/10-step-five-combined-suite-passing-output.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Tail of the combined run across all five test files: Tests Passed: 49, Failed: 0, Skipped: 0, Inconclusive: 0, NotRun: 0.</em>
+</p>
+
+All 49 tests passed: the 22 from Step Three (`New-LabUser.Tests.ps1`, `Remove-LabUser.Tests.ps1`) and the 27 from Step Four (`Add-LabGroupMembers.Tests.ps1`, `Get-LabOUReport.Tests.ps1`, `Get-LabAccountInventory.Tests.ps1`), run together in one invocation for the first time rather than as two separate per-lab runs.
+
+#### Coverage Boundary
+
+Steps Three and Four each noted, script by script, that the mocked suite does not assert which specific PASS/FAIL narration line a script prints for a given result, since `Write-Host` is never mocked. Stated once, completely, for the library as a whole, this is the boundary between what the 49 tests actually prove and what they do not.
+
+The suite is a regression net for each script's decision logic: the pre-flight duplicate/not-found/error branches, the parameters passed to the write cmdlets (`New-ADUser`, `Add-ADGroupMember`, `Remove-ADPrincipalGroupMembership`, `Disable-ADAccount`), the CSV header and partial-success batch validation in `Add-LabGroupMembers.ps1`, the `-SearchScope OneLevel` filtering in `Get-LabOUReport.ps1`, and the query-back pattern every script uses to re-read Active Directory after a write rather than trusting a cmdlet's own reported success. It runs with no live domain: every Active Directory cmdlet is mocked, so the suite is safe and fast to run repeatedly without credentials or an available DC01.
+
+It does not, and cannot, prove that a real Active Directory write actually takes effect against a live domain; that the real SSSD and PAM SSH access chain actually grants or denies a session, proven live in Lab 01; that a real Group Policy actually applies to a client, which is out of scope for this suite entirely; or which specific PASS/FAIL line a script prints for a given live result, since `Write-Host` output was deliberately left unmocked and unasserted throughout Steps Three and Four. Those remain covered only by the live-environment validation already performed in Labs 01 and 02, not by this suite, and this lab does not claim otherwise.
 
 ---
 
 ## Validation
 
-*To be completed during implementation. This section will record the actual analyzer output before and after the rule-set decision, the actual Pester run results, and confirmation that the library passes both, following the evidence-based approach used in Lab 01 and Lab 02. It will document what was observed, not what was expected.*
+- **PASS**: `Invoke-ScriptAnalyzer -Path C:\Scripts -Settings C:\Scripts\PSScriptAnalyzerSettings.psd1 -Recurse` against the full contents of `C:\Scripts` (five production scripts and five test files) initially returned one finding, `PSAvoidUsingConvertToSecureStringWithPlainText` (Error) against `New-LabUser.Tests.ps1` line 31 (Step Five)
+- **PASS**: after the finding was resolved by replacing the plaintext `ConvertTo-SecureString` call with an empty `[System.Security.SecureString]::new()`, the same command was re-run and returned no output, confirming a clean pass across the full library (Step Five)
+- **PASS**: `Invoke-Pester` run once against all five test files together (`New-LabUser.Tests.ps1`, `Remove-LabUser.Tests.ps1`, `Add-LabGroupMembers.Tests.ps1`, `Get-LabOUReport.Tests.ps1`, `Get-LabAccountInventory.Tests.ps1`) confirmed all 49 tests passing: 0 failed, 0 skipped, 0 inconclusive, 0 not run (Step Five)
+- **PASS**: the fix to `New-LabUser.Tests.ps1` did not regress any test; the combined suite was confirmed still at 49/49 after the change, not just before it (Step Five)
+
+Consistent with the rule established in Lab 01 and reaffirmed in Lab 02, neither result was trusted from a single run: the analyzer's clean pass was confirmed by re-running it after the fix rather than assuming the fix worked, and the combined Pester run was executed as one invocation across all five files rather than inferred from Steps Three and Four's separate 22 and 27 results.
 
 ---
 
 ## Troubleshooting and Adjustments
 
-*To be completed during implementation. This section will document any issues actually encountered, including the resolution of the `PSAvoidUsingWriteHost` decision and any mocking difficulties (for example, cmdlets whose behavior is hard to reproduce with a mock), the investigation performed, and the outcome.*
+**The `PSAvoidUsingWriteHost` decision (Step Two).** Every script's colored PASS/FAIL/ABORT narration triggered this rule across all five production scripts, 52 findings in the baseline. The decision, recorded in Design Decisions and resolved in Step Two, was a documented suppression rather than a migration to `Write-Information`: the status lines are intentional operator-facing display, not pipeline data, and Windows PowerShell 5.1's `Write-Host` writes to the capturable information stream rather than being genuinely unredirectable, which is the rule's actual objection. This remains the only rule excluded in `PSScriptAnalyzerSettings.psd1`.
+
+**A full-library analyzer scan is not the same thing twice if the library has grown in between (Step Five).** Steps One and Two's baseline and clean-pass scans were run before any test file existed, so "clean pass" at that point meant clean against the five production scripts only. By Step Five, `C:\Scripts` also held five `.Tests.ps1` files, and a full recursive scan against the directory's actual current contents surfaced a finding the earlier baseline had no opportunity to catch: `PSAvoidUsingConvertToSecureStringWithPlainText` against `New-LabUser.Tests.ps1`, where the test's `BeforeAll` block built a `[SecureString]` from a literal plaintext password to satisfy `New-LabUser.ps1`'s mandatory password parameter. The value was never actually used, since `New-ADUser` is mocked in every test, so the fix was straightforward once identified: replace the plaintext conversion with `[System.Security.SecureString]::new()`, an empty `SecureString` that satisfies the parameter's type without embedding a plaintext string anywhere in the file. The Pester suite was re-run after the change and confirmed unaffected, still 49 passed, 0 failed. The finding was resolved, not suppressed: no exception was added to `PSScriptAnalyzerSettings.psd1` for it, and the settings file's only exclusion remains `PSAvoidUsingWriteHost`, from Step Two.
 
 ---
 
 ## Security Considerations
-
-*(Planned security posture. Where these depend on observed behavior, they will be confirmed during implementation.)*
 
 - **No live domain, no credentials.** Because the Pester tests mock the Active Directory cmdlets, the suite touches no live directory and needs no credentials or AD privileges to run. This is a deliberate departure from the other labs in the track, and it makes the suite safe to run repeatedly without any risk to the domain.
 - **Static analysis is read-only.** `Invoke-ScriptAnalyzer` reads the script files and does not execute them or modify anything.
@@ -303,19 +411,37 @@ The plan is to run `Invoke-ScriptAnalyzer` and `Invoke-Pester` across the whole 
 
 ## Outcome
 
-*To be completed once the lab is implemented and validated. This section will summarize what was actually established: the analyzer standard, the test coverage the library now has, and the boundary between unit-tested logic and live-validated behavior.*
+The lab meets every objective set out at the start. The library now carries a reproducible, committed static-analysis standard, `PSScriptAnalyzerSettings.psd1`, with a single documented exclusion for `PSAvoidUsingWriteHost` and every other default PSScriptAnalyzer rule active, against which `Invoke-ScriptAnalyzer -Path C:\Scripts -Settings C:\Scripts\PSScriptAnalyzerSettings.psd1 -Recurse` returns a clean pass, zero findings, across all five production scripts and all five test files. It also now carries 49 Pester unit tests across all five scripts, 22 from Step Three (`New-LabUser.ps1`, `Remove-LabUser.ps1`) and 27 from Step Four (`Add-LabGroupMembers.ps1`, `Get-LabOUReport.ps1`, `Get-LabAccountInventory.ps1`), every one of them built against mocked Active Directory cmdlets so the entire suite runs on WIN11-CLIENT01 without a live domain, credentials, or any risk to `corp.home.arpa`.
+
+That suite complements, rather than replaces, the live-environment validation Labs 01 and 02 already performed. It gives the library something neither lab had before: a fast, repeatable, mock-based regression net for each script's decision logic, runnable on demand and safe to run as often as the library changes, while the proof that these scripts' effects actually hold against a real domain, and that AD group membership actually determines Linux SSH access through SSSD and PAM, remains exactly where Labs 01 and 02 already established it, in the live validation those labs performed, not reproduced or superseded here. Both categories of evidence, the mocked regression suite from this lab and the live cross-checks from Labs 01 and 02, now exist side by side, documented as covering different, complementary claims rather than the same one twice.
+
+The lab also leaves the track with a standard rather than a one-time cleanup. `PSScriptAnalyzerSettings.psd1` and the `*.Tests.ps1` colocation convention Step Three established are now the pattern Labs 04 through 06 are expected to write against from the start, as ADR-017 intended, and Step Five's own finding, that a "clean pass" taken before the test suite existed did not describe the library once the tests were added, is itself a reason those later labs should be scanned in full as they are built rather than checked once and assumed still current.
 
 ---
 
 ## Lessons Learned
 
-*To be completed once the lab is implemented. This section will capture the operational and architectural lessons actually drawn from the work, including whatever the `Write-Host` decision and the first round of mocked tests reveal about making these scripts testable.*
+**A testing framework's mocking internals are not guaranteed stable across major versions, and pinning is the only way to depend on them safely.** Pester was installed with `-RequiredVersion 5.6.1` specifically, not left to whatever version `Install-Module` would otherwise resolve, because this suite's `-ParameterFilter` scriptblocks depend on `$PesterBoundParameters`, a mechanism specific to Pester 5's internals. Letting the Gallery resolve its default would have risked landing on Pester 6 instead, a major version with substantially reworked internals, with no guarantee that the same mock-parameter-binding mechanism this suite is built on behaves identically there. Pinning the major version was the only way to make the suite's reproducibility claim, that anyone running it gets the same result, actually true.
+
+**`-ParameterFilter` scriptblocks receive `$PesterBoundParameters`, not `$PSBoundParameters`, and the two are easy to confuse.** The first smoke test written for this lab, a single mocked call against `New-LabUser.ps1`, failed on its first run because two `Get-ADUser` mocks were both written to branch on `$PSBoundParameters.ContainsKey('Properties')`, and both matched the same call regardless of which one the script actually made. Reading Pester 5.6.1's own source was what resolved it: Pester defines a separate `$PesterBoundParameters` for the call being matched inside a `-ParameterFilter`, while `$PSBoundParameters` inside that scriptblock refers to the test function's own parameters, not the mocked call's. Every `-ParameterFilter` and `Should -Invoke -ParameterFilter` written afterward, across all five test files, used `$PesterBoundParameters` consistently once this was established.
+
+**A mock proxy preserves the real cmdlet's parameter types, so a plain string a script passes does not stay a string once it is bound.** `Add-ADGroupMember`'s `-Identity` and `-Members`, `Remove-ADPrincipalGroupMembership`'s `-MemberOf`, and later `Get-ADGroup`'s, `Get-ADUser`'s, and `Get-ADGroupMember`'s `-Identity` parameters are all typed as AD object classes on the real cmdlets, not strings, so a `Should -Invoke -ParameterFilter` comparing a bound value directly against a plain string failed silently, not because the call was not happening, but because the bound value had already been coerced into a typed object by the time the filter ran. Wrapping every such comparison in `"$($PesterBoundParameters['ParameterName'])"` to force `.ToString()` was the fix, applied consistently across every parameter of this shape in every test file from Step Three onward once the pattern was understood, rather than worked around case by case.
+
+**Windows PowerShell 5.1 unwraps a single-row `Import-Csv` result instead of keeping it an array, and that is not a script defect when it happens.** Two Step Four tests failed on `$csv.Count | Should -Be 1` with `$csv.Count` evaluating to `$null`, both in cases where a CSV read back had exactly one data row. The cause was PowerShell 5.1 assigning a lone `PSCustomObject` directly to the variable rather than wrapping it in a one-element array, a behavior that also surfaced harmlessly in the scripts' own console narration (blank counts in messages like "Found  OU(s)") whenever the same single-row condition occurred internally. Neither script was wrong; the fix was confined entirely to the tests, wrapping every CSV read-back in `@(...)`, applied to all four such read-backs across both suites rather than just the two that had actually failed, so a future single-row case would not silently break the same way.
+
+**Mocking only the cmdlets a test directly asserts against is not enough; the entire cmdlet surface a script can reach has to be mocked.** Every test file in this lab mocks every Active Directory cmdlet its script calls, not just the ones central to a given test, because an unmocked cmdlet anywhere on a success path could either crash the test outright or, worse, execute for real against the live domain. This discipline, established for `New-LabUser.Tests.ps1` and `Remove-LabUser.Tests.ps1` in Step Three, was extended without exception to all three Step Four suites, including the two read-only scripts, which mock a representative sample of write cmdlets specifically so their "makes no writes" claim is asserted rather than assumed.
+
+**Proving a single smoke test before writing the full suite around it surfaces harness problems while they are still cheap to fix.** The `$PesterBoundParameters` issue above was found by a single, deliberately minimal smoke test for `New-LabUser.ps1`, written before any of the suite's other eleven tests. Finding and fixing the mocking approach's flaw at that scale, one test, one script, made every test written afterward, across all five files, correct on its first real run rather than requiring the same fix rediscovered five separate times.
+
+**An assertion that a cmdlet was never called, `Should -Invoke -Times 0`, can only be trusted if a mock for that cmdlet actually exists in scope.** The pre-flight negative tests for `Remove-LabUser.ps1` initially threw `Could not find Mock for command ... in script scope` on their `-Times 0` assertions against `Disable-ADAccount` and `Remove-ADPrincipalGroupMembership`, because Pester requires a registered mock to exist before it can assert anything about a command's call count, including zero. Moving both mocks to the `Describe`-level `BeforeEach` fixed it, and the broader habit it reinforced was pairing a positive assertion, that the happy path actually calls the cmdlet, with a negative one, that the pre-flight-failure path does not, for every write cmdlet in the library, so a `-Times 0` check could never pass simply because nothing was mocked to check against in the first place.
+
+**A standard has to be re-run against what the library actually contains now, not assumed clean from a baseline taken before the library grew.** Step Two's clean pass was real and correct at the time it was taken, but it only ever scanned the five production scripts, because the test files did not exist yet. Step Five's full recursive scan of `C:\Scripts`, run after the test suite existed, surfaced a genuine finding the Step Two baseline had no opportunity to catch: `New-LabUser.Tests.ps1` building a `SecureString` from a literal plaintext password to satisfy a mandatory parameter the mocked test never actually uses. The fix, an empty `SecureString` in place of the plaintext one, was small, but the lesson is not about that specific finding: a static-analysis standard covers what was scanned, not what was ever intended to be covered, and the library has to be re-scanned in full as it grows rather than trusting an earlier clean result to still describe its current contents.
 
 ---
 
 ## Sources
 
-*(Living research log. The references below were consulted during the planning and research phase. Deployment-stage sources will be appended as they come up during implementation and troubleshooting.)*
+Research references consulted during the planning phase of this lab, together with the sources consulted directly during implementation and troubleshooting.
 
 **PSScriptAnalyzer (Microsoft Learn)**
 

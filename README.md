@@ -6,7 +6,7 @@ A documentation-first homelab portfolio spanning Linux infrastructure, Windows e
 
 **Core stack:** Ubuntu Server, Docker, NGINX Proxy Manager, Prometheus, Grafana, Tailscale, Windows Server 2022, Active Directory, AD-integrated DNS, Group Policy, PowerShell (RSAT), SSSD and Kerberos, Wazuh SIEM.
 
-**Current focus:** Infrastructure Automation and Scripting track, PowerShell against the live `corp.home.arpa` domain. The Linux and Enterprise Infrastructure tracks are complete; Automation Labs 01 and 02 are complete, with Lab 03 in planning.
+**Current focus:** Infrastructure Automation and Scripting track, PowerShell against the live `corp.home.arpa` domain. The Linux and Enterprise Infrastructure tracks are complete; Automation Labs 01 through 03 are complete, with Lab 04 in planning.
 
 New here? Skim the [Current Environment](#current-environment) for what is running, or the [architecture decision records](docs/architecture/decisions/) for the reasoning behind it.
 
@@ -24,7 +24,7 @@ The project is organized into five tracks:
 - **Cloud and Hybrid Identity** - Entra ID, Microsoft Entra Connect, and hybrid identity architecture *(planned)*
 - **Network Infrastructure** - Perimeter firewall, VLAN segmentation, access control policy, and network-layer security *(planned)*
 
-The Linux and enterprise infrastructure tracks are completed and fully documented. The infrastructure automation and scripting track is in progress, with Lab 01 (User Lifecycle Automation) and Lab 02 (Group and OU Administration) complete. The remaining two tracks are planned and will be implemented sequentially as documented in [ADR-014](docs/architecture/decisions/014-establish-long-term-infrastructure-expansion-roadmap.md).
+The Linux and enterprise infrastructure tracks are completed and fully documented. The infrastructure automation and scripting track is in progress, with Lab 01 (User Lifecycle Automation), Lab 02 (Group and OU Administration), and Lab 03 (Static Analysis and Unit Testing) complete. The remaining two tracks are planned and will be implemented sequentially as documented in [ADR-014](docs/architecture/decisions/014-establish-long-term-infrastructure-expansion-roadmap.md).
 
 ---
 
@@ -87,6 +87,7 @@ The Windows 11 workstation serves as the primary management endpoint and virtual
 - cross-platform identity chain (AD → SSSD → PAM → SSH) proven in both directions against a live test account (`jdoe`)
 - `Add-LabGroupMembers.ps1`, `Get-LabOUReport.ps1`, and `Get-LabAccountInventory.ps1`: PowerShell scripts run from WIN11-CLIENT01, covering CSV-driven bulk group membership with a partial-success batch model, per-OU user/computer census reporting, and full account inventory reporting with resolved group memberships
 - every script's reported result independently cross-checked against a standalone Active Directory query, not just trusted on its own self-validation
+- the full five-script library passes a documented PSScriptAnalyzer standard (`PSScriptAnalyzerSettings.psd1`) with zero findings, and carries 49 Pester unit tests against mocked Active Directory cmdlets, all runnable on WIN11-CLIENT01 without a live domain
 
 ---
 
@@ -203,10 +204,11 @@ These documents live separately from the lab walkthroughs so implementation deta
 |---|---|
 | [01 - User Lifecycle Automation](docs/automation-and-scripting/01-user-lifecycle-automation.md) | `New-LabUser.ps1` and `Remove-LabUser.ps1`: scripted AD user provisioning and offboarding with OU placement, group assignment, self-validation, and cross-platform SSH access validation on Ubuntu Server |
 | [02 - Group and OU Administration](docs/automation-and-scripting/02-group-and-ou-administration.md) | `Add-LabGroupMembers.ps1`, `Get-LabOUReport.ps1`, and `Get-LabAccountInventory.ps1`: CSV-driven bulk group membership with a partial-success batch model, per-OU user/computer census reporting, and full account inventory reporting, each independently cross-checked against standalone AD queries |
+| [03 - Static Analysis and Unit Testing](docs/automation-and-scripting/03-static-analysis-and-unit-testing.md) | PSScriptAnalyzer static analysis and 49 Pester unit tests across the Lab 01 and Lab 02 script library, all mock-based and runnable without a live domain, complementing the earlier labs' live-environment validation |
 
 #### Planned Labs
 
-See the [Automation and Scripting Track README](docs/automation-and-scripting/README.md) for the full lab sequence (Static Analysis and Unit Testing, Group Policy Reporting and Audit, Cross-Platform Validation, Scheduled Health Reporting).
+See the [Automation and Scripting Track README](docs/automation-and-scripting/README.md) for the full lab sequence (Group Policy Reporting and Audit, Cross-Platform Validation, Scheduled Health Reporting).
 
 ---
 
@@ -368,6 +370,9 @@ Completed:
 - `Get-LabOUReport.ps1` authored and run from WIN11-CLIENT01: per-OU user and computer census using `-SearchScope OneLevel`, correctly enumerating all 5 OUs in the domain including the built-in `Domain Controllers` OU, with console output and optional `-ExportPath` CSV export confirmed to match exactly
 - `Get-LabAccountInventory.ps1` authored and run from WIN11-CLIENT01: full domain account inventory with resolved group memberships, reusing `Remove-LabUser.ps1`'s primary-group exclusion pattern, blank `LastLogonDate` values preserved rather than substituted, and console output and optional `-ExportPath` CSV export confirmed to match exactly
 - every script's reported result independently cross-checked against a standalone AD query run outside of any script (`Get-ADGroupMember`, `Get-ADUser`/`Get-ADComputer`, `Get-ADPrincipalGroupMembership`), rather than relying solely on each script's own internal self-validation
+- PSScriptAnalyzer and Pester 5.6.1 adopted per [ADR-017](docs/architecture/decisions/017-adopt-powershell-static-analysis-and-unit-testing.md): `PSAvoidUsingWriteHost` deliberately excluded via `PSScriptAnalyzerSettings.psd1` with a written justification, every other default rule active
+- 49 Pester unit tests authored across all five scripts (22 for the Lab 01 scripts, 27 for the Lab 02 scripts), every Active Directory cmdlet mocked so the suite runs on WIN11-CLIENT01 without a live domain or credentials
+- a full-library `Invoke-ScriptAnalyzer` scan (including the test files, not just the production scripts) surfaced a real `PSAvoidUsingConvertToSecureStringWithPlainText` finding in `New-LabUser.Tests.ps1`, resolved by switching to an empty `[System.Security.SecureString]::new()`; the library passes a clean, zero-finding scan and the combined 49-test suite still passes in full
 
 ---
 

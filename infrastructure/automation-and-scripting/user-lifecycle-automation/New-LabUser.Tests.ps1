@@ -28,7 +28,7 @@
 
 BeforeAll {
     $script:ScriptPath   = Join-Path $PSScriptRoot 'New-LabUser.ps1'
-    $script:TestPassword = ConvertTo-SecureString 'P@ssw0rd123!' -AsPlainText -Force
+    $script:TestPassword = [System.Security.SecureString]::new()
 }
 
 Describe 'New-LabUser.ps1' {
