@@ -639,7 +639,7 @@ The one objective not independently re-tested in this run is the negative case f
 
 ---
 
-## Troubleshooting
+## Troubleshooting and Adjustments
 
 **Primary group cannot be removed via `Remove-ADPrincipalGroupMembership`.** Every AD user has a primary group (Domain Users by default, RID 513). `Remove-ADPrincipalGroupMembership` cannot remove a user from their primary group and will error if asked to. An offboarding script that naively pipes every group returned by `Get-ADPrincipalGroupMembership` into removal will fail on the primary group. The intended behavior is therefore to remove *removable* security-group memberships, not literally all groups. `Remove-LabUser.ps1` implements this by capturing the account's `PrimaryGroup` distinguished name during the pre-flight query and filtering it out of the removal set with `Where-Object` before the removal loop runs, confirmed against `jdoe` in Step Seven: `Domain-Users-Standard` and `Linux-Admins` were removed while `Domain Users` was correctly left untouched.
 

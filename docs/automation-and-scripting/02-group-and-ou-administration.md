@@ -692,7 +692,7 @@ Every validation in this lab followed the same rule established in Lab 01: never
 
 ---
 
-## Troubleshooting
+## Troubleshooting and Adjustments
 
 **`Add-ADGroupMember` validates its entire `-Members` array atomically, confirmed via a live diagnostic before implementation (Step Two).** The planning phase correctly identified this as an open question rather than assuming an answer either way. A disposable test group, `Test-BulkAdd-Verify`, was used to confirm that a single invalid name in the `-Members` array blocks every valid member in that same call (`FullyQualifiedErrorId: SetADGroupMember.ValidateMembersParameter`), rather than failing only the invalid entry. `Add-LabGroupMembers.ps1` was designed around this finding from the start: each requested member is validated individually with `Get-ADUser` before being included in the `-Members` array passed to `Add-ADGroupMember`, so the cmdlet is never actually called with an invalid name in this lab. The later negative test (Step Two) confirmed the resulting design works as intended, `doesnotexist999` was filtered out before `Add-ADGroupMember` ran, and `akim`, the valid member in the same CSV batch, was still added successfully.
 
