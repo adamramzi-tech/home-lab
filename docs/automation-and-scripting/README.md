@@ -8,7 +8,7 @@ The environment built across the Linux and enterprise infrastructure tracks is f
 
 Active Directory is the center of gravity. It governs authentication across Windows and Linux systems, controls group and OU membership, and is the authoritative identity source for the environment. Automating AD administration produces compounding operational value because every other system in the environment depends on AD for identity.
 
-Docker, Linux, and Wazuh automation appear in this track where they reinforce the AD-centric story: cross-platform validation scripts confirm that AD provisioning produces the expected result on Linux, and health reporting includes Docker service state and Wazuh agent enrollment as supporting checks on the AD-dependent environment.
+Docker, Linux, and Wazuh automation appear in this track where they reinforce the AD-centric story: the user lifecycle scripts confirm that AD provisioning produces the expected result on Linux (Lab 01), and health reporting includes Docker service state and Wazuh agent enrollment as supporting checks on the AD-dependent environment.
 
 This track does not introduce new infrastructure. It deepens the operational value of infrastructure that already exists.
 
@@ -51,8 +51,7 @@ This track builds directly on the enterprise infrastructure track. The following
 | [02 - Group and OU Administration](02-group-and-ou-administration.md) | Bulk group membership management, OU reporting, and account inventory automation |
 | [03 - Static Analysis and Unit Testing](03-static-analysis-and-unit-testing.md) | PSScriptAnalyzer static analysis and Pester unit testing across the Lab 01 and Lab 02 script library, per [ADR-017](../architecture/decisions/017-adopt-powershell-static-analysis-and-unit-testing.md) |
 | [04 - Group Policy Reporting and Audit](04-group-policy-reporting-and-audit.md) | GPO inventory, RSoP reporting, and policy compliance validation scripts |
-| [05 - Cross-Platform Validation](05-cross-platform-validation.md) | End-to-end automation spanning AD provisioning and Linux SSH access validation |
-| [06 - Scheduled Health Reporting](06-scheduled-health-reporting.md) | Recurring environment health report covering AD service state, Wazuh agent enrollment, and Docker service status |
+| [05 - Scheduled Health Reporting](05-scheduled-health-reporting.md) | Recurring environment health report covering AD service state, Wazuh agent enrollment, and Docker service status |
 
 ---
 
@@ -76,8 +75,7 @@ Each script is documented with purpose, usage, parameters, expected output, and 
 | 02 - Group and OU Administration | Complete |
 | 03 - Static Analysis and Unit Testing | Complete |
 | 04 - Group Policy Reporting and Audit | Complete |
-| 05 - Cross-Platform Validation | Planned |
-| 06 - Scheduled Health Reporting | Planned |
+| 05 - Scheduled Health Reporting | Planned |
 
 ---
 
@@ -85,8 +83,8 @@ Each script is documented with purpose, usage, parameters, expected output, and 
 
 This track is considered complete when:
 
-- a new user can be fully provisioned in AD, assigned to the correct groups and OU, and validated for Linux SSH access by running a single script
-- an existing user can be offboarded cleanly, disabled in AD, removed from relevant groups, and confirmed denied on Linux by running a single script
+- a new user can be fully provisioned in AD, assigned to the correct groups and OU, by running a single script, with the resulting Linux SSH access demonstrated against Ubuntu Server (Lab 01)
+- an existing user can be offboarded cleanly, disabled in AD, and removed from relevant groups by running a single script, with the resulting loss of Linux SSH access demonstrated against Ubuntu Server (Lab 01)
 - GPO state and RSoP compliance can be reported on demand without manual intervention
 - a scheduled job produces a regular health report covering AD service state, Wazuh agent enrollment, and Docker service status
 - all scripts are documented to lab standard: purpose, usage, parameters, expected output, and validation steps

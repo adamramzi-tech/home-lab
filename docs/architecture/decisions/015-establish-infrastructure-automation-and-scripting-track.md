@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted (cross-platform validation scope amended by [ADR-018](018-retire-cross-platform-validation-lab.md))
 
 ## Date
 

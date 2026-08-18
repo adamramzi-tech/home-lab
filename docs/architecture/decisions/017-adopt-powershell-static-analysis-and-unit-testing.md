@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted (lab numbering amended by [ADR-018](018-retire-cross-platform-validation-lab.md))
 
 ## Date
 

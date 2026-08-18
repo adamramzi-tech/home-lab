@@ -6,7 +6,7 @@ A documentation-first homelab portfolio spanning Linux infrastructure, Windows e
 
 **Core stack:** Ubuntu Server, Docker, NGINX Proxy Manager, Prometheus, Grafana, Tailscale, Windows Server 2022, Active Directory, AD-integrated DNS, Group Policy, PowerShell (RSAT), SSSD and Kerberos, Wazuh SIEM.
 
-**Current focus:** Infrastructure Automation and Scripting track, PowerShell against the live `corp.home.arpa` domain. The Linux and Enterprise Infrastructure tracks are complete; Automation Labs 01 through 04 are complete, with Lab 05 in planning.
+**Current focus:** Infrastructure Automation and Scripting track, PowerShell against the live `corp.home.arpa` domain. The Linux and Enterprise Infrastructure tracks are complete; Automation Labs 01 through 04 are complete, with Scheduled Health Reporting (Lab 05) the remaining planned lab.
 
 New here? Skim the [Current Environment](#current-environment) for what is running, or the [architecture decision records](docs/architecture/decisions/) for the reasoning behind it.
 
@@ -209,7 +209,7 @@ These documents live separately from the lab walkthroughs so implementation deta
 
 #### Planned Labs
 
-See the [Automation and Scripting Track README](docs/automation-and-scripting/README.md) for the full lab sequence (Cross-Platform Validation, Scheduled Health Reporting).
+See the [Automation and Scripting Track README](docs/automation-and-scripting/README.md) for the full lab sequence (Scheduled Health Reporting).
 
 ---
 
