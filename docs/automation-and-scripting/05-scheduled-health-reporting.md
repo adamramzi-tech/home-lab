@@ -2,9 +2,11 @@
 
 ## Status
 
-Step One (confirm reachability and establish a known-good baseline) is complete. Steps Two through Seven remain planning and research; no scripts have been written and no scheduled task has been registered.
+Step One (confirm reachability and establish a known-good baseline) and Step Two (build and test `Get-LabADServiceHealth.ps1`) are complete. Steps Three through Seven remain planning and research; `Get-LabWazuhAgentStatus.ps1`, `Get-LabDockerServiceStatus.ps1`, and `Invoke-LabHealthReport.ps1` have not been written, and no scheduled task has been registered.
 
-Step One confirmed, against the live environment, that Design Decision 1's Option D holds: both the Wazuh Manager API and the Portainer API are reachable from WIN11-CLIENT01 and authenticate successfully. Real values discovered during Step One (the Wazuh Manager API's `wazuh-wui` account, the confirmed Portainer endpoint ID, the plain-HTTP `portainer.local` access path, and the live Docker container baseline) now replace the assumptions Design Decision 1, Technologies Used, and Prerequisites previously carried. Step One's own section below is written in past tense, describing what was actually run and observed; every later step remains written in future tense, since none of them has been attempted yet.
+Step One confirmed, against the live environment, that Design Decision 1's Option D holds: both the Wazuh Manager API and the Portainer API are reachable from WIN11-CLIENT01 and authenticate successfully. Real values discovered during Step One (the Wazuh Manager API's `wazuh-wui` account, the confirmed Portainer endpoint ID, the plain-HTTP `portainer.local` access path, and the live Docker container baseline) now replace the assumptions Design Decision 1, Technologies Used, and Prerequisites previously carried.
+
+Step Two built `Get-LabADServiceHealth.ps1` and its Pester suite, colocated in a new `infrastructure/automation-and-scripting/scheduled-health-reporting/` folder, and confirmed the dot-sourced-function invocation model from Design Decision 2 with a real Pester assertion, ten tests passing, PSScriptAnalyzer clean after a real finding was fixed, and a real live run against DC01 showing `Healthy`. Both steps' own sections below are written in past tense, describing what was actually run and observed; Steps Three through Seven remain written in future tense, since none of them has been attempted yet.
 
 ---
 
@@ -346,9 +348,88 @@ docker compose ls -a
 
 **Go/no-go verdict.** Design Decision 1's Option D holds. Both the Wazuh Manager API and the Portainer API are reachable from WIN11-CLIENT01 and authenticate successfully, so the four-script design in Design Decision 2 is cleared to proceed to Step Two in a later session. The AD service check was clean on the first attempt, no friction. The Wazuh Manager API check required real but contained troubleshooting: the TLS accommodation worked immediately, and the only obstacle was locating the correct `wazuh-wui` account, resolved in one step by checking `docker-compose.yml`. The Portainer API check took the most sustained troubleshooting of the three: a hosts-file entry was required, the assumed HTTPS path turned out to be wrong and cost a full diagnostic round to identify, and the `Get-Credential`/multi-line-paste issues were unrelated environmental friction on top of that. None of the friction encountered changed the underlying verdict, but it is real enough to note for scoping the remainder of this lab: reachability held, but the Portainer path in particular did not work on the first, second, or even third attempt.
 
-### Step Two - Build Get-LabADServiceHealth.ps1 (planned)
+### Step Two - Built Get-LabADServiceHealth.ps1
 
-Planned to accept an optional `-ComputerName` parameter (default `DC01`) and a `-ServiceName` parameter (default the six-service list above), query each service's `Status` via `Get-Service -ComputerName`, and classify the check as `Healthy` if every named service reports `Running`, `Unhealthy` if the query succeeds but any service is not `Running`, and `Unknown` if the query itself fails (host unreachable, access denied, or any other terminating error). Output planned as a `PSCustomObject` carrying the check name, target, per-service detail, and the overall classification for that check, consumed by `Invoke-LabHealthReport.ps1`. Pester coverage planned to mock `Get-Service` and assert the three classification branches directly, following Lab 03's mocking pattern per Design Decision 6.
+`Get-LabADServiceHealth.ps1` was built colocated with its Pester tests in a new `infrastructure/automation-and-scripting/scheduled-health-reporting/` folder, following the `Verb-LabNoun` naming pattern and per-lab subfolder convention every prior lab in the track established. It accepts an optional `-ComputerName` (default `DC01`) and `-ServiceName` (default the six-service list Step One confirmed: `NTDS`, `DNS`, `Netlogon`, `Kdc`, `W32Time`, `ADWS`), plus the optional `-ExportPath` the standalone reporting convention uses, and queries each named service's `Status` via `Get-Service -ComputerName`, the call Step One already confirmed works non-elevated with no new remoting.
+
+**The dot-sourced-function invocation model.** Per Design Decision 2, the script defines a function named the same as the file, `Get-LabADServiceHealth`, so `Invoke-LabHealthReport.ps1` can dot-source it in Step Five and call it by name rather than executing it as a separate file, which is what will make the orchestrator's aggregation logic mockable. That invocation model set a hard requirement this script had to satisfy: dot-sourcing it must define the function with no side effects, no query against DC01 and no console output. The idiom chosen for that split is a guard at the bottom of the file:
+
+```powershell
+if ($MyInvocation.InvocationName -ne '.') {
+    # standalone console-table / -ExportPath rendering lives here
+}
+```
+
+`$MyInvocation.InvocationName` is `.` when the file is dot-sourced and the file's own path or name when it is run directly, so the guard's body, the Design Decision 3 console-table-plus-`-ExportPath` rendering, only ever executes on a direct run. This is the pattern the remaining check scripts (`Get-LabWazuhAgentStatus.ps1` in Step Three, `Get-LabDockerServiceStatus.ps1` in Step Four) are expected to copy, and the Pester suite below asserts it directly rather than assuming it.
+
+**Classification.** `Get-Service -ComputerName $ComputerName -ErrorAction Stop` is called inside a `try`/`catch`, per Design Decision 4, enumerating every service on the target rather than passing `-Name`, and the script matches each requested service name against the returned collection itself. A requested service that is simply absent from that collection is reported `NotFound` and classifies the overall check `Unhealthy`, the "expected service absent" condition the plan called for rather than a query failure. A connectivity or permission failure against DC01 (host unreachable, an RPC/SCM error, access denied) cannot open the target's Service Control Manager and surfaces as a terminating `InvalidOperationException` under `-ErrorAction Stop`, which the `try`/`catch` catches and classifies `Unknown`, carrying the exception's message on the returned object. Every named service reporting `Running` classifies `Healthy`. This enumerate-then-match shape is not the form the script was first built with: it replaced a `-Name` / `-ErrorAction SilentlyContinue` call after a live diagnostic showed that earlier form could not tell an unreachable target apart from a reachable one missing the named services, and misclassified an unreachable DC `Unhealthy` instead of `Unknown`. That finding and its resolution are recorded in Troubleshooting and Adjustments below.
+
+The script returns a `PSCustomObject` (`CheckName`, `ComputerName`, `Services`, one entry per named service with its own `ServiceName`/`Status`, `Status`, and `Message`) rather than printing `Write-Host` PASS/FAIL narration, so it does not rely on this library's `PSAvoidUsingWriteHost` suppression from Lab 03 at all. The standalone path, inside the dot-source guard, flattens the nested `Services` collection to one row per service, both for the `Format-Table` console output and, when `-ExportPath` is supplied, for `Export-Csv`, since a nested array does not serialize cleanly to a single CSV row.
+
+**Pester coverage.** `Get-LabADServiceHealth.Tests.ps1` mocks `Get-Service`, the only external command the script calls, plus a representative sample of state-changing service cmdlets (`Set-Service`, `Stop-Service`, `Start-Service`, `Restart-Service`), each asserted at `-Times 0`, matching this library's established read-only assertion pattern. Ten tests were written across seven Contexts: Dot-sourcing behavior (asserting the function is defined and that `Get-Service` was called zero times immediately after dot-sourcing), Read-only behavior, the three classification branches (Healthy; Unhealthy for a stopped service and, separately, for a not-found service; Unknown for a Service Control Manager failure surfaced the way the live cmdlet surfaces it, a non-terminating error made terminating by `-ErrorAction Stop`), Parameter defaults and pass-through, and the `-ExportPath` CSV branch. Because the function returns its result directly rather than only piping to `Format-Table`, the classification tests call `Get-LabADServiceHealth` directly after dot-sourcing and assert on the returned object's `Status`, `Services`, and `Message` properties, per Design Decision 6, rather than round-tripping through a CSV export the way the read-only Lab 04 scripts had to.
+
+```powershell
+Invoke-Pester -Path C:\Scripts\Get-LabADServiceHealth.Tests.ps1 -Output Detailed
+```
+
+All ten tests passed on the first run: `Discovery found 10 tests`, `Tests Passed: 10, Failed: 0, Skipped: 0, Inconclusive: 0, NotRun: 0`.
+
+**Analysis was not clean on the first pass.**
+
+```powershell
+Invoke-ScriptAnalyzer -Path C:\Scripts -Settings C:\Scripts\PSScriptAnalyzerSettings.psd1 -Recurse
+```
+
+This returned five findings, all `PSAvoidUsingComputerNameHardcoded` (Error severity), all against `Get-LabADServiceHealth.Tests.ps1`:
+
+| RuleName | Severity | ScriptName | Line |
+|---|---|---|---|
+| `PSAvoidUsingComputerNameHardcoded` | Error | `Get-LabADServiceHealth.Tests.ps1` | 133 |
+| `PSAvoidUsingComputerNameHardcoded` | Error | `Get-LabADServiceHealth.Tests.ps1` | 155 |
+| `PSAvoidUsingComputerNameHardcoded` | Error | `Get-LabADServiceHealth.Tests.ps1` | 174 |
+| `PSAvoidUsingComputerNameHardcoded` | Error | `Get-LabADServiceHealth.Tests.ps1` | 188 |
+| `PSAvoidUsingComputerNameHardcoded` | Error | `Get-LabADServiceHealth.Tests.ps1` | 208 |
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/05-scheduled-health-reporting/08-analyzer-computername-hardcoded-finding.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Invoke-ScriptAnalyzer returning five PSAvoidUsingComputerNameHardcoded findings against Get-LabADServiceHealth.Tests.ps1, each reporting "The ComputerName parameter of cmdlet 'Get-LabADServiceHealth' is hardcoded. This will expose sensitive information about the system if the script is shared."</em>
+</p>
+
+Lines 133, 155, 174, and 188 were the four classification tests' calls to `Get-LabADServiceHealth -ComputerName 'DC01' ...`; line 208 was the explicit-override pass-through test's `-ComputerName 'DC02'`. The rule flags a literal string bound directly to a parameter named `ComputerName` at a call site; it does not flag a `-ComputerName` parameter's own default value in a `param` block, which is why `Get-LabADServiceHealth.ps1` itself was already clean. The fix was confined to the test file: `$script:TargetComputerName = 'DC01'` and `$script:AlternateComputerName = 'DC02'` were added to `BeforeAll`, and all five call sites, plus the two `ParameterFilter` comparisons that referenced the same literals, were switched to reference those variables instead, clearing the rule without suppressing it in `PSScriptAnalyzerSettings.psd1`.
+
+```powershell
+Invoke-Pester -Path C:\Scripts\Get-LabADServiceHealth.Tests.ps1 -Output Detailed
+Invoke-ScriptAnalyzer -Path C:\Scripts -Settings C:\Scripts\PSScriptAnalyzerSettings.psd1 -Recurse
+```
+
+Re-run after the fix, Pester still passed 10 of 10, confirming the fix, a call-site value change only, did not affect any assertion, and the analyzer returned to the prompt with no further output: a clean pass.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/05-scheduled-health-reporting/09-pester-and-analyzer-clean-pass.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Invoke-Pester re-run confirming all ten tests still passing after the PSAvoidUsingComputerNameHardcoded fix (the test-file-only change described above), followed by Invoke-ScriptAnalyzer returning to the prompt with no output: a clean pass. This is the build-time clean pass; a second, later clean pass follows the separate error-handling fix in Troubleshooting and Adjustments (screenshot 12).</em>
+</p>
+
+**A single live standalone run against DC01 was performed here**, per the plan, since Step One had already proven `Get-Service -ComputerName DC01` works non-elevated; the authoritative live validation and the full combined analyzer/Pester sweep across all of Labs 01 through 05 remain reserved for Step Seven, not claimed here.
+
+```powershell
+.\Get-LabADServiceHealth.ps1
+```
+
+This returned a real `Healthy` result: all six target services (`NTDS`, `DNS`, `Netlogon`, `Kdc`, `W32Time`, `ADWS`) reporting `Running` against `DC01`, `OverallStatus` `Healthy` on every row, `Message` blank.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/05-scheduled-health-reporting/10-live-ad-service-health-run.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>.\Get-LabADServiceHealth.ps1 run standalone against DC01: a formatted console table showing all six target services Running and OverallStatus Healthy.</em>
+</p>
 
 ### Step Three - Build Get-LabWazuhAgentStatus.ps1 (planned)
 
@@ -390,7 +471,7 @@ Consistent with the rule this track has held since Lab 01, no script's reported 
 
 ## Troubleshooting and Adjustments
 
-Step One is implemented and run against the live environment; the entries below that it resolved are recorded in past tense as encountered-and-resolved. Steps Two through Seven have not been implemented yet, so risks specific to those steps remain in anticipated framing.
+Steps One and Two are implemented and run against the live environment; the entries below that they resolved are recorded in past tense as encountered-and-resolved. Steps Three through Seven have not been implemented yet, so risks specific to those steps remain in anticipated framing.
 
 **PowerShell 5.1's `Invoke-RestMethod` has no `-SkipCertificateCheck` parameter (encountered and resolved, Step One).** The Wazuh stack uses self-signed certificates generated by the `wazuh-certs-generator` container (enterprise Lab 07). The anticipated `[System.Net.ServicePointManager]`-based accommodation (forcing TLS 1.2 and installing a certificate-validation callback) worked on the first attempt against the Wazuh Manager API, with no TLS handshake error. The same accommodation was reapplied against `portainer.local` and did not resolve an HTTPS failure there, but that turned out to be a different problem entirely (see below), not a defect in the accommodation itself.
 
@@ -404,6 +485,30 @@ Step One is implemented and run against the live environment; the entries below 
 
 **The expected Docker container set is now a live baseline, not documentation, and it includes a real, unexplained outage (encountered, Step One; not resolved, and not remediated in this session).** Portainer's `GET /api/endpoints/3/docker/containers/json?all=true` and an independent `docker ps -a`/`docker compose ls -a` on Ubuntu Server (Design Decision 7) matched exactly: ten containers, the same names, images, and states from both sources. Two containers not previously documented in this lab, `frontend` and `backend`, are explained: they are linux infrastructure Lab 05's own `docker-networking` teaching-lab containers, left running after that lab concluded, and are correctly excluded from the expected-running baseline. The monitoring stack (`prometheus`, `grafana`, `node-exporter`, the `monitoring-stack` compose project) reporting fully `exited(3)` is not explained anywhere in the repository; linux infrastructure Lab 06 is documented `Completed` with no later note of decommissioning, and no ADR mentions it. This was unknown to the operator before this step, root cause has not been investigated, and the stack was deliberately not restarted in this session. Remediation is intentionally deferred to Step Seven, so `Get-LabDockerServiceStatus.ps1`'s first live run catches and reports this as a genuine `Unhealthy` condition rather than validating against an environment quietly fixed ahead of time.
 
+**PSScriptAnalyzer flags a literal value passed to a `-ComputerName` parameter at a call site, not the same parameter's own default value (encountered and resolved, Step Two).** `Get-LabADServiceHealth.Tests.ps1`'s first analyzer pass returned five `PSAvoidUsingComputerNameHardcoded` findings (Error severity), one for each test that called `Get-LabADServiceHealth -ComputerName 'DC01' ...` or `-ComputerName 'DC02'` with a literal string. `Get-LabADServiceHealth.ps1` itself was already clean, because the rule specifically targets a string constant bound to a `ComputerName`-named parameter at a call site, not the same parameter's default value inside a `param` block. The fix was confined to the test file: the two fixture values were hoisted into `$script:TargetComputerName` and `$script:AlternateComputerName` in `BeforeAll`, and every call site and `ParameterFilter` comparison that had referenced the literals directly was switched to reference the variables instead. This cleared the rule without suppressing it in `PSScriptAnalyzerSettings.psd1`, and the Pester suite was re-run afterward and confirmed unaffected, still 10 of 10.
+
+**`Get-Service -ComputerName` with `-Name` and `-ErrorAction SilentlyContinue` misclassified an unreachable target `Unhealthy` instead of `Unknown` (encountered and resolved, Step Two).** As first built, `Get-LabADServiceHealth.ps1` called `Get-Service -ComputerName $ComputerName -Name $ServiceName -ErrorAction SilentlyContinue` inside its `try`/`catch`, and both the script's comments and this Step Two write-up asserted that a connectivity or permission failure against the target "throws a terminating exception regardless of `-ErrorAction` preference," so the `catch` would classify it `Unknown`. A review questioned that claim, and it was checked directly against the live environment rather than argued in the abstract. Running the actual script against a target that does not resolve, `.\Get-LabADServiceHealth.ps1 -ComputerName BOGUS01`, returned all six services `NotFound` and an `OverallStatus` of `Unhealthy`, not `Unknown`, with a blank `Message`. A follow-up probe with `-ErrorVariable` showed why: `Get-Service -ComputerName BOGUS01 -Name NTDS,DNS,Netlogon -ErrorAction SilentlyContinue` reached no `catch` at all (`returned service count = 0`) and instead populated the error variable with one non-terminating `Microsoft.PowerShell.Commands.ServiceCommandException` per requested name, each reading "Cannot find any service with service name 'X'." With `-Name` specified, an unreachable host is reported through the same per-name "cannot find" error an absent-but-reachable service produces, and `-ErrorAction SilentlyContinue` suppresses all of it before the `catch` can see anything, so the check falls through every requested name as `NotFound` and lands on `Unhealthy`. The original assumption was wrong on both counts: the failure was non-terminating, and `-Name` made a connectivity failure indistinguishable from a genuinely absent service. This defeated Design Decision 4's primary `Unknown` case, and the original Unknown Pester test had passed only because its mock used a bare `throw` (always terminating), which did not represent how the real cmdlet behaves.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/05-scheduled-health-reporting/11-bogus-host-misclassified-unhealthy.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>The live diagnostic: .\Get-LabADServiceHealth.ps1 -ComputerName BOGUS01 returning all six services NotFound and OverallStatus Unhealthy, the misclassification described above and resolved by the enumerate-then-match rework that follows.</em>
+</p>
+
+The resolution was to enumerate every service on the target with `Get-Service -ComputerName $ComputerName -ErrorAction Stop`, without `-Name`, and match the requested names against the returned collection in the script. Two further live probes confirmed this shape discriminates the two conditions the earlier form conflated. `Get-Service -ComputerName BOGUS01 -ErrorAction Stop` (no `-Name`) raised a terminating `System.InvalidOperationException`, "Cannot open Service Control Manager on computer 'BOGUS01'. This operation might require other privileges.", which the `try`/`catch` catches and classifies `Unknown`. The same call against the reachable `DC01` returned the host's full service list (209 services), with all six target services present and `Running` and a deliberately bogus name simply absent from the set, so an absent named service still classifies `NotFound`/`Unhealthy` and a healthy DC still classifies `Healthy`. An SCM-open failure from an access-denied or genuinely-offline target reaches `Unknown` by this same terminating-`InvalidOperationException` path; the case verified live here was the non-resolving target.
+
+The change was confined to the error-handling path and the tests and comments that depend on it. The `try` call was switched to the no-`-Name`, `-ErrorAction Stop` form; the script's classification comment was corrected and the "throws terminating regardless of `-ErrorAction`" claim removed. The Unknown Pester test's mock was rewritten to emit the Service-Control-Manager failure as a non-terminating error with `Write-Error` rather than a bare `throw`, so it now depends on the script's `-ErrorAction Stop` to terminate and can no longer pass if the script reverts to suppressing errors. The two pass-through tests, which had asserted `-Name` was passed to `Get-Service`, were reworked to assert that `-ComputerName` and `-ErrorAction Stop` are bound and `-Name` is not, with the explicit-override test additionally confirming the script applies the requested `-ServiceName` by filtering the enumerated set rather than passing it to the cmdlet. The dot-source-no-side-effects guard, the not-found-service handling, the object-return-plus-flattened-CSV design, and the read-only assertions were left untouched. The reworked suite was re-run and returned `Tests Passed: 10, Failed: 0, Skipped: 0, Inconclusive: 0, NotRun: 0`, and `Invoke-ScriptAnalyzer -Path C:\Scripts -Settings C:\Scripts\PSScriptAnalyzerSettings.psd1 -Recurse` returned to the prompt with no output: a clean pass.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/05-scheduled-health-reporting/12-pester-and-analyzer-clean-pass-after-fix.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Invoke-Pester re-run after the error-handling fix (the enumerate-then-match rework, distinct from the earlier PSAvoidUsingComputerNameHardcoded fix in screenshot 09) confirming all ten tests still passing, including the rewritten Unknown and pass-through tests, followed by Invoke-ScriptAnalyzer returning to the prompt with no output: a second, separate clean pass.</em>
+</p>
+
 **A stored scheduled-task credential is a new, standing security surface for this track (anticipated, later step).** Every prior lab's most-privileged operation existed only for the length of an interactive session an operator explicitly started. A scheduled task configured to run whether a user is logged on or not requires a stored credential (via `Register-ScheduledTask -User -Password`, or an equivalent principal configuration) that persists indefinitely. This is not a defect to fix during implementation so much as a property to design around, addressed as an open question in Design Decision 5 and expanded on in Security Considerations below.
 
 **Portainer's endpoint ID is now confirmed (encountered and resolved, Step One).** `GET /api/endpoints` returned a single endpoint, `Id: 3`, `Name: "local"`, not the previously assumed default of `1`. `Get-LabDockerServiceStatus.ps1`'s parameter defaults will use `3`.
@@ -412,7 +517,7 @@ Step One is implemented and run against the live environment; the entries below 
 
 ## Security Considerations
 
-- **Read-only by design.** Every call this lab's scripts make is a query: `Get-Service` with no state-changing parameter, and `GET` requests (plus each API's own authentication `POST`) against the Wazuh and Portainer REST APIs. No script in this lab is planned to call anything capable of modifying Active Directory, Wazuh configuration, or Docker container state. As in Lab 04, this claim is intended to be exercised by the Pester suite, not only reviewed by eye, once the scripts exist.
+- **Read-only by design.** Every call this lab's scripts make is a query: `Get-Service` with no state-changing parameter, and `GET` requests (plus each API's own authentication `POST`) against the Wazuh and Portainer REST APIs. No script in this lab calls, or is planned to call, anything capable of modifying Active Directory, Wazuh configuration, or Docker container state. As in Lab 04, this claim is exercised by the Pester suite, not only reviewed by eye: `Get-LabADServiceHealth.Tests.ps1` already asserts `-Times 0` against a representative sample of state-changing service cmdlets, and the same pattern is planned for the remaining three scripts once they exist.
 - **A stored, unattended credential is this lab's most significant new exposure.** Every prior lab in this track ran under `labadmin` for the length of an operator-initiated interactive session. A Task Scheduler job configured to run unattended needs a credential that persists on WIN11-CLIENT01 indefinitely, a materially different exposure than a session-scoped one, and the open question in Design Decision 5, whether to continue using `labadmin` or provision a dedicated least-privileged scheduled-task account, is raised here with more weight than the similar "a production deployment would use a dedicated account" aside in Labs 02 and 04, because this lab's version of that aside describes a standing condition of the deployment rather than a convenience taken during a single lab session.
 - **API credentials handled the same way Lab 01 handled a plaintext password.** `New-LabUser.ps1` (Lab 01) took its password parameter as a `[SecureString]` rather than plaintext. The Wazuh and Portainer API credentials this lab's scripts need will be handled with the same discipline, sourced from a secure credential store (Windows Credential Manager, or the scheduled task's own stored credential) rather than embedded as plaintext in any script or configuration file.
 - **Exported reports as a data-handling boundary.** The timestamped health report and any `-ExportPath` CSV output from the individual check scripts can describe service state, agent connectivity, and container status across the whole environment. As in every prior lab, all of it will be kept out of the repository and stored only on WIN11-CLIENT01.
