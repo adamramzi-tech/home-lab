@@ -2,11 +2,11 @@
 
 ## Status
 
-Step One (confirm reachability and establish a known-good baseline) and Step Two (build and test `Get-LabADServiceHealth.ps1`) are complete. Steps Three through Seven remain planning and research; `Get-LabWazuhAgentStatus.ps1`, `Get-LabDockerServiceStatus.ps1`, and `Invoke-LabHealthReport.ps1` have not been written, and no scheduled task has been registered.
+Step One (confirm reachability and establish a known-good baseline), Step Two (build and test `Get-LabADServiceHealth.ps1`), and Step Three (build and test `Get-LabWazuhAgentStatus.ps1`) are complete. Steps Four through Seven remain planning and research; `Get-LabDockerServiceStatus.ps1` and `Invoke-LabHealthReport.ps1` have not been written, and no scheduled task has been registered.
 
 Step One confirmed, against the live environment, that Design Decision 1's Option D holds: both the Wazuh Manager API and the Portainer API are reachable from WIN11-CLIENT01 and authenticate successfully. Real values discovered during Step One (the Wazuh Manager API's `wazuh-wui` account, the confirmed Portainer endpoint ID, the plain-HTTP `portainer.local` access path, and the live Docker container baseline) now replace the assumptions Design Decision 1, Technologies Used, and Prerequisites previously carried.
 
-Step Two built `Get-LabADServiceHealth.ps1` and its Pester suite, colocated in a new `infrastructure/automation-and-scripting/scheduled-health-reporting/` folder, and confirmed the dot-sourced-function invocation model from Design Decision 2 with a real Pester assertion, ten tests passing, PSScriptAnalyzer clean after a real finding was fixed, and a real live run against DC01 showing `Healthy`. Both steps' own sections below are written in past tense, describing what was actually run and observed; Steps Three through Seven remain written in future tense, since none of them has been attempted yet.
+Step Two built `Get-LabADServiceHealth.ps1` and its Pester suite, colocated in a new `infrastructure/automation-and-scripting/scheduled-health-reporting/` folder, and confirmed the dot-sourced-function invocation model from Design Decision 2 with a real Pester assertion, ten tests passing, PSScriptAnalyzer clean after a real finding was fixed, and a real live run against DC01 showing `Healthy`. Step Three built `Get-LabWazuhAgentStatus.ps1` alongside it, copying the same dot-sourced-function invocation model and extending Design Decision 6's mocking pattern to the lab's first `Invoke-RestMethod`-based check: fifteen tests passing, PSScriptAnalyzer clean after a real finding was fixed, and a real live run against the Wazuh Manager API showing `Healthy` across all three monitored agents. All three steps' own sections below are written in past tense, describing what was actually run and observed; Steps Four through Seven remain written in future tense, since none of them has been attempted yet.
 
 ---
 
@@ -431,9 +431,93 @@ This returned a real `Healthy` result: all six target services (`NTDS`, `DNS`, `
   <em>.\Get-LabADServiceHealth.ps1 run standalone against DC01: a formatted console table showing all six target services Running and OverallStatus Healthy.</em>
 </p>
 
-### Step Three - Build Get-LabWazuhAgentStatus.ps1 (planned)
+### Step Three - Built Get-LabWazuhAgentStatus.ps1
 
-Planned to accept the Wazuh Manager's base URI (`https://192.168.1.226:55000`) and API credentials for the Manager's dedicated `wazuh-wui` account (confirmed in Step One; distinct from the Dashboard/Indexer login), authenticate via `POST /security/user/authenticate` to obtain a JWT, apply the PowerShell 5.1 TLS 1.2/certificate-policy accommodation Step One confirmed necessary, and query `GET /agents` for the three enrolled agents' status. `GET /agents` returns a fourth entry for the manager's own built-in agent (`000`, `wazuh.manager`) alongside `DC01`, `WIN11-CLIENT01`, and `UBUNTU-SERVER`; the script will need to filter to the three named target agents rather than treat all returned entries as in scope. Classification planned as `Healthy` if all three target agents report `active`, `Unhealthy` if the query succeeds but any agent reports `disconnected` or `never_connected`, and `Unknown` if authentication or the query itself fails. Pester coverage planned to mock `Invoke-RestMethod` for both the authentication call and the agent-status call, asserting the classification mapping, the filtering of the manager's own agent entry, and that credentials are never written to the console or the report output.
+`Get-LabWazuhAgentStatus.ps1` was built alongside `Get-LabADServiceHealth.ps1` in the same `infrastructure/automation-and-scripting/scheduled-health-reporting/` folder. It accepts an optional `-BaseUri` (default `https://192.168.1.226:55000`, the Manager API address Step One confirmed reachable), a `-Credential` for the Manager API's dedicated `wazuh-wui` account (confirmed in Step One; distinct from the Dashboard/Indexer login), an optional `-AgentName` list (default the three agents Step One confirmed enrolled and active: `DC01`, `WIN11-CLIENT01`, `UBUNTU-SERVER`), and the optional `-ExportPath` the standalone reporting convention uses. It authenticates against `POST /security/user/authenticate` with a Basic authorization header built from the credential, takes the JWT from the response's `data.token`, and queries `GET /agents` with that token as a Bearer header, reading the agent list from `data.affected_items`, the same request shape Step One proved live.
+
+**The dot-sourced-function invocation model, copied from Step Two.** `Get-LabWazuhAgentStatus.ps1` defines a function named the same as the file, per Design Decision 2, and reuses the same guard at the bottom of the file, `if ($MyInvocation.InvocationName -ne '.') { ... }`, so dot-sourcing it only ever defines the function and binds the top-level parameter defaults, the same no-side-effects requirement Step Two's script had to satisfy. One difference from Step Two's script follows directly from that requirement: the top-level `-Credential` parameter carries no `Mandatory` attribute and no default, even though the function's own `-Credential` is mandatory. A mandatory parameter at the top of the script would make PowerShell prompt for it interactively the moment the file is dot-sourced, which would hang a Pester run waiting on input rather than merely defining the function. The standalone path inside the guard prompts for the credential itself, with `Get-Credential`, only when the file is run directly and no `-Credential` was supplied, keeping the interactive prompt confined to the one code path that is actually meant to run interactively.
+
+**Agent 000 filtering.** Per Step One's own finding, `GET /agents` returns a fourth entry for the Wazuh Manager's own built-in agent (`id 000`, `name wazuh.manager`) alongside the three monitored targets. The script excludes that entry, by `id`, before matching the requested `-AgentName` list against the response, so it is never counted as a monitored agent and never affects the returned `Status`, whatever its own reported status happens to be.
+
+**Classification.** Per Design Decision 4: `Healthy` if every named agent is present in the response and reports `active`; `Unhealthy` if the query completes but any named agent reports a non-active status (`disconnected`, `never_connected`, `pending`, or any other value besides `active`) or is missing from the response entirely, the Wazuh-agent analog of Step Two's `NotFound` condition; `Unknown` only if authentication or the agent query itself could not be completed. Unlike `Get-Service`, which Step Two discovered does not throw a terminating error for an unreachable target when called with `-Name`, forcing `Get-LabADServiceHealth.ps1` into the enumerate-then-match rework documented in that step's Troubleshooting, `Invoke-RestMethod` throws a terminating error on its own for both a connection failure and an HTTP error status, the same 401 Step One's own troubleshooting produced against the wrong Wazuh account. A failed authentication or an unreachable Manager API therefore reaches this script's `try`/`catch` and classifies `Unknown` without any equivalent workaround: the same `Unknown` requirement Step Two had to engineer around `Get-Service`'s actual behavior is satisfied here by `Invoke-RestMethod`'s own throwing behavior, confirmed by the mocked Pester coverage below rather than assumed.
+
+**The certificate-validation bypass, scoped rather than left on for the session.** PowerShell 5.1's `Invoke-RestMethod` has no `-SkipCertificateCheck` parameter, so reaching the Wazuh stack's self-signed certificate over HTTPS requires the same TLS 1.2 / `TrustAllCertsPolicy` accommodation Step One used interactively. That accommodation is process-wide in PowerShell 5.1: `[System.Net.ServicePointManager]::CertificatePolicy` has no narrower, request-scoped equivalent. Step One's own Security Considerations left open how the finished script should handle this. The decision made here is to capture the process's existing `CertificatePolicy` and `SecurityProtocol` before applying the accommodation, apply it only for the authentication and agent-query calls the function makes, and restore both original values in a `finally` block once those two calls are done, so certificate validation is disabled only for the duration of this function's own REST calls rather than for the rest of the calling session. Restoring cleanly was not impractical here: both `ServicePointManager` properties are ordinary settable static properties, and saving and reassigning them costs two extra lines.
+
+**Credential and token hygiene.** `-Credential` is accepted as a `[PSCredential]`, the same discipline `New-LabUser.ps1` (Lab 01) established for a plaintext password. The Basic authorization header built from it, and the JWT bearer token `GET /agents` is authenticated with, exist only inside the function's local scope; the returned `PSCustomObject` carries only agent names and statuses, the overall `Status`, and a `Message` drawn from the exception's own text on failure, and neither the credential nor the token is written to the console, placed on the returned object, or included in the standalone report. The Pester suite asserts this directly.
+
+Like `Get-LabADServiceHealth.ps1`, this script returns a `PSCustomObject` rather than printing PASS/FAIL narration with `Write-Host`. The standalone path, inside the dot-source guard, flattens the nested `Agents` collection to one row per agent, both for the `Format-Table` console output and, when `-ExportPath` is supplied, for `Export-Csv`.
+
+**Pester coverage.** `Get-LabWazuhAgentStatus.Tests.ps1` mocks `Invoke-RestMethod`, the only external command the script calls, distinguishing the authentication call from the agent-status call by `-Uri` in each `ParameterFilter`, per this lab's Design Decision 6 extended for the first time in this lab to a non-`Get-Service` external command. The test credential was built without `ConvertTo-SecureString -AsPlainText`, per Lab 03's own `PSAvoidUsingConvertToSecureStringWithPlainText` finding: a `PSCredential` constructed directly from an empty `[System.Security.SecureString]::new()`, since no test depends on the password's actual contents. Fifteen tests were written across eight Contexts: Dot-sourcing behavior, Read-only behavior (asserting `Invoke-RestMethod` is called exactly twice, once `Post` against the authenticate endpoint and once `Get` against the agents endpoint, and never any other method or URI), the three classification branches (Healthy, including a dedicated assertion that agent `000` is excluded from the result; Unhealthy for a non-active target agent and, separately, for a target agent missing from the response; Unknown for an authentication failure and, separately, for an agents-query failure), Parameter defaults and pass-through, Credential and token hygiene (asserting the fabricated JWT never appears on the returned object or in standalone console output), and the `-ExportPath` CSV branch.
+
+```powershell
+Invoke-Pester -Path C:\Scripts\Get-LabWazuhAgentStatus.Tests.ps1 -Output Detailed
+```
+
+All fifteen tests passed on the first run: `Discovery found 15 tests in 170ms`, `Tests Passed: 15, Failed: 0, Skipped: 0, Inconclusive: 0, NotRun: 0`.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/05-scheduled-health-reporting/13-wazuh-first-pester-pass.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Invoke-Pester against Get-LabWazuhAgentStatus.Tests.ps1: 15 tests discovered across eight Contexts, all fifteen passed on the first run.</em>
+</p>
+
+**Analysis was not clean on the first pass.**
+
+```powershell
+Invoke-ScriptAnalyzer -Path C:\Scripts\Get-LabWazuhAgentStatus.ps1 -Settings C:\Scripts\PSScriptAnalyzerSettings.psd1
+Invoke-ScriptAnalyzer -Path C:\Scripts\Get-LabWazuhAgentStatus.Tests.ps1 -Settings C:\Scripts\PSScriptAnalyzerSettings.psd1
+```
+
+Analyzed as two separate invocations, following the comma-path workaround Lab 04 established. This returned one finding, against the test file:
+
+| RuleName | Severity | ScriptName | Line | Message |
+|---|---|---|---|---|
+| `PSUseSingularNouns` | Warning | `Get-LabWazuhAgentStatus.Tests.ps1` | 86 | The cmdlet 'script:New-DefaultMockAgents' uses a plural noun. A singular noun should be used instead. |
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/05-scheduled-health-reporting/14-analyzer-singularnouns-finding.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Invoke-ScriptAnalyzer returning one PSUseSingularNouns finding against Get-LabWazuhAgentStatus.Tests.ps1 line 86, flagging the test-only helper function New-DefaultMockAgents.</em>
+</p>
+
+`New-DefaultMockAgents` was a private test-only helper building the fabricated four-agent `GET /agents` response (the manager's own agent plus the three active targets) reused across the default mocks. The fix was confined to the test file: the function was renamed to `New-DefaultMockAgentSet`, and its one call site was updated to match; no assertion changed.
+
+```powershell
+Invoke-Pester -Path C:\Scripts\Get-LabWazuhAgentStatus.Tests.ps1 -Output Detailed
+Invoke-ScriptAnalyzer -Path C:\Scripts\Get-LabWazuhAgentStatus.ps1 -Settings C:\Scripts\PSScriptAnalyzerSettings.psd1
+Invoke-ScriptAnalyzer -Path C:\Scripts\Get-LabWazuhAgentStatus.Tests.ps1 -Settings C:\Scripts\PSScriptAnalyzerSettings.psd1
+```
+
+Re-run after the fix, Pester still passed 15 of 15 (`Tests completed in 926ms`, `Tests Passed: 15, Failed: 0, Skipped: 0, Inconclusive: 0, NotRun: 0`), confirming the rename did not affect any assertion, and both `Invoke-ScriptAnalyzer` invocations returned to the prompt with no output: a clean pass.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/05-scheduled-health-reporting/15-pester-and-analyzer-clean-pass.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Invoke-Pester re-run confirming all fifteen tests still passing after the New-DefaultMockAgentSet rename, followed by both Invoke-ScriptAnalyzer invocations returning to the prompt with no output: a clean pass.</em>
+</p>
+
+**A single live standalone run against the Wazuh Manager API was performed here**, per the plan, since Step One had already proven the API reachable and authenticating under the `wazuh-wui` account; the authoritative live validation and the full combined analyzer/Pester sweep across all of Labs 01 through 05 remain reserved for Step Seven, not claimed here.
+
+```powershell
+$cred = Get-Credential -Message "Wazuh Manager API credentials (wazuh-wui)"
+.\Get-LabWazuhAgentStatus.ps1 -Credential $cred
+```
+
+This returned a real `Healthy` result: all three target agents (`DC01`, `WIN11-CLIENT01`, `UBUNTU-SERVER`) reporting `active` against `https://192.168.1.226:55000`, `OverallStatus` `Healthy` on every row, matching Step One's all-active baseline exactly.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/05-scheduled-health-reporting/16-live-wazuh-agent-status-run.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>.\Get-LabWazuhAgentStatus.ps1 run standalone against the Wazuh Manager API: a formatted console table showing all three target agents active and OverallStatus Healthy.</em>
+</p>
 
 ### Step Four - Build Get-LabDockerServiceStatus.ps1 (planned)
 
@@ -471,7 +555,7 @@ Consistent with the rule this track has held since Lab 01, no script's reported 
 
 ## Troubleshooting and Adjustments
 
-Steps One and Two are implemented and run against the live environment; the entries below that they resolved are recorded in past tense as encountered-and-resolved. Steps Three through Seven have not been implemented yet, so risks specific to those steps remain in anticipated framing.
+Steps One, Two, and Three are implemented and run against the live environment; the entries below that they resolved are recorded in past tense as encountered-and-resolved. Steps Four through Seven have not been implemented yet, so risks specific to those steps remain in anticipated framing.
 
 **PowerShell 5.1's `Invoke-RestMethod` has no `-SkipCertificateCheck` parameter (encountered and resolved, Step One).** The Wazuh stack uses self-signed certificates generated by the `wazuh-certs-generator` container (enterprise Lab 07). The anticipated `[System.Net.ServicePointManager]`-based accommodation (forcing TLS 1.2 and installing a certificate-validation callback) worked on the first attempt against the Wazuh Manager API, with no TLS handshake error. The same accommodation was reapplied against `portainer.local` and did not resolve an HTTPS failure there, but that turned out to be a different problem entirely (see below), not a defect in the accommodation itself.
 
@@ -513,16 +597,18 @@ The change was confined to the error-handling path and the tests and comments th
 
 **Portainer's endpoint ID is now confirmed (encountered and resolved, Step One).** `GET /api/endpoints` returned a single endpoint, `Id: 3`, `Name: "local"`, not the previously assumed default of `1`. `Get-LabDockerServiceStatus.ps1`'s parameter defaults will use `3`.
 
+**PSScriptAnalyzer flags a plural noun on a test-only helper function (encountered and resolved, Step Three).** `Get-LabWazuhAgentStatus.Tests.ps1`'s first analyzer pass returned one `PSUseSingularNouns` finding (Warning severity) against `New-DefaultMockAgents`, a private helper building the fabricated four-agent `GET /agents` response reused across the file's default mocks. `Get-LabWazuhAgentStatus.ps1` itself was already clean; the finding was confined to the test file's own helper naming. The fix was a rename, `New-DefaultMockAgents` to `New-DefaultMockAgentSet`, and its one call site updated to match, with no assertion changed. The suite was re-run afterward and confirmed unaffected, still 15 of 15, and both `Invoke-ScriptAnalyzer` invocations returned to the prompt with no output.
+
 ---
 
 ## Security Considerations
 
-- **Read-only by design.** Every call this lab's scripts make is a query: `Get-Service` with no state-changing parameter, and `GET` requests (plus each API's own authentication `POST`) against the Wazuh and Portainer REST APIs. No script in this lab calls, or is planned to call, anything capable of modifying Active Directory, Wazuh configuration, or Docker container state. As in Lab 04, this claim is exercised by the Pester suite, not only reviewed by eye: `Get-LabADServiceHealth.Tests.ps1` already asserts `-Times 0` against a representative sample of state-changing service cmdlets, and the same pattern is planned for the remaining three scripts once they exist.
+- **Read-only by design.** Every call this lab's scripts make is a query: `Get-Service` with no state-changing parameter, and `GET` requests (plus each API's own authentication `POST`) against the Wazuh and Portainer REST APIs. No script in this lab calls, or is planned to call, anything capable of modifying Active Directory, Wazuh configuration, or Docker container state. As in Lab 04, this claim is exercised by the Pester suite, not only reviewed by eye: `Get-LabADServiceHealth.Tests.ps1` already asserts `-Times 0` against a representative sample of state-changing service cmdlets, and `Get-LabWazuhAgentStatus.Tests.ps1` extends the same claim to its own script's calls, asserting `Invoke-RestMethod` is called exactly twice, the authenticate `POST` and the agents `GET`, and never with any other method or URI. The same pattern is planned for the remaining two scripts once they exist.
 - **A stored, unattended credential is this lab's most significant new exposure.** Every prior lab in this track ran under `labadmin` for the length of an operator-initiated interactive session. A Task Scheduler job configured to run unattended needs a credential that persists on WIN11-CLIENT01 indefinitely, a materially different exposure than a session-scoped one, and the open question in Design Decision 5, whether to continue using `labadmin` or provision a dedicated least-privileged scheduled-task account, is raised here with more weight than the similar "a production deployment would use a dedicated account" aside in Labs 02 and 04, because this lab's version of that aside describes a standing condition of the deployment rather than a convenience taken during a single lab session.
 - **API credentials handled the same way Lab 01 handled a plaintext password.** `New-LabUser.ps1` (Lab 01) took its password parameter as a `[SecureString]` rather than plaintext. The Wazuh and Portainer API credentials this lab's scripts need will be handled with the same discipline, sourced from a secure credential store (Windows Credential Manager, or the scheduled task's own stored credential) rather than embedded as plaintext in any script or configuration file.
 - **Exported reports as a data-handling boundary.** The timestamped health report and any `-ExportPath` CSV output from the individual check scripts can describe service state, agent connectivity, and container status across the whole environment. As in every prior lab, all of it will be kept out of the repository and stored only on WIN11-CLIENT01.
 - **The Portainer API path is HTTP-only, so its credential crosses the LAN in cleartext on every call.** Implementation Step One confirmed the only working Portainer path is `http://portainer.local` through NGINX Proxy Manager, not HTTPS; the proxy host has no SSL certificate assigned. `Get-LabDockerServiceStatus.ps1` will therefore send Portainer's admin credential (or, for a scheduled run, a stored one) over plain HTTP internally on every invocation. This strengthens, rather than merely restates, the case in Design Decision 5 for a dedicated, least-privileged, read-only Portainer account over the broad admin account used during Step One's diagnostic; a compromised or misconfigured segment of the LAN could otherwise observe the credential in transit.
-- **The Wazuh API's certificate-validation bypass is a documented diagnostic accommodation, not a silent workaround.** Implementation Step One's `TrustAllCertsPolicy` accommodation, used to call the Wazuh Manager API's self-signed certificate over HTTPS from PowerShell 5.1, disables certificate validation for the process's lifetime, not just for the Wazuh call. This is acceptable for a diagnostic session against a known internal host, and is recorded here rather than left as an unremarked line of code; whether the finished `Get-LabWazuhAgentStatus.ps1` script scopes this more narrowly (for example, restoring the default certificate policy after the call) is a design question for Step Three.
+- **The Wazuh API's certificate-validation bypass is a documented diagnostic accommodation, not a silent workaround.** Implementation Step One's `TrustAllCertsPolicy` accommodation, used to call the Wazuh Manager API's self-signed certificate over HTTPS from PowerShell 5.1, disabled certificate validation for the process's lifetime during that diagnostic session, not just for the Wazuh call. Step Three resolved the open question this left for the finished script: `Get-LabWazuhAgentStatus.ps1` captures the process's existing `CertificatePolicy` and `SecurityProtocol` before applying the accommodation and restores both in a `finally` block once its own authentication and agent-query calls are done, so certificate validation is disabled only for the duration of this script's own REST calls, not for the rest of the calling session.
 
 ---
 
@@ -546,8 +632,8 @@ Research references consulted during this lab's planning.
 
 **Wazuh Manager REST API (Wazuh documentation)**
 
-- [Getting started - Wazuh server API](https://documentation.wazuh.com/current/user-manual/api/getting-started.html) - confirms the API's default port (`55000`) and JWT authentication flow (`POST /security/user/authenticate`, `Authorization: Bearer` on subsequent requests), the basis for `Get-LabWazuhAgentStatus.ps1`'s planned authentication step
-- [Wazuh server API use cases](https://documentation.wazuh.com/current/user-manual/api/use-cases.html) and [Agent life cycle](https://documentation.wazuh.com/current/user-manual/agents/agent-life-cycle.html) - agent status values (`active`, `disconnected`, `never_connected`, `pending`) this script's classification logic will map to `Healthy`/`Unhealthy`
+- [Getting started - Wazuh server API](https://documentation.wazuh.com/current/user-manual/api/getting-started.html) - confirms the API's default port (`55000`) and JWT authentication flow (`POST /security/user/authenticate`, `Authorization: Bearer` on subsequent requests), the basis for `Get-LabWazuhAgentStatus.ps1`'s authentication step
+- [Wazuh server API use cases](https://documentation.wazuh.com/current/user-manual/api/use-cases.html) and [Agent life cycle](https://documentation.wazuh.com/current/user-manual/agents/agent-life-cycle.html) - agent status values (`active`, `disconnected`, `never_connected`, `pending`) this script's classification logic maps to `Healthy`/`Unhealthy`
 
 **Wazuh command monitoring (considered and not adopted as the primary Docker-status path; Design Decision 1)**
 
