@@ -363,6 +363,50 @@ Describe 'Get-LabDockerServiceStatus.ps1' {
             $result.Containers.Count | Should -Be 0
             $result.Message | Should -Not -BeNullOrEmpty
         }
+
+        # Regression tests for the empty-response misclassification found
+        # during Step Six-A. A non-administrative Portainer account reached
+        # the Docker proxy successfully and received an empty array rather
+        # than an error, because Community Edition assigns resources to
+        # administrators only by default. Before the fix, that response fell
+        # through to the expected-container loop, matched nothing, and
+        # reported eight NotFound rows and Unhealthy: a false incident
+        # rather than the honest "could not observe" Unknown Design Decision
+        # 4 reserves for exactly this case.
+        It 'reports Unknown when the containers query succeeds but returns an empty array' {
+            Mock -CommandName Invoke-RestMethod -ParameterFilter {
+                $PesterBoundParameters['Uri'] -like '*/docker/containers/json*'
+            } -MockWith {
+                # Unary comma, so the mock emits one pipeline object that is
+                # itself an empty array, matching how Invoke-RestMethod
+                # actually returns this endpoint's top-level JSON array. A
+                # bare @() would emit nothing at all, which is the separate
+                # null case the next test covers.
+                , @()
+            }
+
+            $result = Get-LabDockerServiceStatus -Credential $script:TestCredential -ExpectedContainer $script:DefaultExpectedContainers
+
+            $result.Status | Should -Be 'Unknown'
+            $result.Message | Should -Not -BeNullOrEmpty
+
+            # The property this regression exists to protect: the check must
+            # not report the expected containers as NotFound, which is what
+            # the pre-fix behavior did for all eight of them.
+            $result.Containers.Count | Should -Be 0
+        }
+
+        It 'reports Unknown when the containers query succeeds but returns nothing at all' {
+            Mock -CommandName Invoke-RestMethod -ParameterFilter {
+                $PesterBoundParameters['Uri'] -like '*/docker/containers/json*'
+            } -MockWith { $null }
+
+            $result = Get-LabDockerServiceStatus -Credential $script:TestCredential -ExpectedContainer $script:DefaultExpectedContainers
+
+            $result.Status | Should -Be 'Unknown'
+            $result.Message | Should -Not -BeNullOrEmpty
+            $result.Containers.Count | Should -Be 0
+        }
     }
 
     Context 'Parameter defaults and pass-through' {

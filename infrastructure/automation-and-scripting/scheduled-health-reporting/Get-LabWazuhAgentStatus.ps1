@@ -184,6 +184,33 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
         [System.Net.ServicePointManager]::SecurityProtocol = $originalSecurityProtocol
     }
 
+    # A successful query that returns no agents at all is treated as
+    # Unknown, not as every monitored agent being absent, for the same
+    # reason Get-LabDockerServiceStatus.ps1 guards its own empty container
+    # list: the request succeeded and threw nothing, so nothing reaches the
+    # catch above, but the caller cannot actually observe what it asked
+    # about, and falling through would report three NotFound agents and
+    # classify the check Unhealthy with no Message. That is a false
+    # incident of the kind Design Decision 4 reserves Unknown to prevent.
+    #
+    # The test is deliberately against the whole response, before agent 000
+    # is filtered out below, and the distinction matters. Agent 000 is the
+    # Manager's own built-in agent and is always present in GET /agents per
+    # Step One, so a response with nothing in it at all cannot describe a
+    # Manager that just answered the request. A response containing only
+    # agent 000, on the other hand, is a real and readable state, no
+    # monitored agents enrolled, and correctly stays Unhealthy rather than
+    # being masked as Unknown here.
+    if (@($allAgents | Where-Object { $null -ne $_ }).Count -eq 0) {
+        return [PSCustomObject]@{
+            CheckName = 'WazuhAgentStatus'
+            BaseUri   = $BaseUri
+            Agents    = @()
+            Status    = 'Unknown'
+            Message   = 'The agent query succeeded but returned no agents at all, not even the Manager''s own agent 000, so the monitored agents could not be observed.'
+        }
+    }
+
     # Agent 000 (wazuh.manager) is the Manager's own built-in agent, always
     # present in GET /agents per Step One; excluded here so it is never
     # treated as one of the monitored targets below.

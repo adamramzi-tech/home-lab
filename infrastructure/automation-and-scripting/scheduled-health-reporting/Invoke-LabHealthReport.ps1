@@ -74,6 +74,22 @@
     Read-Host for the report directory, only when this file is run
     directly.
 
+    Step Six-A added an optional -SecretsDirectory parameter, so this
+    script can run unattended under Task Scheduler (Step Six-B), which
+    cannot answer a Get-Credential/Read-Host prompt or accept a
+    [PSCredential] on the command line. When supplied, and only for
+    whichever credential parameter is missing, the guard loads it from a
+    fixed filename in that directory (wazuh.cred.xml or portainer.cred.xml)
+    via the new Get-LabStoredCredential helper, instead of prompting. An
+    explicit credential parameter always wins over a stored file;
+    -ReportDirectory is unaffected and still prompts via Read-Host. The two
+    files are expected to be created with Export-CliXml as labadmin, the
+    account both the task and the DPAPI protection depend on (Design
+    Decision 5). Get-LabStoredCredential and the -SecretsDirectory
+    existence check both throw immediately and specifically on a
+    missing or malformed file or directory, the same fail-loudly approach
+    Step Five's -ReportDirectory validation established.
+
     Aggregation (Design Decision 4, worst-wins): if any of the three
     checks reports Unhealthy, the overall status is Unhealthy, regardless
     of the other two; else if any check reports Unknown, the overall
@@ -133,6 +149,9 @@ param (
 
     [Parameter(Mandatory = $false)]
     [PSCredential]$PortainerCredential,
+
+    [Parameter(Mandatory = $false)]
+    [string]$SecretsDirectory,
 
     [Parameter(Mandatory = $false)]
     [string]$ReportDirectory
@@ -297,6 +316,32 @@ function Get-LabHealthReportSummaryTable {
     )
 }
 
+function Get-LabStoredCredential {
+    # Step Six-A helper, local to this file (not a fifth standalone script):
+    # gives the guard below a non-interactive alternative to Get-Credential.
+    # Wraps Import-CliXml with explicit, fail-loudly validation, so a
+    # missing or malformed file throws immediately rather than failing
+    # later inside a REST call.
+    [CmdletBinding()]
+    [OutputType([PSCredential])]
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    if (-not (Test-Path -Path $Path -PathType Leaf)) {
+        throw "Stored credential file not found: $Path. Export it first with Export-CliXml, in an interactive session as labadmin."
+    }
+
+    $storedCredential = Import-CliXml -Path $Path
+
+    if ($storedCredential -isnot [PSCredential]) {
+        throw "Stored credential file does not contain a PSCredential: $Path."
+    }
+
+    return $storedCredential
+}
+
 function Invoke-LabHealthReport {
     [CmdletBinding()]
     param (
@@ -354,8 +399,26 @@ function Invoke-LabHealthReport {
 }
 
 if ($MyInvocation.InvocationName -ne '.') {
+    # -SecretsDirectory is validated once, up front, only if it was
+    # supplied: a missing directory should fail with its own clear message
+    # here, rather than surfacing as a confusing missing-file error out of
+    # Get-LabStoredCredential once this guard tries to join a filename onto
+    # a path that never existed.
+    if ($SecretsDirectory -and -not (Test-Path -Path $SecretsDirectory -PathType Container)) {
+        throw "The specified -SecretsDirectory does not exist: $SecretsDirectory"
+    }
+
+    # An explicitly supplied -WazuhCredential parameter always wins over a
+    # stored file. Otherwise, -SecretsDirectory (Step Six-A), if
+    # supplied, is preferred over the original interactive prompt, so a
+    # scheduled, non-interactive run never reaches Get-Credential.
     if (-not $WazuhCredential) {
-        $WazuhCredential = Get-Credential -Message 'Wazuh Manager API credentials (wazuh-wui)'
+        if ($SecretsDirectory) {
+            $WazuhCredential = Get-LabStoredCredential -Path (Join-Path -Path $SecretsDirectory -ChildPath 'wazuh.cred.xml')
+        }
+        else {
+            $WazuhCredential = Get-Credential -Message 'Wazuh Manager API credentials (wazuh-wui)'
+        }
     }
 
     # Get-Credential returns $null if the prompt is cancelled (Cancel or
@@ -368,7 +431,12 @@ if ($MyInvocation.InvocationName -ne '.') {
     }
 
     if (-not $PortainerCredential) {
-        $PortainerCredential = Get-Credential -Message 'Portainer admin API credentials'
+        if ($SecretsDirectory) {
+            $PortainerCredential = Get-LabStoredCredential -Path (Join-Path -Path $SecretsDirectory -ChildPath 'portainer.cred.xml')
+        }
+        else {
+            $PortainerCredential = Get-Credential -Message 'Portainer admin API credentials'
+        }
     }
 
     if (-not $PortainerCredential) {

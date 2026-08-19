@@ -54,6 +54,11 @@
     can hang the suite. TestDrive:\ is used for -ReportDirectory
     throughout.
 
+    The Get-LabStoredCredential Context (Step Six-A) round-trips a real
+    credential through Export-CliXml/Import-CliXml in TestDrive:\ rather
+    than mocking either cmdlet, since both halves run under the same
+    account and machine within one test.
+
     Run with:
         Invoke-Pester -Path .\Invoke-LabHealthReport.Tests.ps1 -Output Detailed
 #>
@@ -284,6 +289,33 @@ Describe 'Invoke-LabHealthReport.ps1' {
             $second = Invoke-LabHealthReport -WazuhCredential $script:TestWazuhCredential -PortainerCredential $script:TestPortainerCredential -ReportDirectory $reportDir
 
             $first.ReportPath | Should -Not -Be $second.ReportPath
+        }
+    }
+
+    Context 'Get-LabStoredCredential (Step Six-A)' {
+
+        It 'round-trips a real credential exported with Export-CliXml' {
+            $storedPath = 'TestDrive:\wazuh.cred.xml'
+            $exported = [PSCredential]::new('wazuh-wui', [System.Security.SecureString]::new())
+            $exported | Export-CliXml -Path $storedPath
+
+            $result = Get-LabStoredCredential -Path $storedPath
+
+            $result | Should -BeOfType [PSCredential]
+            $result.UserName | Should -Be 'wazuh-wui'
+        }
+
+        It 'throws a clear error when the file does not exist' {
+            { Get-LabStoredCredential -Path 'TestDrive:\does-not-exist.xml' } |
+                Should -Throw '*not found*'
+        }
+
+        It 'throws a clear error when the file does not deserialize to a PSCredential' {
+            $storedPath = 'TestDrive:\not-a-credential.xml'
+            [PSCustomObject]@{ Not = 'ACredential' } | Export-CliXml -Path $storedPath
+
+            { Get-LabStoredCredential -Path $storedPath } |
+                Should -Throw '*does not contain a PSCredential*'
         }
     }
 

@@ -280,6 +280,46 @@ Describe 'Get-LabWazuhAgentStatus.ps1' {
             $result.Agents.Count | Should -Be 0
             $result.Message | Should -Not -BeNullOrEmpty
         }
+
+        # Companion to the empty-response regression added to
+        # Get-LabDockerServiceStatus.Tests.ps1 during Step Six-A. The
+        # observed case was Portainer's, but this script has the same
+        # shape: a query that succeeds and returns nothing would otherwise
+        # fall through to the agent loop, match none of the three monitored
+        # names, and report Unhealthy rather than Unknown.
+        It 'reports Unknown when the agents query succeeds but returns no agents at all' {
+            Mock -CommandName Invoke-RestMethod -ParameterFilter {
+                $PesterBoundParameters['Uri'] -like '*/agents'
+            } -MockWith { New-MockAgentsResponse -Agents @() }
+
+            $result = Get-LabWazuhAgentStatus -Credential $script:TestCredential -AgentName $script:DefaultAgentNames
+
+            $result.Status | Should -Be 'Unknown'
+            $result.Message | Should -Not -BeNullOrEmpty
+            $result.Agents.Count | Should -Be 0
+        }
+
+        # The other side of that guard, and the reason it tests the whole
+        # response rather than the post-filter monitored set. Agent 000 is
+        # the Manager's own built-in agent and is always present, so a
+        # response carrying only agent 000 is a real, readable state, no
+        # monitored agents enrolled, and must stay Unhealthy rather than
+        # being masked as Unknown.
+        It 'still reports Unhealthy when the response contains only the Manager''s own agent 000' {
+            Mock -CommandName Invoke-RestMethod -ParameterFilter {
+                $PesterBoundParameters['Uri'] -like '*/agents'
+            } -MockWith {
+                New-MockAgentsResponse -Agents @(
+                    (New-MockAgent -Id '000' -Name 'wazuh.manager' -Status 'active')
+                )
+            }
+
+            $result = Get-LabWazuhAgentStatus -Credential $script:TestCredential -AgentName $script:DefaultAgentNames
+
+            $result.Status | Should -Be 'Unhealthy'
+            $result.Agents.Count | Should -Be 3
+            @($result.Agents | Where-Object { $_.Status -eq 'NotFound' }).Count | Should -Be 3
+        }
     }
 
     Context 'Parameter defaults and pass-through' {

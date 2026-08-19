@@ -220,6 +220,45 @@ function Get-LabDockerServiceStatus {
         }
     }
 
+    # A successful query that returns no containers at all is treated as
+    # Unknown, not as every expected container being absent. This is a
+    # distinct failure shape from the catch above: the request succeeded,
+    # returned HTTP 200, and threw nothing, so nothing reaches the catch,
+    # but the caller still cannot see the containers it asked about.
+    # Without this guard the loop below would walk every entry in
+    # -ExpectedContainer, match none of them, report eight NotFound rows,
+    # and classify the check Unhealthy with no Message: a false incident of
+    # exactly the kind Design Decision 4 reserves Unknown to prevent, and
+    # the same misclassification Step Two's own -Name / -ErrorAction
+    # SilentlyContinue defect produced against an unreachable DC01.
+    #
+    # An empty list is not an ambiguous reading here. The portainer
+    # container is itself in the expected set, and Portainer is what
+    # answered this request, so a response describing zero containers
+    # cannot be a true description of the host that just served it: the
+    # response is wrong, not the environment. The condition was observed
+    # live in Step Six-A, where a non-administrative Portainer account
+    # reached the Docker proxy successfully and received an empty array,
+    # because Community Edition assigns resources to administrators only
+    # by default.
+    #
+    # Both empty shapes are covered. An empty JSON array deserializes to an
+    # empty collection, while a response body with nothing in it leaves
+    # $containersResponse null, which the @() above wraps into a
+    # single-element array holding $null; filtering nulls here catches both
+    # without disturbing the assign-then-wrap form the Step Four
+    # array-nesting fix depends on.
+    if (@($allContainers | Where-Object { $null -ne $_ }).Count -eq 0) {
+        return [PSCustomObject]@{
+            CheckName  = 'DockerServiceStatus'
+            BaseUri    = $BaseUri
+            EndpointId = $EndpointId
+            Containers = @()
+            Status     = 'Unknown'
+            Message    = 'The container query succeeded but returned no containers, so the expected containers could not be observed. This usually means the account used cannot see this environment''s resources rather than that the containers are absent.'
+        }
+    }
+
     # The Docker API reports each container's Names as an array with a
     # leading slash (for example, ["/prometheus"]); normalized here, before
     # matching against -ExpectedContainer, per Step One's own container
