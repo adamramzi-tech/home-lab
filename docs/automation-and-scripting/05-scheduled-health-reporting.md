@@ -2,11 +2,11 @@
 
 ## Status
 
-Step One (confirm reachability and establish a known-good baseline), Step Two (build and test `Get-LabADServiceHealth.ps1`), and Step Three (build and test `Get-LabWazuhAgentStatus.ps1`) are complete. Steps Four through Seven remain planning and research; `Get-LabDockerServiceStatus.ps1` and `Invoke-LabHealthReport.ps1` have not been written, and no scheduled task has been registered.
+Step One (confirm reachability and establish a known-good baseline), Step Two (build and test `Get-LabADServiceHealth.ps1`), Step Three (build and test `Get-LabWazuhAgentStatus.ps1`), and Step Four (build and test `Get-LabDockerServiceStatus.ps1`) are complete. Steps Five through Seven remain planning and research; `Invoke-LabHealthReport.ps1` has not been written, and no scheduled task has been registered.
 
 Step One confirmed, against the live environment, that Design Decision 1's Option D holds: both the Wazuh Manager API and the Portainer API are reachable from WIN11-CLIENT01 and authenticate successfully. Real values discovered during Step One (the Wazuh Manager API's `wazuh-wui` account, the confirmed Portainer endpoint ID, the plain-HTTP `portainer.local` access path, and the live Docker container baseline) now replace the assumptions Design Decision 1, Technologies Used, and Prerequisites previously carried.
 
-Step Two built `Get-LabADServiceHealth.ps1` and its Pester suite, colocated in a new `infrastructure/automation-and-scripting/scheduled-health-reporting/` folder, and confirmed the dot-sourced-function invocation model from Design Decision 2 with a real Pester assertion, ten tests passing, PSScriptAnalyzer clean after a real finding was fixed, and a real live run against DC01 showing `Healthy`. Step Three built `Get-LabWazuhAgentStatus.ps1` alongside it, copying the same dot-sourced-function invocation model and extending Design Decision 6's mocking pattern to the lab's first `Invoke-RestMethod`-based check: fifteen tests passing, PSScriptAnalyzer clean after a real finding was fixed, and a real live run against the Wazuh Manager API showing `Healthy` across all three monitored agents. All three steps' own sections below are written in past tense, describing what was actually run and observed; Steps Four through Seven remain written in future tense, since none of them has been attempted yet.
+Step Two built `Get-LabADServiceHealth.ps1` and its Pester suite, colocated in a new `infrastructure/automation-and-scripting/scheduled-health-reporting/` folder, and confirmed the dot-sourced-function invocation model from Design Decision 2 with a real Pester assertion, ten tests passing, PSScriptAnalyzer clean after a real finding was fixed, and a real live run against DC01 showing `Healthy`. Step Three built `Get-LabWazuhAgentStatus.ps1` alongside it, copying the same dot-sourced-function invocation model and extending Design Decision 6's mocking pattern to the lab's first `Invoke-RestMethod`-based check: fifteen tests passing, PSScriptAnalyzer clean after a real finding was fixed, and a real live run against the Wazuh Manager API showing `Healthy` across all three monitored agents. Step Four built `Get-LabDockerServiceStatus.ps1`, the lab's third and final check script: PSScriptAnalyzer was clean on the first pass against both the script and its test file, an outcome Steps Two and Three did not have, but the first live run surfaced a real defect that a fully passing, sixteen-test Pester suite had not caught, a nested-array response-deserialization bug specific to this endpoint's top-level JSON array shape. That defect was root-caused by live diagnostic, fixed, covered by a seventeenth regression test, and confirmed resolved by a second live run, which returned the `Unhealthy` result Step One's own deliberately-unremediated monitoring-stack outage predicted, `prometheus`, `grafana`, and `node-exporter` reported stopped against an otherwise-healthy environment, the check working as intended rather than a defect. All four steps' own sections below are written in past tense, describing what was actually run and observed; Steps Five through Seven remain written in future tense, since none of them has been attempted yet.
 
 ---
 
@@ -519,9 +519,97 @@ This returned a real `Healthy` result: all three target agents (`DC01`, `WIN11-C
   <em>.\Get-LabWazuhAgentStatus.ps1 run standalone against the Wazuh Manager API: a formatted console table showing all three target agents active and OverallStatus Healthy.</em>
 </p>
 
-### Step Four - Build Get-LabDockerServiceStatus.ps1 (planned)
+### Step Four - Built Get-LabDockerServiceStatus.ps1
 
-Planned to accept the Portainer base URI (`http://portainer.local`, confirmed in Step One as the working path; plain HTTP, not HTTPS, since the NGINX Proxy Manager proxy host is HTTP-only), the confirmed endpoint ID `3`, and Portainer admin API credentials, authenticate via `POST /api/auth`, and query `GET /api/endpoints/3/docker/containers/json?all=true` for the containers confirmed present in Step One. The expected-running baseline is the Wazuh stack (`single-node-wazuh.manager-1`, `single-node-wazuh.indexer-1`, `single-node-wazuh.dashboard-1`), the reverse proxy (`nginx-proxy-manager`), `portainer` itself, and the monitoring stack (`prometheus`, `grafana`, `node-exporter`); the `docker-networking` project's `frontend` and `backend` containers, leftover teaching-lab containers from linux infrastructure Lab 05, are excluded from the expected-running baseline entirely, not merely tolerated as an exception. As of Step One, the monitoring stack is not actually running, a genuine `Unhealthy` condition this script is expected to catch and report on its first live run rather than something remediated ahead of time. Classification planned as `Healthy` if every expected container reports a running state, `Unhealthy` if the query succeeds but any expected container is stopped or missing, and `Unknown` if authentication or the query itself fails. Pester coverage planned to mirror Step Three's approach, mocking `Invoke-RestMethod` rather than reaching Ubuntu Server.
+`Get-LabDockerServiceStatus.ps1` was built alongside the two earlier check scripts in the same `infrastructure/automation-and-scripting/scheduled-health-reporting/` folder. It accepts an optional `-BaseUri` (default `http://portainer.local`, the plain-HTTP path Step One confirmed working), an optional `-EndpointId` (default `3`, the numeric Docker environment ID Step One confirmed live, not the previously assumed default of `1`), a `-Credential` for the Portainer admin account, an optional `-ExpectedContainer` list (default the curated eight-container set below), and the optional `-ExportPath` the standalone reporting convention uses. It authenticates against `POST /api/auth` with a JSON body built from the credential and reads the JWT from the response's top-level `jwt` field, a different shape from the Wazuh Manager API's `data.token`, then queries `GET /api/endpoints/3/docker/containers/json?all=true` with that token as a Bearer header, the `?all=true` flag being the reason a stopped expected container shows up as stopped rather than simply missing from the response.
+
+**No TLS accommodation, unlike Step Three.** Step One confirmed the only working Portainer path is plain HTTP through NGINX Proxy Manager, not HTTPS, so this script applies none of `Get-LabWazuhAgentStatus.ps1`'s TLS 1.2 / `TrustAllCertsPolicy` accommodation; there is no HTTPS leg on this path to accommodate. One consequence, expanded on in Security Considerations, is that the Portainer credential crosses the LAN in cleartext on every call this script makes.
+
+**The dot-sourced-function invocation model, copied from Steps Two and Three.** `Get-LabDockerServiceStatus.ps1` defines a function named the same as the file, per Design Decision 2, and reuses the same `if ($MyInvocation.InvocationName -ne '.') { ... }` guard, so dot-sourcing it only ever defines the function and binds the top-level parameter defaults. As in Step Three, the top-level `-Credential` parameter carries no `Mandatory` attribute and no default, even though the function's own `-Credential` is mandatory, so that dot-sourcing this file cannot hang a test run on an interactive prompt; the standalone path inside the guard prompts for the credential itself, with `Get-Credential`, only when the file is run directly and no `-Credential` was supplied.
+
+**Container-name normalization.** Docker's container-listing endpoint returns each container's `Names` as an array of strings with a leading slash, for example `["/portainer"]`, confirmed in Step One's own container listing. The script takes the first entry and strips the leading slash before matching a container against `-ExpectedContainer`; matching the raw, slash-prefixed value against a plain container name would silently fail every comparison.
+
+**The curated expected-running set, and the deliberate exclusion of the teaching containers.** The default `-ExpectedContainer` list is the eight containers Step One confirmed as the environment's intended baseline: the Wazuh stack (`single-node-wazuh.manager-1`, `single-node-wazuh.indexer-1`, `single-node-wazuh.dashboard-1`), the reverse proxy (`nginx-proxy-manager`), `portainer` itself, and the monitoring stack (`prometheus`, `grafana`, `node-exporter`). The `docker-networking` project's `frontend` and `backend` containers, leftover teaching-lab containers from linux infrastructure Lab 05, are deliberately not in this list, the same way `Get-LabWazuhAgentStatus.ps1` excludes the Wazuh Manager's own agent `000`: whatever their state, they are simply never matched against and never affect the result, rather than being detected and then special-cased.
+
+**Classification.** Per Design Decision 4: `Healthy` if every expected container is present and reports a running state; `Unhealthy` if the query completes but any expected container is present with a non-running state, its real state reported, for example `exited`, or missing from the response entirely, reported `NotFound`, the Docker analog of `Get-LabADServiceHealth.ps1`'s `NotFound` condition; `Unknown` only if authentication or the container query itself could not be completed. As with `Get-LabWazuhAgentStatus.ps1`, `Invoke-RestMethod` throws a terminating error on its own for both a connection failure and an HTTP error status, so a failed authentication or an unreachable Portainer API reaches this script's `try`/`catch` and classifies `Unknown` without the enumerate-then-match workaround `Get-Service` required in Step Two.
+
+**Credential and token hygiene.** `-Credential` is accepted as a `[PSCredential]`, the same discipline every REST-backed check script in this lab uses. The JSON body `POST /api/auth` is authenticated with, and the JWT bearer token the containers query is authenticated with, exist only inside the function's local scope; the returned `PSCustomObject` carries only container names and states, the overall `Status`, and a `Message` drawn from the exception's own text on failure, and neither the credential nor the token is written to the console, placed on the returned object, or included in the standalone report. The Pester suite asserts this directly.
+
+**Pester coverage.** `Get-LabDockerServiceStatus.Tests.ps1` mocks `Invoke-RestMethod`, distinguishing the auth call from the containers call by `-Uri` in each `ParameterFilter`, the same pattern Step Three established. The test credential was built from an empty `[System.Security.SecureString]::new()`, per Lab 03's `PSAvoidUsingConvertToSecureStringWithPlainText` finding. Seventeen tests are written across ten Contexts: Dot-sourcing behavior, Read-only behavior, the three classification branches (Healthy; Unhealthy for a stopped container and, separately, for a missing container, plus a dedicated exclusion test confirming `frontend` and `backend` never affect the result even when present and exited; Unknown for an authentication failure and, separately, for a containers-query failure), a Real-environment baseline Context reproducing Step One's exact ten-container live finding and asserting the result is driven only by the three monitoring containers, Parameter defaults and pass-through, Credential and token hygiene, the `-ExportPath` CSV branch, and a Response deserialization Context, added after Step Four's own live run surfaced a defect these other sixteen tests had not caught, covered in full in Troubleshooting and Adjustments below.
+
+```powershell
+Invoke-Pester -Path C:\Scripts\Get-LabDockerServiceStatus.Tests.ps1 -Output Detailed
+```
+
+Sixteen tests, the suite as it stood before the defect below was found and the seventeenth test written, passed on the first run: `Discovery found 16 tests in 224ms`, `Tests Passed: 16, Failed: 0, Skipped: 0, Inconclusive: 0, NotRun: 0`.
+
+**Analysis was clean on the first pass, unlike Steps Two and Three.**
+
+```powershell
+Invoke-ScriptAnalyzer -Path C:\Scripts\Get-LabDockerServiceStatus.ps1 -Settings C:\Scripts\PSScriptAnalyzerSettings.psd1
+Invoke-ScriptAnalyzer -Path C:\Scripts\Get-LabDockerServiceStatus.Tests.ps1 -Settings C:\Scripts\PSScriptAnalyzerSettings.psd1
+```
+
+Both invocations returned to the prompt with no output. Unlike `Get-LabADServiceHealth.Tests.ps1`'s `PSAvoidUsingComputerNameHardcoded` finding in Step Two or `Get-LabWazuhAgentStatus.Tests.ps1`'s `PSUseSingularNouns` finding in Step Three, neither script nor test file triggered a finding here.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/05-scheduled-health-reporting/17-docker-first-pester-and-analyzer-clean-pass.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Invoke-Pester against Get-LabDockerServiceStatus.Tests.ps1: 16 tests discovered across nine Contexts, all sixteen passed on the first run, followed by both Invoke-ScriptAnalyzer invocations returning to the prompt with no output, a clean pass with no finding to fix.</em>
+</p>
+
+**A clean Pester run and a clean analyzer pass were not enough: the first live run surfaced a real defect.** Per the plan, a live run against Portainer was performed once Pester and Analyzer were both clean, since Step One had already proven the API reachable and authenticating under the admin account used there.
+
+```powershell
+$cred = Get-Credential -Message "Portainer admin API credentials"
+.\Get-LabDockerServiceStatus.ps1 -Credential $cred
+```
+
+This did not return the expected result. Seven of the eight expected containers came back `NotFound`, and `single-node-wazuh.dashboard-1` came back with `ContainerState` showing `{running, running, running, exited...}`, a collection value where a single state string was expected. `OverallStatus` was `Unhealthy` on every row, but not for the reason Step One's plan anticipated. This was a real defect in the script, not the monitoring-stack outage the plan expected this check to catch, and it is root-caused in full, with the diagnostic sequence that found it, in Troubleshooting and Adjustments below.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/05-scheduled-health-reporting/18-first-live-run-array-nesting-defect.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>The first live run: seven of eight expected containers reported NotFound, and single-node-wazuh.dashboard-1 reported a collection value, {running, running, running, exited...}, in place of a single state. A real defect, resolved below, not the expected outage.</em>
+</p>
+
+**After the fix described in Troubleshooting and Adjustments, Pester and Analyzer were re-run.**
+
+```powershell
+Invoke-Pester -Path C:\Scripts\Get-LabDockerServiceStatus.Tests.ps1 -Output Detailed
+Invoke-ScriptAnalyzer -Path C:\Scripts\Get-LabDockerServiceStatus.ps1 -Settings C:\Scripts\PSScriptAnalyzerSettings.psd1
+Invoke-ScriptAnalyzer -Path C:\Scripts\Get-LabDockerServiceStatus.Tests.ps1 -Settings C:\Scripts\PSScriptAnalyzerSettings.psd1
+```
+
+Seventeen tests passed, the sixteen original tests plus the new regression test covering the fixed defect: `Discovery found 17 tests in 118ms`, `Tests Passed: 17, Failed: 0, Skipped: 0, Inconclusive: 0, NotRun: 0`. Both `Invoke-ScriptAnalyzer` invocations again returned to the prompt with no output.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/05-scheduled-health-reporting/22-post-fix-pester-and-analyzer-clean-pass.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Invoke-Pester re-run after the array-deserialization fix: 17 tests discovered across ten Contexts, all seventeen passed, including the new Response deserialization Context, followed by both Invoke-ScriptAnalyzer invocations returning to the prompt with no output: a clean pass.</em>
+</p>
+
+**The live run was repeated, and this time returned the result Step One's plan anticipated.**
+
+```powershell
+.\Get-LabDockerServiceStatus.ps1 -Credential $cred
+```
+
+This returned a real `Unhealthy` result, driven by exactly the condition Step One deliberately left in place: `single-node-wazuh.manager-1`, `single-node-wazuh.indexer-1`, `single-node-wazuh.dashboard-1`, `nginx-proxy-manager`, and `portainer` all reported `running`; `prometheus`, `grafana`, and `node-exporter` all reported `exited`. This matches Step One's own live container baseline exactly, and it is this check working correctly on its first genuine live run, catching the monitoring-stack outage Step One found and deliberately did not remediate, not a defect. Remediation remains deferred to Step Seven, per the plan.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/05-scheduled-health-reporting/23-post-fix-docker-service-status-live-run.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>.\Get-LabDockerServiceStatus.ps1 run standalone against Portainer, after the fix: the Wazuh stack, nginx-proxy-manager, and portainer reporting running; prometheus, grafana, and node-exporter reporting exited; OverallStatus Unhealthy on every row. The monitoring-stack outage Step One found, correctly caught.</em>
+</p>
 
 ### Step Five - Build Invoke-LabHealthReport.ps1, the Orchestrator (planned)
 
@@ -555,7 +643,7 @@ Consistent with the rule this track has held since Lab 01, no script's reported 
 
 ## Troubleshooting and Adjustments
 
-Steps One, Two, and Three are implemented and run against the live environment; the entries below that they resolved are recorded in past tense as encountered-and-resolved. Steps Four through Seven have not been implemented yet, so risks specific to those steps remain in anticipated framing.
+Steps One through Four are implemented and run against the live environment; the entries below that they resolved are recorded in past tense as encountered-and-resolved. Steps Five through Seven have not been implemented yet, so risks specific to those steps remain in anticipated framing.
 
 **PowerShell 5.1's `Invoke-RestMethod` has no `-SkipCertificateCheck` parameter (encountered and resolved, Step One).** The Wazuh stack uses self-signed certificates generated by the `wazuh-certs-generator` container (enterprise Lab 07). The anticipated `[System.Net.ServicePointManager]`-based accommodation (forcing TLS 1.2 and installing a certificate-validation callback) worked on the first attempt against the Wazuh Manager API, with no TLS handshake error. The same accommodation was reapplied against `portainer.local` and did not resolve an HTTPS failure there, but that turned out to be a different problem entirely (see below), not a defect in the accommodation itself.
 
@@ -595,19 +683,55 @@ The change was confined to the error-handling path and the tests and comments th
 
 **A stored scheduled-task credential is a new, standing security surface for this track (anticipated, later step).** Every prior lab's most-privileged operation existed only for the length of an interactive session an operator explicitly started. A scheduled task configured to run whether a user is logged on or not requires a stored credential (via `Register-ScheduledTask -User -Password`, or an equivalent principal configuration) that persists indefinitely. This is not a defect to fix during implementation so much as a property to design around, addressed as an open question in Design Decision 5 and expanded on in Security Considerations below.
 
-**Portainer's endpoint ID is now confirmed (encountered and resolved, Step One).** `GET /api/endpoints` returned a single endpoint, `Id: 3`, `Name: "local"`, not the previously assumed default of `1`. `Get-LabDockerServiceStatus.ps1`'s parameter defaults will use `3`.
+**Portainer's endpoint ID is now confirmed (encountered and resolved, Step One).** `GET /api/endpoints` returned a single endpoint, `Id: 3`, `Name: "local"`, not the previously assumed default of `1`. `Get-LabDockerServiceStatus.ps1`'s parameter defaults use `3`.
 
 **PSScriptAnalyzer flags a plural noun on a test-only helper function (encountered and resolved, Step Three).** `Get-LabWazuhAgentStatus.Tests.ps1`'s first analyzer pass returned one `PSUseSingularNouns` finding (Warning severity) against `New-DefaultMockAgents`, a private helper building the fabricated four-agent `GET /agents` response reused across the file's default mocks. `Get-LabWazuhAgentStatus.ps1` itself was already clean; the finding was confined to the test file's own helper naming. The fix was a rename, `New-DefaultMockAgents` to `New-DefaultMockAgentSet`, and its one call site updated to match, with no assertion changed. The suite was re-run afterward and confirmed unaffected, still 15 of 15, and both `Invoke-ScriptAnalyzer` invocations returned to the prompt with no output.
+
+**A live-only defect survived a clean Pester suite and a clean analyzer pass: wrapping a live `Invoke-RestMethod` call directly in `@()` nested this endpoint's top-level JSON array instead of flattening it (encountered and resolved, Step Four).** `Get-LabDockerServiceStatus.ps1`'s containers query originally read `$allContainers = @(Invoke-RestMethod -Uri $containersUri ...)`. Pester was 16 of 16 and both analyzer invocations returned no output, so the first live run was expected to simply confirm Step One's known baseline. It did not: seven of the eight expected containers came back `NotFound`, and `single-node-wazuh.dashboard-1` came back with its `State` showing `{running, running, running, exited...}`, a collection where a single string was expected.
+
+The diagnostic followed the same live-evidence-over-assumption approach Step Two's `BOGUS01` probe used. First, the raw API response was checked directly against a freshly authenticated session: `$containers.Count` was `10`, matching Step One's baseline exactly; `(​$containers | Select-Object -First 1).Names` was a `System.Object[]` holding one slash-prefixed string; `.State` was a plain `System.String`. The raw response was exactly the shape the script's normalization code assumed.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/05-scheduled-health-reporting/19-diagnostic-raw-container-response-shape.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Diagnostic: the raw Portainer container response confirmed as 10 items, Names as a one-element System.Object[], State as a System.String, exactly the shape the script's normalization code assumed.</em>
+</p>
+
+Second, the script's own normalization and matching code was retyped at the prompt, line for line, against that already-fetched `$containers` variable. It worked perfectly: ten clean rows with slash-stripped names, and a `portainer` lookup returning a single clean `PSCustomObject` with `State = running`. This ruled out the classification logic itself.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/05-scheduled-health-reporting/20-diagnostic-manual-classification-replication.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Diagnostic: the script's normalization and matching code, retyped at the prompt against the same live $containers data, produced ten clean rows and a correct single-object portainer match, ruling out the classification logic itself.</em>
+</p>
+
+Third, the live script was run again, and then dot-sourced with the function called directly (`. .\Get-LabDockerServiceStatus.ps1; Get-LabDockerServiceStatus -Credential $cred`), bypassing the standalone rendering guard entirely. Both reproduced the identical defect, which ruled out the rendering code and confirmed the bug was inside the function's own live call path, the one difference between the failing runs and the successful manual replication.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/05-scheduled-health-reporting/21-live-run-and-function-call-reproduce-defect.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Diagnostic: a direct script re-run and a dot-source-plus-direct-function-call both reproduced the identical defect, isolating it to the function's own live Invoke-RestMethod call rather than the standalone rendering guard.</em>
+</p>
+
+The root cause is a PowerShell 5.1 pipeline behavior specific to this endpoint's response shape. The containers endpoint returns a top-level JSON array, unlike the Wazuh agents endpoint, which nests its array under a `data` property. For a top-level array response, `Invoke-RestMethod` can write the entire array to the pipeline as a single object rather than one object per container. A bare assignment, `$containers = Invoke-RestMethod ...`, binds directly to that one emitted object, which happens to be the array itself, so `.Count` reads correctly. But `@()` wrapped around the live command call only collects what the pipeline actually emitted, one object, the whole array, so `@(Invoke-RestMethod ...)` nested that array as a single element instead of flattening it: one entry containing ten containers, rather than ten entries. The normalization loop then ran exactly once, with `$container` bound to the entire array; member enumeration made `$container.Names` and `$container.State` return the property values across all ten containers rather than one, which is why `single-node-wazuh.dashboard-1`, the array's first element, was the only name that "matched," and why its `State` showed as a collection instead of a string. `@()` wrapped around an already-materialized variable does not have this problem, since PowerShell's array-subexpression operator correctly enumerates an expression that already evaluates to an array; only wrapping a live command call, whose cmdlet may itself emit only one pipeline object, is affected.
+
+The fix was confined to the containers-query line: the response is now assigned to `$containersResponse` first, and `$allContainers = @($containersResponse)` wraps that variable rather than the live call. A regression test was added to `Get-LabDockerServiceStatus.Tests.ps1`, in a new Response deserialization Context, that forces Pester's mock to emit the entire container array as a single pipeline object using the unary comma operator (`, (New-DefaultMockContainerSet)`), reproducing the exact shape that had let the defect pass all sixteen original tests; Pester's own `-MockWith` return unrolls an array onto the pipeline element by element, unlike the real cmdlet's behavior for this endpoint, which is why none of the original tests caught it. The reworked suite was re-run and returned `Tests Passed: 17, Failed: 0, Skipped: 0, Inconclusive: 0, NotRun: 0`, both `Invoke-ScriptAnalyzer` invocations again returned to the prompt with no output, and the live run was repeated and returned the `Unhealthy` result Step One's baseline predicted, screenshots for all three in Step Four's Implementation section above.
 
 ---
 
 ## Security Considerations
 
-- **Read-only by design.** Every call this lab's scripts make is a query: `Get-Service` with no state-changing parameter, and `GET` requests (plus each API's own authentication `POST`) against the Wazuh and Portainer REST APIs. No script in this lab calls, or is planned to call, anything capable of modifying Active Directory, Wazuh configuration, or Docker container state. As in Lab 04, this claim is exercised by the Pester suite, not only reviewed by eye: `Get-LabADServiceHealth.Tests.ps1` already asserts `-Times 0` against a representative sample of state-changing service cmdlets, and `Get-LabWazuhAgentStatus.Tests.ps1` extends the same claim to its own script's calls, asserting `Invoke-RestMethod` is called exactly twice, the authenticate `POST` and the agents `GET`, and never with any other method or URI. The same pattern is planned for the remaining two scripts once they exist.
+- **Read-only by design.** Every call this lab's scripts make is a query: `Get-Service` with no state-changing parameter, and `GET` requests (plus each API's own authentication `POST`) against the Wazuh and Portainer REST APIs. No script in this lab calls anything capable of modifying Active Directory, Wazuh configuration, or Docker container state, and none is planned to. As in Lab 04, this claim is exercised by the Pester suite, not only reviewed by eye: `Get-LabADServiceHealth.Tests.ps1` asserts `-Times 0` against a representative sample of state-changing service cmdlets, and both `Get-LabWazuhAgentStatus.Tests.ps1` and `Get-LabDockerServiceStatus.Tests.ps1` extend the same claim to their own scripts' calls, each asserting `Invoke-RestMethod` is called exactly twice, once to authenticate and once to query, and never with any other method or URI. The same pattern remains planned for `Invoke-LabHealthReport.ps1` once it exists.
 - **A stored, unattended credential is this lab's most significant new exposure.** Every prior lab in this track ran under `labadmin` for the length of an operator-initiated interactive session. A Task Scheduler job configured to run unattended needs a credential that persists on WIN11-CLIENT01 indefinitely, a materially different exposure than a session-scoped one, and the open question in Design Decision 5, whether to continue using `labadmin` or provision a dedicated least-privileged scheduled-task account, is raised here with more weight than the similar "a production deployment would use a dedicated account" aside in Labs 02 and 04, because this lab's version of that aside describes a standing condition of the deployment rather than a convenience taken during a single lab session.
 - **API credentials handled the same way Lab 01 handled a plaintext password.** `New-LabUser.ps1` (Lab 01) took its password parameter as a `[SecureString]` rather than plaintext. The Wazuh and Portainer API credentials this lab's scripts need will be handled with the same discipline, sourced from a secure credential store (Windows Credential Manager, or the scheduled task's own stored credential) rather than embedded as plaintext in any script or configuration file.
 - **Exported reports as a data-handling boundary.** The timestamped health report and any `-ExportPath` CSV output from the individual check scripts can describe service state, agent connectivity, and container status across the whole environment. As in every prior lab, all of it will be kept out of the repository and stored only on WIN11-CLIENT01.
-- **The Portainer API path is HTTP-only, so its credential crosses the LAN in cleartext on every call.** Implementation Step One confirmed the only working Portainer path is `http://portainer.local` through NGINX Proxy Manager, not HTTPS; the proxy host has no SSL certificate assigned. `Get-LabDockerServiceStatus.ps1` will therefore send Portainer's admin credential (or, for a scheduled run, a stored one) over plain HTTP internally on every invocation. This strengthens, rather than merely restates, the case in Design Decision 5 for a dedicated, least-privileged, read-only Portainer account over the broad admin account used during Step One's diagnostic; a compromised or misconfigured segment of the LAN could otherwise observe the credential in transit.
+- **The Portainer API path is HTTP-only, so its credential crosses the LAN in cleartext on every call.** Implementation Step One confirmed the only working Portainer path is `http://portainer.local` through NGINX Proxy Manager, not HTTPS; the proxy host has no SSL certificate assigned. `Get-LabDockerServiceStatus.ps1`, built in Step Four, therefore sends Portainer's admin credential (or, for a scheduled run, a stored one) over plain HTTP internally on every invocation, confirmed directly by Step Four's own live runs using the same admin account Step One used. This strengthens, rather than merely restates, the case in Design Decision 5 for a dedicated, least-privileged, read-only Portainer account over the broad admin account used during both steps' diagnostics; a compromised or misconfigured segment of the LAN could otherwise observe the credential in transit.
 - **The Wazuh API's certificate-validation bypass is a documented diagnostic accommodation, not a silent workaround.** Implementation Step One's `TrustAllCertsPolicy` accommodation, used to call the Wazuh Manager API's self-signed certificate over HTTPS from PowerShell 5.1, disabled certificate validation for the process's lifetime during that diagnostic session, not just for the Wazuh call. Step Three resolved the open question this left for the finished script: `Get-LabWazuhAgentStatus.ps1` captures the process's existing `CertificatePolicy` and `SecurityProtocol` before applying the accommodation and restores both in a `finally` block once its own authentication and agent-query calls are done, so certificate validation is disabled only for the duration of this script's own REST calls, not for the rest of the calling session.
 
 ---
@@ -642,7 +766,7 @@ Research references consulted during this lab's planning.
 
 **Portainer REST API (Portainer documentation)**
 
-- [API usage examples - Portainer Documentation](https://docs.portainer.io/api/examples) - confirms the authentication endpoint (`POST /api/auth`, JWT), the container-listing endpoint (`GET /api/endpoints/{id}/docker/containers/json`), and the `X-API-Key` header pattern, the basis for `Get-LabDockerServiceStatus.ps1`'s planned design
+- [API usage examples - Portainer Documentation](https://docs.portainer.io/api/examples) - confirms the authentication endpoint (`POST /api/auth`, JWT), the container-listing endpoint (`GET /api/endpoints/{id}/docker/containers/json`), and the `X-API-Key` header pattern, the basis for `Get-LabDockerServiceStatus.ps1`'s design
 
 **PowerShell remote service queries (Microsoft Learn)**
 
