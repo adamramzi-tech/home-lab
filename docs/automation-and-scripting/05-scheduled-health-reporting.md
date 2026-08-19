@@ -2,11 +2,11 @@
 
 ## Status
 
-Step One (confirm reachability and establish a known-good baseline), Step Two (build and test `Get-LabADServiceHealth.ps1`), Step Three (build and test `Get-LabWazuhAgentStatus.ps1`), and Step Four (build and test `Get-LabDockerServiceStatus.ps1`) are complete. Steps Five through Seven remain planning and research; `Invoke-LabHealthReport.ps1` has not been written, and no scheduled task has been registered.
+Step One (confirm reachability and establish a known-good baseline), Step Two (build and test `Get-LabADServiceHealth.ps1`), Step Three (build and test `Get-LabWazuhAgentStatus.ps1`), Step Four (build and test `Get-LabDockerServiceStatus.ps1`), and Step Five (build and test `Invoke-LabHealthReport.ps1`, the orchestrator) are complete. Steps Six and Seven remain planning and research; no scheduled task has been registered, and the full-library sweep has not been run.
 
 Step One confirmed, against the live environment, that Design Decision 1's Option D holds: both the Wazuh Manager API and the Portainer API are reachable from WIN11-CLIENT01 and authenticate successfully. Real values discovered during Step One (the Wazuh Manager API's `wazuh-wui` account, the confirmed Portainer endpoint ID, the plain-HTTP `portainer.local` access path, and the live Docker container baseline) now replace the assumptions Design Decision 1, Technologies Used, and Prerequisites previously carried.
 
-Step Two built `Get-LabADServiceHealth.ps1` and its Pester suite, colocated in a new `infrastructure/automation-and-scripting/scheduled-health-reporting/` folder, and confirmed the dot-sourced-function invocation model from Design Decision 2 with a real Pester assertion, ten tests passing, PSScriptAnalyzer clean after a real finding was fixed, and a real live run against DC01 showing `Healthy`. Step Three built `Get-LabWazuhAgentStatus.ps1` alongside it, copying the same dot-sourced-function invocation model and extending Design Decision 6's mocking pattern to the lab's first `Invoke-RestMethod`-based check: fifteen tests passing, PSScriptAnalyzer clean after a real finding was fixed, and a real live run against the Wazuh Manager API showing `Healthy` across all three monitored agents. Step Four built `Get-LabDockerServiceStatus.ps1`, the lab's third and final check script: PSScriptAnalyzer was clean on the first pass against both the script and its test file, an outcome Steps Two and Three did not have, but the first live run surfaced a real defect that a fully passing, sixteen-test Pester suite had not caught, a nested-array response-deserialization bug specific to this endpoint's top-level JSON array shape. That defect was root-caused by live diagnostic, fixed, covered by a seventeenth regression test, and confirmed resolved by a second live run, which returned the `Unhealthy` result Step One's own deliberately-unremediated monitoring-stack outage predicted, `prometheus`, `grafana`, and `node-exporter` reported stopped against an otherwise-healthy environment, the check working as intended rather than a defect. All four steps' own sections below are written in past tense, describing what was actually run and observed; Steps Five through Seven remain written in future tense, since none of them has been attempted yet.
+Step Two built `Get-LabADServiceHealth.ps1` and its Pester suite, colocated in a new `infrastructure/automation-and-scripting/scheduled-health-reporting/` folder, and confirmed the dot-sourced-function invocation model from Design Decision 2 with a real Pester assertion, ten tests passing, PSScriptAnalyzer clean after a real finding was fixed, and a real live run against DC01 showing `Healthy`. Step Three built `Get-LabWazuhAgentStatus.ps1` alongside it, copying the same dot-sourced-function invocation model and extending Design Decision 6's mocking pattern to the lab's first `Invoke-RestMethod`-based check: fifteen tests passing, PSScriptAnalyzer clean after a real finding was fixed, and a real live run against the Wazuh Manager API showing `Healthy` across all three monitored agents. Step Four built `Get-LabDockerServiceStatus.ps1`, the lab's third and final check script: PSScriptAnalyzer was clean on the first pass against both the script and its test file, an outcome Steps Two and Three did not have, but the first live run surfaced a real defect that a fully passing, sixteen-test Pester suite had not caught, a nested-array response-deserialization bug specific to this endpoint's top-level JSON array shape. That defect was root-caused by live diagnostic, fixed, covered by a seventeenth regression test, and confirmed resolved by a second live run, which returned the `Unhealthy` result Step One's own deliberately-unremediated monitoring-stack outage predicted, `prometheus`, `grafana`, and `node-exporter` reported stopped against an otherwise-healthy environment, the check working as intended rather than a defect. Step Five built `Invoke-LabHealthReport.ps1`, the thin orchestrator that dot-sources the three check scripts at its own top level and calls their functions by name, applies the worst-wins aggregation from Design Decision 4, and produces both a console table and an always-written timestamped HTML report per Design Decision 3. Building its Pester suite surfaced two real, back-to-back Pester authoring defects, not defects in the orchestrator itself, both caught by a real operator run rather than assumed: a twenty-seven-case data-driven aggregation Context that silently produced zero tests because its source data was built inside a `BeforeAll` rather than in the Context body Pester's Discovery phase actually reads, and, once that was fixed, the same twenty-seven cases running but every named variable binding to `$null` because the source data was an array of `PSCustomObject` rather than `Hashtable` entries, which is what Pester's `-ForEach` actually projects into named test variables. Both were fixed and confirmed by a third real run, thirty-eight of thirty-eight tests passing. PSScriptAnalyzer surfaced three real findings, all resolved rather than suppressed: a `PSUseShouldProcessForStateChangingFunctions` warning resolved by renaming the HTML-building helper from a `New-` verb to `ConvertTo-` (the same relationship PowerShell's own `ConvertTo-Html` has to its data), and two `PSUseOutputTypeCorrectly` information findings resolved by adding `OutputType` attributes, one of which needed a second, corrected attempt after the first guessed type did not match the analyzer's own inferred type. A first live-run attempt surfaced one further real defect, in the orchestrator's own interactive guard rather than in Pester or Analyzer coverage: a blank report-directory prompt produced an empty string that failed PowerShell's built-in parameter validation, but that failure was non-terminating at the script level, so execution continued into a garbled, blank summary table instead of stopping cleanly. Fixed by validating all three interactively-resolved inputs explicitly and failing loudly and immediately if any is missing, confirmed by a second attempt that failed cleanly on the same blank input, and only then a genuine live run, which returned the `Unhealthy` overall result the monitoring stack's still-unremediated outage predicted: AD and Wazuh both `Healthy`, Docker `Unhealthy`, worst-wins correctly propagating the one real fault to the overall status. All five steps' own sections below are written in past tense, describing what was actually run and observed; Steps Six and Seven remain written in future tense, since neither has been attempted yet.
 
 ---
 
@@ -611,9 +611,184 @@ This returned a real `Unhealthy` result, driven by exactly the condition Step On
   <em>.\Get-LabDockerServiceStatus.ps1 run standalone against Portainer, after the fix: the Wazuh stack, nginx-proxy-manager, and portainer reporting running; prometheus, grafana, and node-exporter reporting exited; OverallStatus Unhealthy on every row. The monitoring-stack outage Step One found, correctly caught.</em>
 </p>
 
-### Step Five - Build Invoke-LabHealthReport.ps1, the Orchestrator (planned)
+### Step Five - Built Invoke-LabHealthReport.ps1, the Orchestrator
 
-Planned to dot-source the three check scripts and call their functions by name, per the invocation design in Design Decision 2, apply the worst-wins aggregation from Design Decision 4, print a console table when run interactively, and always write a timestamped report (planned as HTML) to a `-ReportDirectory` parameter, per Design Decision 3. Pester coverage planned to be the most extensive in this lab, exercising every combination of the three checks' possible states against the aggregation rule by mocking the three check functions by name rather than their underlying cmdlets, per Design Decision 6, which is only possible because of the function-based invocation Design Decision 2 settles on.
+`Invoke-LabHealthReport.ps1` was built alongside the three check scripts in the same `infrastructure/automation-and-scripting/scheduled-health-reporting/` folder. It is the script Step Six will register in Task Scheduler, so it is the environment's single entry point: an operator or a scheduled firing runs this one script, not the three check scripts individually. It accepts `-WazuhCredential` and `-PortainerCredential` (both `[PSCredential]`) and `-ReportDirectory`; per Design Decision 2, it does not re-declare any of the three checks' own classification parameters (target computer, service list, agent list, base URIs, endpoint ID, expected-container list), relying entirely on each check's own defaults, the same defaults Steps Two through Four already built and validated.
+
+**The dot-source placement is a correctness requirement, not a style choice.** Per Design Decision 6, the three check scripts are dot-sourced once, at this file's own top level, resolved relative to `$PSScriptRoot`, rather than inside the `Invoke-LabHealthReport` function body:
+
+```powershell
+. (Join-Path -Path $PSScriptRoot -ChildPath 'Get-LabADServiceHealth.ps1')
+. (Join-Path -Path $PSScriptRoot -ChildPath 'Get-LabWazuhAgentStatus.ps1')
+. (Join-Path -Path $PSScriptRoot -ChildPath 'Get-LabDockerServiceStatus.ps1')
+```
+
+Placed at the top level, the three check functions are defined exactly once, whenever this file is loaded, by dot-sourcing or by a direct run. A Pester suite can then dot-source this file, which dot-sources the three checks and defines the real functions, `Mock` those three functions by name, and invoke `Invoke-LabHealthReport`, and the mocks take effect because PowerShell resolves a bare function call by name at call time. Had the dot-source calls instead lived inside the `Invoke-LabHealthReport` function body, every call to that function would re-dot-source the three check scripts and redefine the real functions over the top of any active `Mock`, making the aggregation untestable.
+
+**Parameter-name collision is handled by naming, not by scoping.** Because the three check scripts are dot-sourced into this file's own scope, each one's own top-level `param` block variables (`$ComputerName`, `$ServiceName`, `$BaseUri`, `$Credential`, `$AgentName`, `$EndpointId`, `$ExpectedContainer`, `$ExportPath`) land in this file's scope as a side effect, the last-dot-sourced script's default winning for any name more than one check script happens to share. None of that is used by this script; `-WazuhCredential`, `-PortainerCredential`, and `-ReportDirectory` were named specifically so that none of them collides with any name the three dot-sourced check scripts already bind, rather than scoping the dot-source calls to prevent the collision.
+
+As in every check script in this lab, the top-level `-WazuhCredential` and `-PortainerCredential` parameters carry no `Mandatory` attribute and no default, and neither does `-ReportDirectory`: a `Mandatory` parameter at the top of this file would make PowerShell prompt for it the moment the file is dot-sourced, which would hang a Pester run waiting on input. The standalone path inside the guard at the bottom of the file prompts for whichever of the three is missing, `Get-Credential` for the two credentials and `Read-Host` for the report directory, only when the file is run directly.
+
+**Aggregation (Design Decision 4, worst-wins).** `Invoke-LabHealthReport` calls `Get-LabADServiceHealth`, `Get-LabWazuhAgentStatus`, and `Get-LabDockerServiceStatus` by name and aggregates their three `Status` values: any `Unhealthy` check makes the overall status `Unhealthy`, regardless of the other two; failing that, any `Unknown` check makes it `Unknown`; only if all three report `Healthy` is the overall status `Healthy`. This is pure logic with no external dependency of its own, and it is this lab's highest-value Pester target, per Design Decision 6.
+
+**Report output (Design Decision 3).** A console table (`CheckName` and `Status` for the three checks, plus the aggregated `Overall` row) is printed on an interactive run, built by a separate `Get-LabHealthReportSummaryTable` function rather than inline in the guard, so it can be called directly against an already-mocked result in tests (see Pester coverage, below). A timestamped, self-contained HTML summary is always written to `-ReportDirectory`, on every run, whether invoked by an operator or, once Step Six registers it, by Task Scheduler, built by a helper function named `ConvertTo-LabHealthReportHtml` (named that from an analyzer finding covered under Analysis, below, not from its own first draft). An HTML summary was chosen over a flat CSV row, matching Lab 04's own precedent, per Design Decision 3's text, of departing from a flat table when the data's shape does not reduce cleanly to a single CSV row; unlike the three check scripts, whose optional `-ExportPath` still writes a flat CSV per Lab 02's and Lab 04's convention, this orchestrator's report has no flat-row equivalent to fall back to, since it is rolling three different check types into one overall status. Every value the HTML report renders is passed through `[System.Net.WebUtility]::HtmlEncode`, including a check's own `Message` text, before being embedded. The report file is an exported artifact, not a repository file: it is written only to the runtime `-ReportDirectory` the operator supplies, and it stays off WIN11-CLIENT01's own `C:\Scripts` working copy of the repository entirely.
+
+**Credential and token hygiene.** `-WazuhCredential` and `-PortainerCredential` are passed straight through to the two REST-backed checks without ever being read from, echoed, or stored by this script. The three check functions already exclude their own credentials and JWTs from their returned objects, per Steps Three and Four's own hygiene; this script's console table and HTML report both render only `CheckName` and `Status` values drawn from those already-clean returned objects, so neither surface can carry a credential or a token forward. The Pester suite asserts this directly rather than assuming it.
+
+**A testability boundary worth stating plainly.** Because the three check scripts are dot-sourced unconditionally at this file's own top level, running the file directly with the call operator (`& .\Invoke-LabHealthReport.ps1`) re-executes those three dot-source statements in that run's own local scope, which redefines the three check functions as their real, network-calling selves in that local scope, shadowing any `Mock` a caller further up the scope chain had set. The three check scripts do not have this issue, since none of them dot-sources anything else; this script does, and it is a direct consequence of Design Decision 6's own dot-source-for-mockability requirement. The console-table rendering is factored into its own function for exactly this reason, so the Pester suite can call it directly against a `$result` it already has from an already-mocked `Invoke-LabHealthReport` call, rather than by invoking the file with `&` the way the three check scripts' own test suites do for their console-output-hygiene assertions.
+
+**Pester coverage.** `Invoke-LabHealthReport.Tests.ps1` mocks the three check functions by name rather than their underlying commands, the only way this script's aggregation logic can be exercised in isolation, per Design Decision 6. `BeforeEach` dot-sources the orchestrator fresh for every test, which defines `Invoke-LabHealthReport` and, as a side effect of the orchestrator's own top-level dot-sourcing, the three real check functions, so `Mock` calls placed after that dot-source replace the real functions rather than something undefined. The test credentials were built from an empty `[System.Security.SecureString]::new()`, per Lab 03's own finding, and every direct invocation supplies both credentials and `-ReportDirectory` explicitly, so no `Get-Credential` or `Read-Host` prompt can hang the suite; `TestDrive:\` is used for `-ReportDirectory` throughout.
+
+Thirty-eight tests were written across five Contexts: Dot-sourcing behavior (asserting `Invoke-LabHealthReport` is defined, the three check functions are defined as a side effect, and none of them is invoked); Read-only / call-count behavior (each check function called exactly once per run, and each credential passed through to the correct check); Aggregation, twenty-seven tests, one per combination of the three checks' `Healthy`/`Unhealthy`/`Unknown` states, built data-driven with `It -ForEach` over a table computed in the Context body (see Troubleshooting and Adjustments for why the data has to be built there, and as `Hashtable` entries, not inside a `BeforeAll` and not as `PSCustomObject` entries); Report file behavior (a timestamped HTML file written on every run, the report directory created if missing, the overall status and all three check names present in the file, and a distinct file on each of two successive runs); and Credential and token hygiene (neither credential nor a token on the returned object, in the report file, or in the rendered console summary table).
+
+```powershell
+Invoke-Pester -Path C:\Scripts\Invoke-LabHealthReport.Tests.ps1 -Output Detailed
+```
+
+All thirty-eight tests passed: `Discovery found 38 tests in 68ms`, `Tests Passed: 38, Failed: 0, Skipped: 0, Inconclusive: 0, NotRun: 0`. Getting there took two real, back-to-back Pester authoring defects, both caught by real runs rather than review, covered in full in Troubleshooting and Adjustments below.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/05-scheduled-health-reporting/24-pester-first-run-aggregation-missing.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>The first real Invoke-Pester run: only eleven tests discovered, the twenty-seven-case Aggregation Context silently absent from both the test tree and the output, no error or warning printed anywhere.</em>
+</p>
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/05-scheduled-health-reporting/25-pester-aggregation-psobject-binding-failure.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>After fixing the Discovery-timing defect, all thirty-eight tests were discovered, but all twenty-seven Aggregation cases failed: every title rendered with blank AD=/Wazuh=/Docker= placeholders, and every assertion failed with "Expected $null, but got 'Healthy'".</em>
+</p>
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/05-scheduled-health-reporting/26-pester-aggregation-hashtable-fix-clean-pass.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>After switching the Aggregation Context's combinations from PSCustomObject to Hashtable entries, all thirty-eight tests passed, with every Aggregation title now showing its real AD/Wazuh/Docker/Overall values.</em>
+</p>
+
+**Analysis was not clean on the first pass.**
+
+```powershell
+Invoke-ScriptAnalyzer -Path C:\Scripts\Invoke-LabHealthReport.ps1 -Settings C:\Scripts\PSScriptAnalyzerSettings.psd1
+Invoke-ScriptAnalyzer -Path C:\Scripts\Invoke-LabHealthReport.Tests.ps1 -Settings C:\Scripts\PSScriptAnalyzerSettings.psd1
+```
+
+This returned three findings, all against the script, the test file clean on the first pass:
+
+| RuleName | Severity | ScriptName | Line | Message |
+|---|---|---|---|---|
+| `PSUseShouldProcessForStateChangingFunctions` | Warning | `Invoke-LabHealthReport.ps1` | 150 | Function 'New-LabHealthReportHtml' has verb that could change system state. Therefore, the function has to support 'ShouldProcess'. |
+| `PSUseOutputTypeCorrectly` | Information | `Invoke-LabHealthReport.ps1` | 222 | The cmdlet 'New-LabHealthReportHtml' returns an object of type 'System.String' but this type is not declared in the OutputType attribute. |
+| `PSUseOutputTypeCorrectly` | Information | `Invoke-LabHealthReport.ps1` | 279 | The cmdlet 'Get-LabHealthReportSummaryTable' returns an object of type 'System.Array' but this type is not declared in the OutputType attribute. |
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/05-scheduled-health-reporting/27-analyzer-shouldprocess-and-outputtype-findings.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Invoke-ScriptAnalyzer returning three findings against Invoke-LabHealthReport.ps1 (PSUseShouldProcessForStateChangingFunctions on the HTML-building helper, and two PSUseOutputTypeCorrectly findings), and Invoke-LabHealthReport.Tests.ps1 returning to the prompt with no output, clean on the first pass.</em>
+</p>
+
+`PSUseShouldProcessForStateChangingFunctions` fired because the HTML-building helper was originally named `New-LabHealthReportHtml`, and `New-` is one of the verbs PSScriptAnalyzer treats as state-changing, even though the function only builds and returns a string with no side effect of its own; the actual file write happens in `Invoke-LabHealthReport`, via `Out-File`. The fix was a rename, not a suppression: `New-LabHealthReportHtml` became `ConvertTo-LabHealthReportHtml`, the same relationship PowerShell's own `ConvertTo-Html` cmdlet has to the data it renders, and a verb the rule does not flag. The two `PSUseOutputTypeCorrectly` findings were fixed by adding `OutputType` attributes: `[OutputType([string])]` on `ConvertTo-LabHealthReportHtml`, unambiguous since the function always returns a single string, and `[OutputType([PSCustomObject])]` on `Get-LabHealthReportSummaryTable`, describing the collection's element type rather than the array itself.
+
+```powershell
+Invoke-Pester -Path C:\Scripts\Invoke-LabHealthReport.Tests.ps1 -Output Detailed
+Invoke-ScriptAnalyzer -Path C:\Scripts\Invoke-LabHealthReport.ps1 -Settings C:\Scripts\PSScriptAnalyzerSettings.psd1
+Invoke-ScriptAnalyzer -Path C:\Scripts\Invoke-LabHealthReport.Tests.ps1 -Settings C:\Scripts\PSScriptAnalyzerSettings.psd1
+```
+
+Pester still passed 38 of 38, confirming the rename did not affect any assertion, but the analyzer returned one remaining finding: `Get-LabHealthReportSummaryTable`'s declared `[OutputType([PSCustomObject])]` did not match what the analyzer had actually inferred from the function body, `System.Array`, since the function's last statement is an array-literal expression (`@(...)`) rather than a single object.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/05-scheduled-health-reporting/28-analyzer-outputtype-array-mismatch-remaining.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>After the rename and the first OutputType attempt: Pester still 38 of 38, but Invoke-ScriptAnalyzer returning one remaining PSUseOutputTypeCorrectly finding, "returns an object of type 'System.Array'", against Get-LabHealthReportSummaryTable's declared [PSCustomObject].</em>
+</p>
+
+The declared attribute was corrected to `[OutputType([System.Array])]`, matching the analyzer's own inferred type literally rather than the collection's element type.
+
+```powershell
+Invoke-Pester -Path C:\Scripts\Invoke-LabHealthReport.Tests.ps1 -Output Detailed
+Invoke-ScriptAnalyzer -Path C:\Scripts\Invoke-LabHealthReport.ps1 -Settings C:\Scripts\PSScriptAnalyzerSettings.psd1
+Invoke-ScriptAnalyzer -Path C:\Scripts\Invoke-LabHealthReport.Tests.ps1 -Settings C:\Scripts\PSScriptAnalyzerSettings.psd1
+```
+
+Pester passed 38 of 38 again, and both `Invoke-ScriptAnalyzer` invocations returned to the prompt with no output: a clean pass.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/05-scheduled-health-reporting/29-pester-and-analyzer-clean-pass.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Invoke-Pester re-run confirming all thirty-eight tests still passing after the OutputType correction, followed by both Invoke-ScriptAnalyzer invocations returning to the prompt with no output: a clean pass.</em>
+</p>
+
+**A first live-run attempt surfaced one further real defect, in the orchestrator's own interactive guard rather than in anything Pester or Analyzer covers.** Per the plan, once Pester and Analyzer were both clean, a live run was attempted against the real environment.
+
+```powershell
+.\Invoke-LabHealthReport.ps1
+```
+
+Both `Get-Credential` prompts were answered, but the report-directory `Read-Host` prompt was left blank. `Read-Host` returned an empty string, which was then passed through to `Invoke-LabHealthReport`'s own `Mandatory [string]$ReportDirectory` parameter; PowerShell's built-in parameter validation rejected the empty string with `ParameterArgumentValidationErrorEmptyStringNotAllowed`. That rejection is a terminating error for the failed statement, but not for the top-level script under the default `$ErrorActionPreference = 'Continue'`, so execution continued into the next lines with `$result` left `$null`: a blank summary table (headers only, `CheckName`/`Status` columns empty except a literal `Overall` row with no status) and an empty `Report written to:` line, rather than a clean stop. No live check function had actually run, since the parameter-binding failure happened before `Invoke-LabHealthReport`'s own body ever started, so nothing had reached DC01, Wazuh, or Portainer at this point.
+
+The fix was to validate all three interactively-resolved inputs explicitly, immediately after resolving each one, and `throw` a clear, specific error right there if any is missing, rather than trusting PowerShell's own parameter binding to catch it later:
+
+```powershell
+if ([string]::IsNullOrWhiteSpace($ReportDirectory)) {
+    throw 'A report directory is required to run this report; the prompt was left empty.'
+}
+```
+
+The same explicit check was added for both credentials, since `Get-Credential` returns `$null` on a cancelled prompt rather than throwing, and an explicit `$null` passed to a `Mandatory` parameter of a reference type like `[PSCredential]` is accepted silently by PowerShell, unlike the empty-string case, which would otherwise let a cancelled prompt fail much later and far less clearly, deep inside a REST call. A second attempt against the same blank report-directory input confirmed the fix: the script now failed immediately with the intended message, `A report directory is required to run this report; the prompt was left empty.`, rather than continuing into a broken run.
+
+```powershell
+Invoke-Pester -Path C:\Scripts\Invoke-LabHealthReport.Tests.ps1 -Output Detailed
+Invoke-ScriptAnalyzer -Path C:\Scripts\Invoke-LabHealthReport.ps1 -Settings C:\Scripts\PSScriptAnalyzerSettings.psd1
+Invoke-ScriptAnalyzer -Path C:\Scripts\Invoke-LabHealthReport.Tests.ps1 -Settings C:\Scripts\PSScriptAnalyzerSettings.psd1
+```
+
+Re-run after the guard fix, Pester still passed 38 of 38 and both `Invoke-ScriptAnalyzer` invocations again returned to the prompt with no output, confirming the fix, confined to the guard's own input validation, had not touched anything either suite covers.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/05-scheduled-health-reporting/30-pester-and-analyzer-clean-pass-after-guard-fix.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>Invoke-Pester re-run after the interactive-guard input-validation fix: still 38 of 38, followed by both Invoke-ScriptAnalyzer invocations returning to the prompt with no output, confirming the fix did not affect either suite.</em>
+</p>
+
+**The live run was then repeated for real, against the live environment, and returned the result the plan anticipated.**
+
+```powershell
+.\Invoke-LabHealthReport.ps1
+```
+
+Both credential prompts were answered and a real report directory (`C:\Reports`) was supplied. This returned a real `Unhealthy` overall result: `ADServiceHealth` `Healthy` and `WazuhAgentStatus` `Healthy`, matching Steps Two and Three's own live-run baselines exactly, and `DockerServiceStatus` `Unhealthy`, matching Step Four's own live-run baseline exactly, driven by the same still-unremediated monitoring-stack outage Step One found and deliberately left in place. The report was written to `C:\Reports\LabHealthReport-20260819-124807.html`.
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/05-scheduled-health-reporting/31-live-run-unhealthy-overall-status.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>.\Invoke-LabHealthReport.ps1 run standalone: the console summary table showing ADServiceHealth and WazuhAgentStatus Healthy, DockerServiceStatus Unhealthy, Overall Unhealthy, and the report path written to C:\Reports\LabHealthReport-20260819-124807.html.</em>
+</p>
+
+<p align="center">
+  <img src="../../images/automation-and-scripting/05-scheduled-health-reporting/32-live-run-html-report.jpg" width="900">
+</p>
+
+<p align="center">
+  <em>The generated HTML report opened in a browser: overall status Unhealthy in red; ADServiceHealth Healthy with all six services Running; WazuhAgentStatus Healthy with all three agents active; DockerServiceStatus Unhealthy, the Wazuh stack, nginx-proxy-manager, and portainer running, prometheus, grafana, and node-exporter exited, matching Step One's and Step Four's own baselines exactly.</em>
+</p>
+
+This is worst-wins, from Design Decision 4, working exactly as intended: one real fault, in one of the three checks, correctly propagated to the overall status rather than averaged away or masked by the other two checks' `Healthy` results. It is not a failure of the orchestrator, Pester coverage, or the live run; it is the same intended outcome Step One's plan anticipated back when the monitoring-stack outage was first found and deliberately left unremediated, now demonstrated end to end through the finished orchestrator for the first time. Remediation and a `Healthy` before/after comparison remain deferred to Step Seven, per the plan.
 
 ### Step Six - Register the Scheduled Task (planned)
 
@@ -643,7 +818,7 @@ Consistent with the rule this track has held since Lab 01, no script's reported 
 
 ## Troubleshooting and Adjustments
 
-Steps One through Four are implemented and run against the live environment; the entries below that they resolved are recorded in past tense as encountered-and-resolved. Steps Five through Seven have not been implemented yet, so risks specific to those steps remain in anticipated framing.
+Steps One through Five are implemented and run against the live environment; the entries below that they resolved are recorded in past tense as encountered-and-resolved. Steps Six and Seven have not been implemented yet, so risks specific to those steps remain in anticipated framing.
 
 **PowerShell 5.1's `Invoke-RestMethod` has no `-SkipCertificateCheck` parameter (encountered and resolved, Step One).** The Wazuh stack uses self-signed certificates generated by the `wazuh-certs-generator` container (enterprise Lab 07). The anticipated `[System.Net.ServicePointManager]`-based accommodation (forcing TLS 1.2 and installing a certificate-validation callback) worked on the first attempt against the Wazuh Manager API, with no TLS handshake error. The same accommodation was reapplied against `portainer.local` and did not resolve an HTTPS failure there, but that turned out to be a different problem entirely (see below), not a defect in the accommodation itself.
 
@@ -723,11 +898,17 @@ The root cause is a PowerShell 5.1 pipeline behavior specific to this endpoint's
 
 The fix was confined to the containers-query line: the response is now assigned to `$containersResponse` first, and `$allContainers = @($containersResponse)` wraps that variable rather than the live call. A regression test was added to `Get-LabDockerServiceStatus.Tests.ps1`, in a new Response deserialization Context, that forces Pester's mock to emit the entire container array as a single pipeline object using the unary comma operator (`, (New-DefaultMockContainerSet)`), reproducing the exact shape that had let the defect pass all sixteen original tests; Pester's own `-MockWith` return unrolls an array onto the pipeline element by element, unlike the real cmdlet's behavior for this endpoint, which is why none of the original tests caught it. The reworked suite was re-run and returned `Tests Passed: 17, Failed: 0, Skipped: 0, Inconclusive: 0, NotRun: 0`, both `Invoke-ScriptAnalyzer` invocations again returned to the prompt with no output, and the live run was repeated and returned the `Unhealthy` result Step One's baseline predicted, screenshots for all three in Step Four's Implementation section above.
 
+**Pester's `It -ForEach` needs its source data at Discovery time, not Run time (encountered and resolved, Step Five).** The twenty-seven-case Aggregation Context was first written with its combinations built inside a `BeforeAll`. `Describe`/`Context` bodies run during Pester's Discovery phase, but `BeforeAll` only runs later, during the Run phase, so `-ForEach` evaluated against an empty collection at Discovery time and silently generated zero tests for that Context, no error, no warning, the Context header absent from `-Output Detailed` entirely. A real run confirmed it: eleven tests discovered, not the expected thirty-eight, with no indication anything was missing beyond the shortfall in the total. The fix was to build the combinations as plain script code directly in the Context body, not inside `BeforeAll`, per Step Five's Implementation above.
+
+**Pester's `It -ForEach` only projects named variables from Hashtable items, not PSCustomObject (encountered and resolved, Step Five).** After the Discovery-timing fix above, all twenty-seven Aggregation cases ran, but every one failed: `Should -Be` compared against `$null`, and every test title rendered with blank `AD=`/`Wazuh=`/`Docker=` placeholders. Pester only projects an item's members into named variables, and into `<Name>` title placeholders, when the item is an `IDictionary`; a `[PSCustomObject]` item passes through as an unnamed `$_` with nothing bound. Confirmed by a real run showing all twenty-seven cases executing with blank titles and `$null` comparisons. Fixed by changing every combination from `[PSCustomObject]@{...}` to `@{...}`, a plain Hashtable, confirmed by a third real run, thirty-eight of thirty-eight passing with correct titles.
+
+**A blank interactive prompt produced a non-terminating parameter-binding failure that let the script continue into a broken state instead of stopping (encountered and resolved, Step Five).** The orchestrator's guard originally resolved a missing `-ReportDirectory` with `Read-Host` and passed the result straight through with no further check. A live-run attempt left that prompt blank; `Read-Host` returned an empty string, which failed `Invoke-LabHealthReport`'s own `Mandatory [string]$ReportDirectory` parameter binding with `ParameterArgumentValidationErrorEmptyStringNotAllowed`. That failure terminated the one statement but not the top-level script under the default `$ErrorActionPreference`, so execution continued into a blank summary table and an empty report-path line rather than stopping. No live check had actually run, since the parameter-binding failure happened before `Invoke-LabHealthReport`'s own body started. Fixed by validating all three interactively-resolved inputs (`-WazuhCredential`, `-PortainerCredential`, `-ReportDirectory`) explicitly, immediately after resolving each one, and throwing a clear, specific error if any is missing, confirmed by a second attempt against the same blank input failing immediately and cleanly instead of continuing.
+
 ---
 
 ## Security Considerations
 
-- **Read-only by design.** Every call this lab's scripts make is a query: `Get-Service` with no state-changing parameter, and `GET` requests (plus each API's own authentication `POST`) against the Wazuh and Portainer REST APIs. No script in this lab calls anything capable of modifying Active Directory, Wazuh configuration, or Docker container state, and none is planned to. As in Lab 04, this claim is exercised by the Pester suite, not only reviewed by eye: `Get-LabADServiceHealth.Tests.ps1` asserts `-Times 0` against a representative sample of state-changing service cmdlets, and both `Get-LabWazuhAgentStatus.Tests.ps1` and `Get-LabDockerServiceStatus.Tests.ps1` extend the same claim to their own scripts' calls, each asserting `Invoke-RestMethod` is called exactly twice, once to authenticate and once to query, and never with any other method or URI. The same pattern remains planned for `Invoke-LabHealthReport.ps1` once it exists.
+- **Read-only by design.** Every call this lab's scripts make is a query: `Get-Service` with no state-changing parameter, and `GET` requests (plus each API's own authentication `POST`) against the Wazuh and Portainer REST APIs. No script in this lab calls anything capable of modifying Active Directory, Wazuh configuration, or Docker container state, and none is planned to. As in Lab 04, this claim is exercised by the Pester suite, not only reviewed by eye: `Get-LabADServiceHealth.Tests.ps1` asserts `-Times 0` against a representative sample of state-changing service cmdlets, and both `Get-LabWazuhAgentStatus.Tests.ps1` and `Get-LabDockerServiceStatus.Tests.ps1` extend the same claim to their own scripts' calls, each asserting `Invoke-RestMethod` is called exactly twice, once to authenticate and once to query, and never with any other method or URI. `Invoke-LabHealthReport.Tests.ps1` extends the same claim one level up: it asserts each of the three check functions is called exactly once per run, rather than asserting against a state-changing command directly, since the orchestrator itself calls nothing external, only the three already-verified-read-only check functions.
 - **A stored, unattended credential is this lab's most significant new exposure.** Every prior lab in this track ran under `labadmin` for the length of an operator-initiated interactive session. A Task Scheduler job configured to run unattended needs a credential that persists on WIN11-CLIENT01 indefinitely, a materially different exposure than a session-scoped one, and the open question in Design Decision 5, whether to continue using `labadmin` or provision a dedicated least-privileged scheduled-task account, is raised here with more weight than the similar "a production deployment would use a dedicated account" aside in Labs 02 and 04, because this lab's version of that aside describes a standing condition of the deployment rather than a convenience taken during a single lab session.
 - **API credentials handled the same way Lab 01 handled a plaintext password.** `New-LabUser.ps1` (Lab 01) took its password parameter as a `[SecureString]` rather than plaintext. The Wazuh and Portainer API credentials this lab's scripts need will be handled with the same discipline, sourced from a secure credential store (Windows Credential Manager, or the scheduled task's own stored credential) rather than embedded as plaintext in any script or configuration file.
 - **Exported reports as a data-handling boundary.** The timestamped health report and any `-ExportPath` CSV output from the individual check scripts can describe service state, agent connectivity, and container status across the whole environment. As in every prior lab, all of it will be kept out of the repository and stored only on WIN11-CLIENT01.
@@ -746,7 +927,7 @@ At the planning stage, the expected outcome is four PowerShell scripts, three fo
 
 ## Lessons Learned
 
-Lessons cannot honestly be recorded for the lab as a whole before all four scripts are implemented and run against the live environment; this section will be completed once that work is done. Step One's own findings are recorded where they belong, in Implementation and in Troubleshooting and Adjustments above, rather than anticipated here. At the planning stage for the remaining steps, the questions most likely to produce further lessons are the run-as-account decision in Design Decision 5 and root-causing the monitoring stack outage Step One surfaced but deliberately left unremediated.
+Lessons cannot honestly be recorded for the lab as a whole before the scheduled task is registered and observed firing on its own cadence (Step Six) and the monitoring-stack outage is remediated and re-validated alongside the full combined script-library sweep (Step Seven); this section will be completed once that work is done. All four scripts' own findings, through Step Five, are recorded where they belong, in each step's Implementation and in Troubleshooting and Adjustments above, rather than anticipated or duplicated here. At the planning stage for the two remaining steps, the questions most likely to produce further lessons are the run-as-account decision in Design Decision 5 and the second open item it left, whether Task Scheduler's non-interactive execution context affects any of the four scripts' actual behavior, and whether the before/after comparison Step Seven plans, `Unhealthy` before remediation and `Healthy` after, actually demonstrates worst-wins discriminating a real fault from a clean environment the way Design Decision 4 intends.
 
 ---
 
