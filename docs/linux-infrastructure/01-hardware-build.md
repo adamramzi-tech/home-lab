@@ -223,7 +223,7 @@ Firmware maintenance was treated as part of the infrastructure preparation proce
 
 ### Moving Toward Remote Administration
 
-Once I completed the [Ubuntu Server Installation](./02-ubuntu-server-install.md) and successfully configured [Remote Access and SSH](./03-remote-access-and-ssh.md), the server no longer required a permanent monitor, keyboard, or mouse. I went ahead and placed the physical machine under my desk where I have my main Windows 11 machine that will be the primary client for this home lab.
+Once the [Ubuntu Server Installation](./02-ubuntu-server-install.md) and [Remote Access and SSH](./03-remote-access-and-ssh.md) work was complete, the server no longer required a permanent monitor, keyboard, or mouse. The physical machine was moved to the desk alongside the Windows 11 workstation that serves as the primary client for this home lab.
 
 This reduced reliance on direct physical access and more closely mirrored real-world Linux server administration workflows.
 

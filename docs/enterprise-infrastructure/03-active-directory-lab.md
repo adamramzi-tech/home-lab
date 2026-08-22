@@ -53,7 +53,7 @@ Active Directory changed that calculus significantly. Once AD was deployed, DC01
 
 The domain name `corp.home.arpa` was chosen deliberately. The `home.arpa` zone is reserved for home network use under RFC 8375, making it the standards-aligned choice for private home lab namespacing. The `corp.` subdomain prefix clearly distinguishes this as an Active Directory domain rather than a general-purpose home network zone. This scoping keeps the AD domain functionally separate from the broader home LAN. DC01 serves as the authoritative DNS server for `corp.home.arpa` and its subzones, but does not act as the general upstream resolver for the home network.
 
-One of the most important post-promotion steps, and one the wizard does not handle automatically, is updating DC01's network adapter to use itself as the DNS server. After promotion, DC01 must point to `192.168.1.10` for DNS. This is a hard requirement: domain controllers use DNS for service record registration, Kerberos realm lookup, LDAP locator queries, and replication. A domain controller still pointing at a public resolver after promotion cannot correctly locate its own services and will produce misleading diagnostic output. I treated this as the very first action taken after the post-promotion reboot.
+One of the most important post-promotion steps, and one the wizard does not handle automatically, is updating DC01's network adapter to use itself as the DNS server. After promotion, DC01 must point to `192.168.1.10` for DNS. This is a hard requirement: domain controllers use DNS for service record registration, Kerberos realm lookup, LDAP locator queries, and replication. A domain controller still pointing at a public resolver after promotion cannot correctly locate its own services and will produce misleading diagnostic output. This was treated as the very first action after the post-promotion reboot.
 
 WIN11-CLIENT01 was already pre-configured in Lab 02 to point at DC01 (`192.168.1.10`) as its primary DNS server in anticipation of this deployment. Once DC01 was promoted and hosting AD-integrated DNS, WIN11-CLIENT01 automatically began resolving AD service records without any DNS reconfiguration needed on the client side.
 
@@ -171,9 +171,9 @@ corp.home.arpa [domain]
 
 ### Step One - Restore and Verify the Pre-AD Snapshot
 
-I started by restoring DC01 to the pre-AD snapshot created at the end of Lab 02. This ensured the lab began from a known-good, fully validated baseline and eliminated any accidental configuration drift that may have occurred since Lab 02.
+The lab began by restoring DC01 to the pre-AD snapshot created at the end of Lab 02. This ensured the lab began from a known-good, fully validated baseline and eliminated any accidental configuration drift that may have occurred since Lab 02.
 
-I restored the snapshot via VMware Workstation's snapshot menu using the revert-to-snapshot workflow.
+The snapshot was restored via VMware Workstation's snapshot menu using the revert-to-snapshot workflow.
 
 <p align="center">
   <img src="../../images/enterprise-infrastructure/03-active-directory-lab/01-restore-pre-ad-snapshot.jpg" width="900">
@@ -183,7 +183,7 @@ I restored the snapshot via VMware Workstation's snapshot menu using the revert-
   <em>Restoring DC01 to the pre-AD snapshot before beginning Active Directory deployment.</em>
 </p>
 
-After restoring, I booted DC01 and verified it was in the expected pre-configuration state:
+After restoring, DC01 was booted and verified to be in the expected pre-configuration state:
 
 - hostname: `DC01`
 - static IP: `192.168.1.10`
@@ -191,23 +191,23 @@ After restoring, I booted DC01 and verified it was in the expected pre-configura
 - Windows updates: applied
 - Server Manager: opening on first boot
 
-The timezone had not been set during Lab 02, so I corrected it before proceeding. I opened Server Manager, clicked the time display in the taskbar, and set the correct local timezone. This needed to be in place before NTP was configured in Step Five.
+The timezone had not been set during Lab 02, and was corrected before proceeding, through Server Manager and the taskbar time display. This needed to be in place before NTP was configured in Step Five.
 
-Once the baseline state was confirmed, I powered on WIN11-CLIENT01 before continuing.
+Once the baseline state was confirmed, WIN11-CLIENT01 was powered on before continuing.
 
 ---
 
 ### Step Two - Install the Active Directory Domain Services Role
 
-All administration from this point forward was performed via RDP from WIN11-CLIENT01. I opened an RDP session to `192.168.1.10` before continuing.
+All administration from this point forward was performed via RDP from WIN11-CLIENT01. An RDP session was opened to `192.168.1.10` before continuing.
 
-I installed the AD DS role through Server Manager > Add Roles and Features > Role-based or feature-based installation.
+The AD DS role was installed through Server Manager > Add Roles and Features > Role-based or feature-based installation.
 
-I selected the following role on the Server Roles page:
+The following role was selected on the Server Roles page:
 
 - Active Directory Domain Services
 
-The wizard automatically prompted to include required features. I accepted all dependencies when prompted, which included:
+The wizard automatically prompted to include required features. All dependencies were accepted when prompted, which included:
 
 - DNS Server
 - Group Policy Management
@@ -251,11 +251,11 @@ Installing the AD DS role added the binaries and management tools to the server 
 
 ### Step Three - Promote DC01 to Domain Controller
 
-Once role installation was complete, a yellow notification flag appeared in the Server Manager toolbar. I clicked it and selected **Promote this server to a domain controller** to launch the Active Directory Domain Services Configuration Wizard.
+Once role installation was complete, a yellow notification flag appeared in the Server Manager toolbar. Selecting it and choosing **Promote this server to a domain controller** launched the Active Directory Domain Services Configuration Wizard.
 
 **Deployment configuration:**
 
-I selected **Add a new forest** and set the root domain name to `corp.home.arpa`.
+**Add a new forest** was selected, with the root domain name set to `corp.home.arpa`.
 
 <p align="center">
   <img src="../../images/enterprise-infrastructure/03-active-directory-lab/06-ad-new-forest-configuration.jpg" width="900">
@@ -267,7 +267,7 @@ I selected **Add a new forest** and set the root domain name to `corp.home.arpa`
 
 **Domain controller options:**
 
-I configured the following on the Domain Controller Options page:
+The following was configured on the Domain Controller Options page:
 
 | Setting | Value |
 |---|---|
@@ -285,7 +285,7 @@ I configured the following on the Domain Controller Options page:
   <em>Domain controller options including functional levels, DNS server role, and DSRM password.</em>
 </p>
 
-I set the forest and domain functional levels to Windows Server 2016. This is the highest level supported across the planned VM inventory and enables the full modern Active Directory feature set without creating compatibility constraints for future lab expansion.
+The forest and domain functional levels were set to Windows Server 2016. This is the highest level supported across the planned VM inventory and enables the full modern Active Directory feature set without creating compatibility constraints for future lab expansion.
 
 The DSRM password was set and stored somewhere secure and separate from domain credentials. This password is used to log into the domain controller in Directory Services Restore Mode during AD recovery scenarios. It is completely independent of the domain Administrator account, and losing it reduces recovery options significantly.
 
@@ -293,7 +293,7 @@ The DSRM password was set and stored somewhere secure and separate from domain c
 
 The DNS Options page contained a **Create DNS delegation** checkbox. The wizard did not display a warning banner alongside it in this environment; the checkbox was simply pre-checked with no accompanying message.
 
-Either way, the action was the same: I unchecked **Create DNS delegation** and continued. There is no parent `home.arpa` zone managed locally, so the delegation cannot be created and is not needed. DC01 is the authoritative DNS server for `corp.home.arpa` without any parent zone delegation.
+Either way, the action was the same: **Create DNS delegation** was unchecked and the wizard continued. There is no parent `home.arpa` zone managed locally, so the delegation cannot be created and is not needed. DC01 is the authoritative DNS server for `corp.home.arpa` without any parent zone delegation.
 
 <p align="center">
   <img src="../../images/enterprise-infrastructure/03-active-directory-lab/08-dns-delegation-unchecked.jpg" width="900">
@@ -305,7 +305,7 @@ Either way, the action was the same: I unchecked **Create DNS delegation** and c
 
 **NetBIOS name:**
 
-The NetBIOS domain name was automatically derived from the domain name. I verified it read `CORP` and left it unchanged.
+The NetBIOS domain name was automatically derived from the domain name. It was verified to read `CORP` and left unchanged.
 
 <p align="center">
   <img src="../../images/enterprise-infrastructure/03-active-directory-lab/09-netbios-name-configuration.jpg" width="900">
@@ -317,7 +317,7 @@ The NetBIOS domain name was automatically derived from the domain name. I verifi
 
 **Paths:**
 
-I retained the default paths for the AD database, log files, and SYSVOL. There was no reason to deviate from defaults in a single-server lab environment.
+The default paths for the AD database, log files, and SYSVOL were retained. There was no reason to deviate from defaults in a single-server lab environment.
 
 | Path | Default Location |
 |---|---|
@@ -345,7 +345,7 @@ Before allowing promotion to proceed, the wizard ran a prerequisites check. All 
   <em>Prerequisites check passed. Informational warnings acknowledged.</em>
 </p>
 
-I clicked **Install**. DC01 promoted itself and rebooted automatically. After the reboot, the login screen reflected the `CORP` domain context.
+**Install** was clicked. DC01 promoted itself and rebooted automatically. After the reboot, the login screen reflected the `CORP` domain context.
 
 <p align="center">
   <img src="../../images/enterprise-infrastructure/03-active-directory-lab/12-dc01-post-promotion-login.jpg" width="900">
@@ -359,15 +359,15 @@ I clicked **Install**. DC01 promoted itself and rebooted automatically. After th
 
 ### Step Four - Update DC01 DNS to Point to Itself
 
-Immediately after the post-promotion reboot, before doing anything else, I updated DC01's network adapter DNS configuration to point to itself. The promotion wizard does not do this automatically.
+Immediately after the post-promotion reboot, before anything else, DC01's network adapter DNS configuration was updated to point to itself. The promotion wizard does not do this automatically.
 
-I ran the following from an elevated PowerShell session on DC01:
+The following was run from an elevated PowerShell session on DC01:
 
 ```powershell
 Set-DnsClientServerAddress -InterfaceAlias "Ethernet0" -ServerAddresses ("192.168.1.10", "127.0.0.1")
 ```
 
-I validated the change with `ipconfig /all`:
+The change was validated with `ipconfig /all`:
 
 <p align="center">
   <img src="../../images/enterprise-infrastructure/03-active-directory-lab/13-dc01-dns-self-referral.jpg" width="900">
@@ -393,9 +393,9 @@ The loopback address `127.0.0.1` as the secondary entry provides a DNS fallback 
 
 ### Step Five - Configure NTP Time Synchronization
 
-Kerberos authentication enforces a maximum clock skew of five minutes between domain members. Clocks that drift beyond this threshold cause authentication failures that are difficult to diagnose. I configured DC01 to synchronize against an external NTP source immediately after the DNS self-referral was in place.
+Kerberos authentication enforces a maximum clock skew of five minutes between domain members. Clocks that drift beyond this threshold cause authentication failures that are difficult to diagnose. DC01 was configured to synchronize against an external NTP source immediately after the DNS self-referral was in place.
 
-I ran the following from an elevated PowerShell session on DC01:
+The following was run from an elevated PowerShell session on DC01:
 
 ```powershell
 w32tm /config /manualpeerlist:"time.cloudflare.com,0x8 time.windows.com,0x8" /syncfromflags:manual /reliable:YES /update
@@ -403,7 +403,7 @@ Restart-Service W32Time
 w32tm /resync /force
 ```
 
-I then validated that the time service was syncing correctly:
+The time service was then validated as syncing correctly:
 
 ```powershell
 w32tm /query /status
@@ -426,11 +426,11 @@ This step resolved the `dcdiag` informational warning about the time service not
 
 ### Step Six - Validate DNS and Domain Controller Health
 
-Before building out the OU structure or creating accounts, I validated that the domain controller was healthy and DNS was correctly configured. Finding and resolving issues at this stage is significantly easier than troubleshooting them after additional configuration has been layered on top.
+Before building out the OU structure or creating accounts, the domain controller's health and DNS configuration were validated. Finding and resolving issues at this stage is significantly easier than troubleshooting them after additional configuration has been layered on top.
 
 **DNS zone validation:**
 
-Using PowerShell, I verified that the Active Directory-integrated DNS zones created during domain controller promotion were present and operational.
+PowerShell was used to verify that the Active Directory-integrated DNS zones created during domain controller promotion were present and operational.
 
 ```powershell
 Get-DnsServerZone
@@ -458,7 +458,7 @@ The presence of the forward lookup, `_msdcs`, and reverse lookup zones confirmed
 
 **SRV record validation:**
 
-From WIN11-CLIENT01, I validated that the critical AD service records were resolvable:
+From WIN11-CLIENT01, the critical AD service records were validated as resolvable:
 
 ```powershell
 nslookup -type=SRV _ldap._tcp.corp.home.arpa 192.168.1.10
@@ -477,7 +477,7 @@ Both queries returned DC01 as the service host, confirming that the domain contr
 
 **dcdiag validation:**
 
-I ran `dcdiag` on DC01 to perform a comprehensive domain controller health check:
+`dcdiag` was run on DC01 to perform a comprehensive domain controller health check:
 
 ```powershell
 dcdiag /v
@@ -495,7 +495,7 @@ The majority of Active Directory health checks completed successfully. During va
 
 **Netlogon and SYSVOL share validation:**
 
-I confirmed the Netlogon service was running and the SYSVOL and NETLOGON shares were accessible:
+The Netlogon service was confirmed running and the SYSVOL and NETLOGON shares accessible:
 
 ```powershell
 Get-Service Netlogon
@@ -515,7 +515,7 @@ Test-Path \\DC01\NETLOGON
 
 ### Step Seven - Configure DNS Forwarders
 
-I verified that DNS forwarders were configured on DC01 to allow resolution of names outside `corp.home.arpa`. Forwarders were already present in the environment and pointed to public recursive DNS services.
+DNS forwarders were verified as configured on DC01 to allow resolution of names outside `corp.home.arpa`. Forwarders were already present in the environment and pointed to public recursive DNS services.
 
 | Forwarder | Purpose               |
 | --------- | --------------------- |
@@ -530,7 +530,7 @@ I verified that DNS forwarders were configured on DC01 to allow resolution of na
   <em>Existing DNS forwarders configured on DC01 for external name resolution. A third forwarder entry was present but has been removed from the screenshot as it contained a private network address specific to this environment.</em>
 </p>
 
-To confirm that external DNS resolution was functioning correctly through the domain controller, I performed a resolution test from WIN11-CLIENT01:
+To confirm that external DNS resolution was functioning correctly through the domain controller, a resolution test was performed from WIN11-CLIENT01:
 
 ```powershell
 Resolve-DnsName google.com -Server 192.168.1.10
@@ -550,7 +550,7 @@ Successful resolution of external hostnames confirmed that DNS forwarding was fu
 
 ### Step Eight - Build the Organizational Unit Structure
 
-I created the foundational OU structure in Active Directory Users and Computers on DC01 while connected through an RDP session from WIN11-CLIENT01.
+The foundational OU structure was created in Active Directory Users and Computers on DC01, through an RDP session from WIN11-CLIENT01.
 
 The OU structure was designed to:
 
@@ -559,7 +559,7 @@ The OU structure was designed to:
 - reflect the separation between administrative and standard user accounts
 - mirror the logical organization of the planned enterprise environment
 
-I created the following OUs directly under the `corp.home.arpa` domain root:
+The following OUs were created directly under the `corp.home.arpa` domain root:
 
 | OU | Purpose |
 |---|---|
@@ -578,7 +578,7 @@ Note: ADUC will refuse to create OUs named `Users` or `Computers` at the domain 
   <em>Organizational Unit structure created under the corp.home.arpa domain root.</em>
 </p>
 
-I created the OUs directly under the domain root, not inside the default `CN=Users` or `CN=Computers` containers. The default containers are not OU objects and cannot be directly linked to Group Policy Objects. Creating a parallel OU structure from the start avoids having to migrate objects later and establishes clean GPO targeting surfaces before Lab 05.
+The OUs were created directly under the domain root, not inside the default `CN=Users` or `CN=Computers` containers. The default containers are not OU objects and cannot be directly linked to Group Policy Objects. Creating a parallel OU structure from the start avoids having to migrate objects later and establishes clean GPO targeting surfaces before Lab 05.
 
 The `Domain Controllers` OU was left unmodified. It is managed by Active Directory itself.
 
@@ -594,16 +594,16 @@ New-ADOrganizationalUnit -Name "Groups"        -Path $domain
 
 **Redirect the default containers to the new OUs:**
 
-Once the OUs existed, I redirected the default `CN=Users` and `CN=Computers` containers so that newly created objects would land in the correct OUs automatically. This needed to happen before Lab 04's domain join. Without it, WIN11-CLIENT01 would drop into `CN=Computers` during the join and would not be targeted by computer-scoped GPOs in Lab 05.
+Once the OUs existed, the default `CN=Users` and `CN=Computers` containers were redirected so that newly created objects would land in the correct OUs automatically. This needed to happen before Lab 04's domain join. Without it, WIN11-CLIENT01 would drop into `CN=Computers` during the join and would not be targeted by computer-scoped GPOs in Lab 05.
 
-I ran the following from an elevated command prompt (not PowerShell) on DC01:
+The following was run from an elevated command prompt (not PowerShell) on DC01:
 
 ```cmd
 redirusr "OU=User Accounts,DC=corp,DC=home,DC=arpa"
 redircmp "OU=Workstations,DC=corp,DC=home,DC=arpa"
 ```
 
-I validated the redirects took effect:
+The redirects were validated as taking effect:
 
 ```powershell
 (Get-ADDomain).UsersContainer
@@ -623,18 +623,18 @@ The default `CN=Users` and `CN=Computers` containers still exist and cannot be r
 
 ### Step Nine - Create Domain User and Group Accounts
 
-I created the initial domain user accounts and security groups to populate the OU structure and establish the identity objects needed for Group Policy targeting and domain join testing in subsequent labs.
+The initial domain user accounts and security groups were created to populate the OU structure and establish the identity objects needed for Group Policy targeting and domain join testing in subsequent labs.
 
 **User accounts:**
 
-I created the following accounts in Active Directory Users and Computers, placing each in the appropriate OU:
+The following accounts were created in Active Directory Users and Computers, each placed in the appropriate OU:
 
 | Account      | OU              | Role                                                    |
 | ------------ | --------------- | ------------------------------------------------------- |
 | `labadmin`   | `IT`            | Domain administrator account for lab management         |
 | `testuser01` | `User Accounts` | Standard domain user for domain join and policy testing |
 
-After creating `labadmin`, I added it to both `Domain Admins` and `IT-Admins`. The `Domain Admins` membership grants built-in administrative rights across the domain. The `IT-Admins` group membership is what Group Policy in Lab 05 will use for policy targeting, so both are required. This account will be used for domain administration in subsequent labs rather than the built-in `Administrator` account, which I retained as a recovery credential only.
+After creation, `labadmin` was added to both `Domain Admins` and `IT-Admins`. The `Domain Admins` membership grants built-in administrative rights across the domain. The `IT-Admins` group membership is what Group Policy in Lab 05 will use for policy targeting, so both are required. This account will be used for domain administration in subsequent labs rather than the built-in `Administrator` account, which is retained as a recovery credential only.
 
 `testuser01` was created as a standard user with no elevated privileges. It will be used to test domain authentication, Group Policy application, and standard user desktop behavior after WIN11-CLIENT01 is domain-joined in Lab 04.
 
@@ -677,7 +677,7 @@ Add-ADGroupMember -Identity "Domain Admins" -Members "labadmin"
 
 **Security groups:**
 
-I created the following security groups in the `Groups` OU:
+The following security groups were created in the `Groups` OU:
 
 | Group | Type | Scope | Purpose |
 |---|---|---|---|
@@ -685,7 +685,7 @@ I created the following security groups in the `Groups` OU:
 | `Domain-Users-Standard` | Security | Global | Standard user accounts for GPO targeting |
 | `Lab-Workstations` | Security | Global | Domain-joined workstations for computer policy targeting |
 
-I added `labadmin` to `IT-Admins` and `testuser01` to `Domain-Users-Standard`. These group memberships will be used to scope Group Policy Objects in Lab 05.
+`labadmin` was added to `IT-Admins` and `testuser01` to `Domain-Users-Standard`. These group memberships will be used to scope Group Policy Objects in Lab 05.
 
 PowerShell equivalent for group creation:
 
@@ -711,7 +711,7 @@ Add-ADGroupMember -Identity "Domain-Users-Standard" -Members "testuser01"
   <em>Security groups created in the Groups OU for policy targeting.</em>
 </p>
 
-I validated group membership using PowerShell:
+Group membership was validated using PowerShell:
 
 ```powershell
 Get-ADGroupMember "IT-Admins"
@@ -726,7 +726,7 @@ The output confirmed that `labadmin` was a member of `IT-Admins` and `testuser01
 
 ### Step Ten - Validate Domain Controller Advertising and Kerberos
 
-I ran a final validation pass before creating snapshots to confirm the domain controller was advertising correctly and Kerberos authentication was operational.
+A final validation pass was run before creating snapshots, to confirm the domain controller was advertising correctly and Kerberos authentication was operational.
 
 **Domain controller advertising:**
 
@@ -752,7 +752,7 @@ As the only domain controller in the environment, DC01 also holds all five FSMO 
 
 **Kerberos ticket validation:**
 
-I logged into DC01 as `CORP\labadmin` and ran:
+Logged into DC01 as `CORP\labadmin`, the following was run:
 
 ```powershell
 klist get krbtgt
@@ -767,13 +767,13 @@ klist
   <em>Kerberos ticket cache showing a valid TGT issued by DC01 for the corp.home.arpa realm.</em>
 </p>
 
-I ran `klist get krbtgt` first to explicitly request a Ticket Granting Ticket (TGT). A fresh logon session can show an empty Kerberos cache until a ticket is requested, so running `klist` alone may not accurately reflect Kerberos functionality.
+`klist get krbtgt` was run first to explicitly request a Ticket Granting Ticket (TGT). A fresh logon session can show an empty Kerberos cache until a ticket is requested, so running `klist` alone may not accurately reflect Kerberos functionality.
 
 After requesting the ticket, `klist` showed a valid TGT for `labadmin@CORP.HOME.ARPA` issued by `krbtgt/CORP.HOME.ARPA@CORP.HOME.ARPA`. The ticket used AES-256 encryption and was issued by DC01, confirming that Kerberos authentication was functioning correctly and that the domain was ready for client domain join operations in Lab 04.
 
 **LDAP signing verification:**
 
-From an elevated PowerShell session on DC01, I confirmed the LDAP signing configuration:
+From an elevated PowerShell session on DC01, the LDAP signing configuration was confirmed:
 
 ```powershell
 Get-ItemProperty -Path "HKLM:\System\CurrentControlSet\Services\NTDS\Parameters" `
@@ -798,7 +798,7 @@ The check returned `LDAPServerIntegrity = 1`, meaning signing is enabled but not
 
 **WIN11-CLIENT01 DNS resolution validation:**
 
-From WIN11-CLIENT01, I ran:
+From WIN11-CLIENT01:
 
 ```powershell
 Resolve-DnsName corp.home.arpa
@@ -828,7 +828,7 @@ With internal and external DNS resolution functioning correctly, WIN11-CLIENT01 
 
 ### Step Eleven - Create Post-Promotion Snapshots
 
-Once all validation steps were completed, I created snapshots for both VMs before beginning Lab 04. These snapshots are the rollback points for the domain join and client configuration work ahead.
+Once all validation steps were completed, snapshots were created for both VMs before beginning Lab 04. These snapshots are the rollback points for the domain join and client configuration work ahead.
 
 **DC01 post-promotion snapshot:**
 
@@ -928,7 +928,7 @@ The DNS Options page of the promotion wizard contains a **Create DNS delegation*
 
 In this lab, DNS Manager displayed an empty Forward Lookup Zones container even though the zones existed and were fully operational. The exact cause was not determined. PowerShell validation confirmed that the zones and records were present and functioning correctly.
 
-To verify DNS health, I bypassed the GUI and used PowerShell:
+To verify DNS health, the GUI was bypassed in favor of PowerShell:
 
 ```powershell
 Get-DnsServerZone | Format-Table ZoneName, ZoneType

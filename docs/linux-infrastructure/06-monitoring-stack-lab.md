@@ -386,7 +386,7 @@ After initial authentication:
 
 ### Removing Unnecessary Node Exporter Port Exposure
 
-After validating the monitoring stack, I realized Node Exporter was unnecessarily exposing port `9100` to the local network through Docker port publishing.
+Validating the monitoring stack surfaced a problem: Node Exporter was unnecessarily exposing port `9100` to the local network through Docker port publishing.
 
 The original Node Exporter configuration looked like this:
 
@@ -400,7 +400,7 @@ Because Prometheus already communicated with Node Exporter internally through th
 
 ### Adding Persistent Storage
 
-I also realized the services were still operating as stateless containers.
+A second issue surfaced alongside it: the services were still operating as stateless containers.
 
 This meant:
 - Grafana dashboards and configuration would be lost if containers were recreated
@@ -662,7 +662,7 @@ The deployment successfully demonstrated a complete monitoring workflow:
 
 ## Expanding Node Exporter Host Metric Visibility
 
-After reviewing the monitoring architecture, I realized the initial Node Exporter deployment did not have full visibility into the Ubuntu Server system.
+A review of the monitoring architecture showed the initial Node Exporter deployment did not have full visibility into the Ubuntu Server system.
 
 Although Prometheus was successfully scraping metrics, Node Exporter was still operating primarily within the container namespace and did not yet have access to:
 - filesystem metrics
@@ -772,7 +772,7 @@ This project also reinforced foundational infrastructure concepts including:
 
 # Lessons Learned
 
-Throughout this project, I gained hands-on experience deploying and validating a containerized infrastructure monitoring stack.
+This project produced hands-on experience deploying and validating a containerized infrastructure monitoring stack.
 
 Key concepts explored during this deployment included:
 - Prometheus metrics collection and time-series monitoring
@@ -784,7 +784,7 @@ Key concepts explored during this deployment included:
 - persistent storage for stateful infrastructure services
 - layered observability architecture design
 
-I also gained practical operational experience involving:
+It also produced practical operational experience involving:
 - validating Docker Compose configurations
 - redeploying containerized services safely
 - configuring Prometheus scrape targets

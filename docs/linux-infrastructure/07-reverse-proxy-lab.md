@@ -721,7 +721,7 @@ The project also reinforced:
 
 # Lessons Learned
 
-Throughout this project, I gained hands-on experience implementing and validating a centralized ingress architecture for containerized infrastructure services.
+This project produced hands-on experience implementing and validating a centralized ingress architecture for containerized infrastructure services.
 
 Key concepts explored during this deployment included:
 - reverse proxy architecture
@@ -735,7 +735,7 @@ Key concepts explored during this deployment included:
 - service isolation
 - Docker Compose orchestration
 
-I also gained practical operational experience involving:
+It also produced practical operational experience involving:
 - configuring reverse proxy hosts
 - integrating existing services into shared Docker networks
 - validating cross-stack container communication
