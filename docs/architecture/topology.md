@@ -208,6 +208,8 @@ Management tools in use:
 | VMware Workstation | VM console, lifecycle, snapshots |
 | RDP | Windows Server and client VM administration |
 | RSAT (WIN11-CLIENT01) | Remote Active Directory, DNS, and Group Policy administration |
+| PowerShell script library (WIN11-CLIENT01) | AD user and group lifecycle, OU and account inventory, Group Policy reporting, and scheduled environment health reporting, per [ADR-016](decisions/016-run-automation-scripts-from-domain-joined-client.md) |
+| Task Scheduler (WIN11-CLIENT01) | Daily unattended run of `Invoke-LabHealthReport.ps1`, reporting AD service state, Wazuh agent enrollment, and Docker container status |
 | Git / GitHub | Documentation version control |
 
 ---
@@ -226,18 +228,20 @@ Management tools in use:
 
 ---
 
-## Planned Evolution
+## Evolution
 
-The environment will evolve across three planned tracks as defined in ADR-014:
+The environment evolves across the three tracks defined in ADR-014. The first is complete; the remaining two are planned.
 
-**Track 3: Infrastructure Automation and Scripting**
+**Track 3: Infrastructure Automation and Scripting (completed)**
 
-PowerShell automation of Active Directory administration workflows. No topology changes; the existing environment serves as the automation target. Lab 01 (User Lifecycle Automation) is complete: `New-LabUser.ps1` and `Remove-LabUser.ps1` run from WIN11-CLIENT01 against DC01, per [ADR-016](decisions/016-run-automation-scripts-from-domain-joined-client.md), and were validated end to end including the AD → SSSD → PAM → SSH identity chain on Ubuntu Server.
+PowerShell automation of Active Directory administration workflows, run from WIN11-CLIENT01 against DC01 per [ADR-016](decisions/016-run-automation-scripts-from-domain-joined-client.md). The track introduced no new hosts, services, or network segments; the existing environment served as the automation target throughout.
 
-**Track 4: Cloud and Hybrid Identity**
+It did add two management-plane paths that did not exist before, both from WIN11-CLIENT01 and both read-only queries against services already running rather than new remoting technology. Lab 05 (Scheduled Health Reporting) reaches the Wazuh Manager REST API at `192.168.1.226:55000` over HTTPS, and the Portainer REST API through `http://portainer.local` via NGINX Proxy Manager, which requires a `192.168.1.226 portainer.local` hosts-file entry on WIN11-CLIENT01 because ADR-009 removed Portainer's direct LAN port and the proxy host is HTTP-only. It also queries DC01's service state through the Service Control Manager's remote RPC interface, distinct from PowerShell Remoting. The resulting health report runs unattended as a daily Task Scheduler job on WIN11-CLIENT01, making that client the environment's only scheduled, non-interactive execution point.
+
+**Track 4: Cloud and Hybrid Identity (planned)**
 
 Extension of the on-premises AD environment into Azure via Microsoft Entra Connect. The topology will expand to include a hybrid identity boundary between `corp.home.arpa` and Entra ID. No changes to the existing on-premises topology are anticipated.
 
-**Track 5: Network Infrastructure**
+**Track 5: Network Infrastructure (planned)**
 
 Perimeter firewall deployment and VLAN segmentation. This track will introduce the most significant topology changes: the current flat LAN will be replaced with a segmented architecture. The topology document will be updated substantially when Track 5 planning begins.

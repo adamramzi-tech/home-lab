@@ -220,7 +220,7 @@ Current and planned phases include:
 ```text
 linux-infrastructure/       (completed)
 enterprise-infrastructure/  (completed)
-automation-and-scripting/   (in progress)
+automation-and-scripting/   (completed)
 cloud-and-hybrid-identity/  (planned)
 network-infrastructure/     (planned)
 architecture/

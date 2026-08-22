@@ -20,7 +20,7 @@ The homelab environment has evolved from a single Linux server into a broader hy
 - enterprise infrastructure (Active Directory, DNS, domain identity)
 - virtualization and Windows Server administration
 - security monitoring and SIEM deployment
-- infrastructure automation and scripting (in progress)
+- infrastructure automation and scripting (completed)
 - cloud and hybrid identity integration (planned)
 - network infrastructure and segmentation (planned)
 

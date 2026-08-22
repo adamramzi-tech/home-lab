@@ -6,7 +6,7 @@ A documentation-first homelab portfolio spanning Linux infrastructure, Windows e
 
 **Core stack:** Ubuntu Server, Docker, NGINX Proxy Manager, Prometheus, Grafana, Tailscale, Windows Server 2022, Active Directory, AD-integrated DNS, Group Policy, PowerShell (RSAT), SSSD and Kerberos, Wazuh SIEM.
 
-**Current focus:** Infrastructure Automation and Scripting track, PowerShell against the live `corp.home.arpa` domain. The Linux and Enterprise Infrastructure tracks are complete; Automation Labs 01 through 04 are complete, with Scheduled Health Reporting (Lab 05) the remaining planned lab.
+**Current status:** The Linux Infrastructure, Enterprise Infrastructure, and Infrastructure Automation and Scripting tracks are all complete. The automation track closed with Lab 05 (Scheduled Health Reporting), leaving a thirteen-script PowerShell library against the live `corp.home.arpa` domain and a Task Scheduler job that reports the environment's health unattended. Cloud and Hybrid Identity is the next track, per [ADR-014](docs/architecture/decisions/014-establish-long-term-infrastructure-expansion-roadmap.md).
 
 New here? Skim the [Current Environment](#current-environment) for what is running, or the [architecture decision records](docs/architecture/decisions/) for the reasoning behind it.
 
@@ -20,11 +20,11 @@ The project is organized into five tracks:
 
 - **Linux Infrastructure** - Ubuntu Server, Docker, reverse proxy, monitoring, and remote administration
 - **Enterprise Infrastructure** - Virtualization, Windows Server, Active Directory, Group Policy, cross-platform integration, and security monitoring
-- **Infrastructure Automation and Scripting** - PowerShell automation against the existing Active Directory environment *(in progress)*
+- **Infrastructure Automation and Scripting** - PowerShell automation against the existing Active Directory environment *(completed)*
 - **Cloud and Hybrid Identity** - Entra ID, Microsoft Entra Connect, and hybrid identity architecture *(planned)*
 - **Network Infrastructure** - Perimeter firewall, VLAN segmentation, access control policy, and network-layer security *(planned)*
 
-The Linux and enterprise infrastructure tracks are completed and fully documented. The infrastructure automation and scripting track is in progress, with Lab 01 (User Lifecycle Automation), Lab 02 (Group and OU Administration), Lab 03 (Static Analysis and Unit Testing), and Lab 04 (Group Policy Reporting and Audit) complete. The remaining two tracks are planned and will be implemented sequentially as documented in [ADR-014](docs/architecture/decisions/014-establish-long-term-infrastructure-expansion-roadmap.md).
+The Linux, enterprise infrastructure, and infrastructure automation and scripting tracks are completed and fully documented. The automation track ran to five labs: Lab 01 (User Lifecycle Automation), Lab 02 (Group and OU Administration), Lab 03 (Static Analysis and Unit Testing), Lab 04 (Group Policy Reporting and Audit), and Lab 05 (Scheduled Health Reporting), which closed the track per [ADR-018](docs/architecture/decisions/018-retire-cross-platform-validation-lab.md). The remaining two tracks are planned and will be implemented sequentially as documented in [ADR-014](docs/architecture/decisions/014-establish-long-term-infrastructure-expansion-roadmap.md).
 
 ---
 
@@ -86,8 +86,11 @@ The Windows 11 workstation serves as the primary management endpoint and virtual
 - both scripts self-validate by querying Active Directory back after execution rather than trusting cmdlet exit codes
 - cross-platform identity chain (AD → SSSD → PAM → SSH) proven in both directions against a live test account (`jdoe`)
 - `Add-LabGroupMembers.ps1`, `Get-LabOUReport.ps1`, and `Get-LabAccountInventory.ps1`: PowerShell scripts run from WIN11-CLIENT01, covering CSV-driven bulk group membership with a partial-success batch model, per-OU user/computer census reporting, and full account inventory reporting with resolved group memberships
-- every script's reported result independently cross-checked against a standalone Active Directory query, not just trusted on its own self-validation
-- the full five-script library passes a documented PSScriptAnalyzer standard (`PSScriptAnalyzerSettings.psd1`) with zero findings, and carries 49 Pester unit tests against mocked Active Directory cmdlets, all runnable on WIN11-CLIENT01 without a live domain
+- `Get-LabGPOInventory.ps1`, `Get-LabGPOLinkReport.ps1`, and `Get-LabRSoPReport.ps1`: read-only Group Policy reporting run from WIN11-CLIENT01, covering GPO inventory, per-OU link and inheritance state, and Resultant Set of Policy for a named user and computer
+- `Get-LabADServiceHealth.ps1`, `Get-LabWazuhAgentStatus.ps1`, `Get-LabDockerServiceStatus.ps1`, and `Invoke-LabHealthReport.ps1`: an environment health report covering DC01's Active Directory service state, Wazuh agent enrollment across all three systems, and Docker container state on Ubuntu Server, each check classified `Healthy`/`Unhealthy`/`Unknown` and aggregated worst-wins
+- a Task Scheduler job on WIN11-CLIENT01, registered by `Register-LabHealthReportTask.ps1`, runs that report daily at 07:00 as `labadmin` at `RunLevel Limited` and writes a timestamped report file on every firing; observed firing unattended with no one logged on
+- every script's reported result independently cross-checked against a source outside the script that produced it, not just trusted on its own self-validation: standalone Active Directory queries for the directory-side scripts, and a direct DC01 service query, the Wazuh dashboard, and a raw `docker ps -a` on Ubuntu Server for the health checks
+- the full thirteen-script library passes a documented PSScriptAnalyzer standard (`PSScriptAnalyzerSettings.psd1`) with zero findings, and carries 172 Pester unit tests against mocked Active Directory, Group Policy, Windows service, REST, and Task Scheduler calls, all runnable on WIN11-CLIENT01 without a live domain, a reachable API, or credentials
 
 ---
 
@@ -115,7 +118,7 @@ The enterprise infrastructure track focuses on:
 - cross-platform identity integration
 - security monitoring and SIEM deployment
 
-### Infrastructure Automation and Scripting Track *(in progress)*
+### Infrastructure Automation and Scripting Track *(completed)*
 
 The infrastructure automation and scripting track focuses on:
 - PowerShell scripting against the existing Active Directory environment
@@ -206,10 +209,9 @@ These documents live separately from the lab walkthroughs so implementation deta
 | [02 - Group and OU Administration](docs/automation-and-scripting/02-group-and-ou-administration.md) | `Add-LabGroupMembers.ps1`, `Get-LabOUReport.ps1`, and `Get-LabAccountInventory.ps1`: CSV-driven bulk group membership with a partial-success batch model, per-OU user/computer census reporting, and full account inventory reporting, each independently cross-checked against standalone AD queries |
 | [03 - Static Analysis and Unit Testing](docs/automation-and-scripting/03-static-analysis-and-unit-testing.md) | PSScriptAnalyzer static analysis and 49 Pester unit tests across the Lab 01 and Lab 02 script library, all mock-based and runnable without a live domain, complementing the earlier labs' live-environment validation |
 | [04 - Group Policy Reporting and Audit](docs/automation-and-scripting/04-group-policy-reporting-and-audit.md) | `Get-LabGPOInventory.ps1`, `Get-LabGPOLinkReport.ps1`, and `Get-LabRSoPReport.ps1`: read-only GPO inventory, per-OU link and inheritance reporting, and Resultant Set of Policy reporting, with 21 Pester unit tests bringing the suite to 70, each report cross-checked against native Group Policy cmdlets and `gpresult` |
+| [05 - Scheduled Health Reporting](docs/automation-and-scripting/05-scheduled-health-reporting.md) | `Get-LabADServiceHealth.ps1`, `Get-LabWazuhAgentStatus.ps1`, `Get-LabDockerServiceStatus.ps1`, `Invoke-LabHealthReport.ps1`, and `Register-LabHealthReportTask.ps1`: a three-state (`Healthy`/`Unhealthy`/`Unknown`) health report over DC01's AD services, Wazuh agent enrollment, and Docker container state, aggregated worst-wins and registered as an unattended Task Scheduler job, bringing the suite to 172 tests across thirteen scripts |
 
-#### Planned Labs
-
-See the [Automation and Scripting Track README](docs/automation-and-scripting/README.md) for the full lab sequence (Scheduled Health Reporting).
+This track is complete. Per [ADR-018](docs/architecture/decisions/018-retire-cross-platform-validation-lab.md), Scheduled Health Reporting was its fifth and final lab.
 
 ---
 
@@ -374,6 +376,19 @@ Completed:
 - PSScriptAnalyzer and Pester 5.6.1 adopted per [ADR-017](docs/architecture/decisions/017-adopt-powershell-static-analysis-and-unit-testing.md): `PSAvoidUsingWriteHost` deliberately excluded via `PSScriptAnalyzerSettings.psd1` with a written justification, every other default rule active
 - 49 Pester unit tests authored across all five scripts (22 for the Lab 01 scripts, 27 for the Lab 02 scripts), every Active Directory cmdlet mocked so the suite runs on WIN11-CLIENT01 without a live domain or credentials
 - a full-library `Invoke-ScriptAnalyzer` scan (including the test files, not just the production scripts) surfaced a real `PSAvoidUsingConvertToSecureStringWithPlainText` finding in `New-LabUser.Tests.ps1`, resolved by switching to an empty `[System.Security.SecureString]::new()`; the library passes a clean, zero-finding scan and the combined 49-test suite still passes in full
+- `Get-LabGPOInventory.ps1`, `Get-LabGPOLinkReport.ps1`, and `Get-LabRSoPReport.ps1` authored and run from WIN11-CLIENT01: read-only GPO inventory, per-OU link and inheritance reporting, and Resultant Set of Policy reporting, each cross-checked against native Group Policy cmdlets and `gpresult`
+- `Get-GPResultantSetOfPolicy` in logging mode confirmed by diagnostic to require both an elevated session and a prior (not necessarily current) interactive logon by the target user on the client
+- 21 further Pester tests authored alongside the Lab 04 scripts rather than retrofitted, bringing the suite to 70
+- [ADR-018](docs/architecture/decisions/018-retire-cross-platform-validation-lab.md) retired the planned standalone cross-platform validation lab as redundant with Lab 01, making Scheduled Health Reporting the track's fifth and final lab
+- `Get-LabADServiceHealth.ps1`, `Get-LabWazuhAgentStatus.ps1`, and `Get-LabDockerServiceStatus.ps1` authored and run from WIN11-CLIENT01: DC01's `NTDS`, `DNS`, `Netlogon`, `Kdc`, `W32Time`, and `ADWS` service state via `Get-Service -ComputerName`, Wazuh agent enrollment via the Wazuh Manager REST API, and Docker container state via the Portainer REST API, with no new remoting technology introduced to reach Ubuntu Server
+- each check classified `Healthy`, `Unhealthy`, or `Unknown`, so an unreachable host or API is reported as neither a false all-clear nor a false incident; `Unknown` earned that place three separate times rather than once at design time, twice as a live-only misclassification a fully passing Pester suite had not caught and once as the reason a least-privileged run-as account was rejected
+- `Invoke-LabHealthReport.ps1` authored as the orchestrator: worst-wins aggregation across the three checks, a console table for interactive runs, and a timestamped report file written on every run
+- least-privileged API accounts pursued on both platforms: a `labhealthcheck-wazuh` account under the built-in `agents_readonly` role succeeded; Portainer Community Edition was found to have no equivalent, since it hides existing resources from non-admin users by design, so the admin account stayed as a named, accepted exposure
+- both API credentials stored as DPAPI-protected `Export-CliXml` files outside the repository and loaded non-interactively by the scheduled run, with no plaintext credential in any script, argument, or configuration file
+- `Register-LabHealthReportTask.ps1` authored, the track's first state-changing script and first real `SupportsShouldProcess` implementation: registers the orchestrator as a daily 07:00 Task Scheduler job running as `labadmin` at `RunLevel Limited`, a documented compromise after a live probe proved a plain domain account cannot open the Service Control Manager on DC01
+- the task observed firing unattended twice, once as a `StartWhenAvailable` catch-up after a real power outage and once as a genuine 07:00 time trigger with no one logged on, confirmed by `LastTaskResult 0` and operational-log event `107`
+- a live `Unhealthy` report root-caused to a two-month-old monitoring-stack outage the report itself surfaced, remediated, and followed by a `Healthy` result from the next scheduled firing, demonstrating the classification discriminates a real fault from a clean environment
+- the full combined library, all thirteen scripts and thirteen test files, swept together for the first time: a clean `Invoke-ScriptAnalyzer -Recurse` pass and 172 of 172 Pester tests, closing the track's final success criterion and the track itself
 
 ---
 
@@ -389,4 +404,4 @@ The long-term objective is to build practical real-world experience that reflect
 - administrative workflows are automated and repeatable
 - operational changes are documented and validated incrementally
 
-The planned track sequence (Infrastructure Automation and Scripting, Cloud and Hybrid Identity, Network Infrastructure) is documented in [ADR-014](docs/architecture/decisions/014-establish-long-term-infrastructure-expansion-roadmap.md).
+The planned track sequence (Infrastructure Automation and Scripting, Cloud and Hybrid Identity, Network Infrastructure) is documented in [ADR-014](docs/architecture/decisions/014-establish-long-term-infrastructure-expansion-roadmap.md). The first of those three is now complete; Cloud and Hybrid Identity is next.

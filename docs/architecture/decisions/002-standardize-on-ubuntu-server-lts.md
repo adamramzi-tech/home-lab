@@ -10,7 +10,7 @@ Accepted
 
 Builds upon: 
 
-- [ADR-001: Repurpose Existing Consumer Hardware for Linux Infrastructure](001-repurpose-existing-consumer-hardware-for-linux-infrastructure.md) 
+- [ADR-001: Repurpose Existing Consumer Hardware for Linux Infrastructure](001-repurpose-existing-hardware-for-linux-infrastructure.md) 
 
 Related documentation: 
 

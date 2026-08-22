@@ -10,11 +10,11 @@ Accepted
 
 Builds upon: 
 
-- [Example ADR](../../../example-adr.md)
+- each prior ADR this decision depends on. ADRs are siblings in `docs/architecture/decisions/`, so the link text is the ADR's full title and the target is its filename alone, for example `014-establish-long-term-infrastructure-expansion-roadmap.md`
 
 Related documentation:
 
-- [Related Document](../../../example-adr.md)
+- the project README, track README, or lab this decision governs, linked relative to `docs/architecture/decisions/`: `../../../README.md` for the project README, `../../automation-and-scripting/README.md` for a track README, `../../automation-and-scripting/05-scheduled-health-reporting.md` for a lab
 
 ---
 

@@ -75,7 +75,9 @@ Each script is documented with purpose, usage, parameters, expected output, and 
 | 02 - Group and OU Administration | Complete |
 | 03 - Static Analysis and Unit Testing | Complete |
 | 04 - Group Policy Reporting and Audit | Complete |
-| 05 - Scheduled Health Reporting | Planned |
+| 05 - Scheduled Health Reporting | Complete |
+
+All five labs are complete, and with them the track. Per [ADR-018](../architecture/decisions/018-retire-cross-platform-validation-lab.md), Scheduled Health Reporting was the track's fifth and final lab. The library it leaves behind is thirteen PowerShell scripts and thirteen Pester test files, swept together at the close of Lab 05 with a clean `Invoke-ScriptAnalyzer` pass and 172 of 172 Pester tests passing.
 
 ---
 
@@ -85,8 +87,10 @@ This track is considered complete when:
 
 - a new user can be fully provisioned in AD, assigned to the correct groups and OU, by running a single script, with the resulting Linux SSH access demonstrated against Ubuntu Server (Lab 01)
 - an existing user can be offboarded cleanly, disabled in AD, and removed from relevant groups by running a single script, with the resulting loss of Linux SSH access demonstrated against Ubuntu Server (Lab 01)
-- GPO state and RSoP compliance can be reported on demand without manual intervention
-- a scheduled job produces a regular health report covering AD service state, Wazuh agent enrollment, and Docker service status
+- GPO state and RSoP compliance can be reported on demand without manual intervention (Lab 04)
+- a scheduled job produces a regular health report covering AD service state, Wazuh agent enrollment, and Docker service status (Lab 05)
 - all scripts are documented to lab standard: purpose, usage, parameters, expected output, and validation steps
 - the `infrastructure/automation-and-scripting/` directory contains a coherent operational script library that can be used without additional context
-- the script library passes a documented PSScriptAnalyzer standard and carries Pester unit tests covering the decision logic of its scripts, per [ADR-017](../architecture/decisions/017-adopt-powershell-static-analysis-and-unit-testing.md)
+- the script library passes a documented PSScriptAnalyzer standard and carries Pester unit tests covering the decision logic of its scripts, per [ADR-017](../architecture/decisions/017-adopt-powershell-static-analysis-and-unit-testing.md) (Lab 03, extended by Labs 04 and 05)
+
+Each of these was met and recorded in the lab it was closed by. The last of them, the scheduled health report, was closed in Lab 05 by a Task Scheduler job on WIN11-CLIENT01 observed firing unattended and producing a timestamped report without anyone logged on.
