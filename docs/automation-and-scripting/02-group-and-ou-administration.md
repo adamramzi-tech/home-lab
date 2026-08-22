@@ -10,20 +10,20 @@
 
 This lab automates three related administrative workflows that Lab 01 (User Lifecycle Automation) did not cover: bulk security-group membership management, organizational unit reporting, and account inventory reporting, against the existing `corp.home.arpa` Active Directory domain.
 
-Lab 01 automated the lifecycle of a single account at a time: one script provisions one user, another offboards one user. That scope was deliberate (see Lab 01's Design Decisions), but it leaves two categories of manual work untouched. First, group membership changes that affect several accounts at once, for example adding a batch of new hires to `IT-Admins` or `Linux-Admins`, still require repeating `Add-ADGroupMember` by hand once per account. Second, there is no scripted way to answer basic operational questions about the environment's current state: how many accounts exist in each OU, which groups exist and how large they are, or what the full inventory of user accounts looks like at a point in time. Both gaps are administrative overhead of exactly the kind ADR-015 scoped this track to eliminate.
+Lab 01 automated one account at a time, a deliberate scope (see its Design Decisions) that leaves two categories of manual work untouched. Group membership changes affecting several accounts at once, adding a batch of new hires to `IT-Admins` or `Linux-Admins`, still require repeating `Add-ADGroupMember` by hand per account. And there is no scripted way to answer basic questions about current state: how many accounts sit in each OU, or what the full user inventory looks like at a point in time. Both are the administrative overhead ADR-015 scoped this track to eliminate.
 
-This lab produces three scripts: one for bulk group membership changes driven by a CSV input file, and two read-only reporting scripts, one for OU structure and object counts, one for a full account inventory. Consistent with ADR-015, this lab introduces no new infrastructure. It automates administration of the OU and group structure that Lab 03 (Active Directory Lab) of the enterprise infrastructure track already established and Lab 01 already builds accounts into.
+This lab produces three scripts: one for CSV-driven bulk group membership changes, and two read-only reporting scripts, one for OU structure and object counts, one for a full account inventory. It introduces no new infrastructure, automating administration of the OU and group structure the enterprise infrastructure track's Lab 03 established and Lab 01 already builds accounts into.
 
 ---
 
 ## Objectives
 
-- add multiple existing AD accounts to one or more security groups in a single script run, driven by a CSV input file rather than repeated individual `Add-ADGroupMember` calls
+- add multiple existing AD accounts to one or more security groups in a single run, driven by a CSV input file rather than repeated individual `Add-ADGroupMember` calls
 - validate bulk membership changes by querying group membership back from AD after the run, consistent with the self-validation pattern established in Lab 01
-- report the current OU structure (`IT`, `User Accounts`, `Workstations`, `Groups`) along with an object count per OU, without requiring a manual ADUC walkthrough
-- report a full account inventory: every user account in the domain with its OU, enabled state, and group memberships, in a form that can be reviewed on screen and exported for later reference
+- report the current OU structure (`IT`, `User Accounts`, `Workstations`, `Groups`) with an object count per OU, without a manual ADUC walkthrough
+- report a full account inventory: every user account in the domain with its OU, enabled state, and group memberships, reviewable on screen and exportable for later reference
 - handle bad input (a CSV row naming a nonexistent account or group) without aborting the entire batch, and report exactly which rows succeeded and which failed
-- keep all three scripts read-only with respect to anything other than the specific group memberships the bulk script is explicitly asked to change; the two reporting scripts must not modify AD state at all
+- keep all three read-only except for the specific group memberships the bulk script is explicitly asked to change; the two reporting scripts must not modify AD state at all
 
 ---
 
@@ -31,9 +31,9 @@ This lab produces three scripts: one for bulk group membership changes driven by
 
 The enterprise infrastructure track built the OU and group structure this lab reports on: `OU=IT`, `OU=User Accounts`, `OU=Workstations`, and `OU=Groups` were created in Lab 03 (Active Directory Lab), and `IT-Admins`, `Domain-Users-Standard`, and `Lab-Workstations` were created as security groups in `OU=Groups` in that same lab. `Linux-Admins` was added later in Lab 06 (Linux/AD Integration) of that track to gate SSH access. Lab 01 of this track began populating those OUs and groups programmatically instead of through ADUC, provisioning and offboarding accounts one at a time.
 
-ADR-015 scoped this track to be AD-centric, with every lab automating a real, previously-manual administrative task against infrastructure that already exists. Lab 01 picked the highest-value single-account workflow. This lab picks the next two highest-value gaps: group membership no longer scales past one account at a time, and there is no automated way to see the current state of the OU and group structure without opening ADUC and clicking through it manually. Both are realistic, frequently repeated administrative tasks in any AD environment, not lab-specific busywork.
+ADR-015 scoped this track to be AD-centric, every lab automating a real, previously-manual task against infrastructure that already exists. Lab 01 took the highest-value single-account workflow; this lab takes the next two gaps: group membership does not scale past one account at a time, and seeing the current OU and group structure means clicking through ADUC by hand.
 
-This lab also begins exercising a pattern the rest of the track depends on: scripts that operate on a batch of inputs rather than a single named account, and read-only reporting scripts that produce a snapshot of environment state rather than changing it. Lab 04 (GPO Reporting and Audit) and Lab 06 (Scheduled Health Reporting) both build on reporting patterns; getting the reporting shape right here, console output plus an optional CSV export, gives those later labs a precedent to follow rather than inventing their own from scratch.
+It also begins two patterns the rest of the track depends on: scripts that operate on a batch of inputs rather than a single named account, and read-only reporting scripts that snapshot state rather than change it. Lab 04 (GPO Reporting and Audit) and Lab 06 (Scheduled Health Reporting) both build on reporting; getting the shape right here, console output plus an optional CSV export, gives them a precedent to follow rather than inventing their own.
 
 ---
 
@@ -43,19 +43,19 @@ This lab also begins exercising a pattern the rest of the track depends on: scri
 
 **Decision:** The bulk membership script parses the CSV into memory, groups rows by `GroupName`, and calls `Add-ADGroupMember` once per group with the full list of members for that group, rather than calling it once per CSV row.
 
-Microsoft's own documented pattern for CSV-driven group membership loops over every row and calls `Add-ADGroupMember` once per row (see Sources). That approach works but issues one AD write per account even when many accounts are being added to the same group in the same run. `Add-ADGroupMember` accepts `-Members` as an array, so grouping rows by `GroupName` first and issuing one call per group with every member for that group reduces the number of directory writes and keeps the per-group PASS/FAIL validation (see below) aligned to one validation block per group rather than one per row. The tradeoff is a small amount of extra script complexity, an in-memory grouping step, versus the simpler flat loop; that tradeoff is worth it for a script whose entire purpose is handling more than one account at a time.
+Microsoft's own documented pattern loops over every row and calls `Add-ADGroupMember` once per row (see Sources), issuing one AD write per account even when many accounts go into the same group in the same run. `Add-ADGroupMember` accepts `-Members` as an array, so grouping rows by `GroupName` first reduces directory writes and aligns the PASS/FAIL validation to one block per group rather than one per row. The tradeoff is an in-memory grouping step against a simpler flat loop, worth it for a script whose entire purpose is handling more than one account at a time.
 
 ### Partial-success batch model, not all-or-nothing
 
 **Decision:** A CSV row that names a nonexistent account or a nonexistent group fails and is reported individually. It does not abort the rest of the batch.
 
-Lab 01's scripts operate on a single account and abort outright on a pre-flight failure, which is the correct behavior for a single-target script. A bulk script processing a CSV of many rows is a different situation: a single typo'd `SamAccountName` in row 40 of a 50-row file should not silently discard the 49 valid rows around it. Each group's membership addition is wrapped in its own error handling, and the script's final output states explicitly which groups succeeded, which failed, and why, rather than either succeeding silently or aborting the entire run on the first bad row. This is a deliberate scope boundary: the script does not attempt row-level rollback of partial successes if a later row fails, since `Add-ADGroupMember`'s permissive-modify default already makes membership additions idempotent and safely re-runnable. This behavior was confirmed with a real negative test in Step Two, not just asserted from the design.
+Lab 01's scripts abort outright on a pre-flight failure, correct for a single-target script. A bulk script is different: a typo'd `SamAccountName` in row 40 of a 50-row file should not discard the 49 valid rows around it. Each group's addition carries its own error handling, and the final output states which groups succeeded, which failed, and why. The script deliberately does not attempt row-level rollback if a later row fails, since `Add-ADGroupMember`'s permissive-modify default already makes membership additions idempotent and safely re-runnable. Confirmed with a real negative test in Step Two, not just asserted from the design.
 
 ### Reporting output: formatted console table plus optional CSV export
 
 **Decision:** Both reporting scripts (`Get-LabOUReport.ps1` and `Get-LabAccountInventory.ps1`) write a formatted table to the console by default and support an optional `-ExportPath` parameter that writes the same data to CSV via `Export-Csv`.
 
-Lab 01's scripts print PASS/FAIL lines because they are validating a change they just made. These two scripts are not validating a change, they are reporting a state, so a PASS/FAIL model does not fit. A table is the more natural output for "here is what currently exists." Making CSV export optional rather than mandatory keeps the scripts useful for a quick interactive check (no file left behind) while still supporting the point-in-time record-keeping use case an inventory report exists for. This also establishes the reporting output convention Lab 04 (GPO Reporting and Audit) and Lab 06 (Scheduled Health Reporting) are expected to reuse.
+Lab 01's scripts print PASS/FAIL because they validate a change they just made. These two report a state instead, so a table is the more natural output for "here is what currently exists." Keeping CSV export optional rather than mandatory leaves the scripts useful for a quick interactive check with no file left behind, while still supporting the point-in-time record-keeping an inventory report exists for. This establishes the reporting output convention Lab 04 (GPO Reporting and Audit) and Lab 06 (Scheduled Health Reporting) are expected to reuse.
 
 ### Script and folder naming
 
@@ -92,7 +92,7 @@ WIN11-CLIENT01 (RSAT / PowerShell AD module)
   not assumed from script exit code
 ```
 
-All three scripts originate from WIN11-CLIENT01 against DC01, consistent with ADR-016. Unlike Lab 01, none of these scripts need to reach Ubuntu Server; there is no Linux-side validation step, since this lab does not touch account creation or the SSSD-resolved access path Lab 01 already proved.
+All three originate from WIN11-CLIENT01 against DC01, per ADR-016. Unlike Lab 01, none need to reach Ubuntu Server: there is no Linux-side validation step, since this lab does not touch account creation or the SSSD-resolved access path Lab 01 already proved.
 
 ---
 
@@ -110,7 +110,7 @@ All three scripts originate from WIN11-CLIENT01 against DC01, consistent with AD
 
 ### Step One - Provision Test Accounts for Bulk Membership Testing
 
-Before the bulk membership script can be meaningfully tested, several additional test accounts needed to exist. `New-LabUser.ps1` (Lab 01) was run three times from `C:\Scripts` on WIN11-CLIENT01, the same execution context established in Lab 01 and ADR-016, to create `jsmith`, `mjohnson`, and `akim` as throwaway accounts. All three were created with default parameters, `Domain-Users-Standard` role group membership and no `-LinuxAccess`, since Linux access is not relevant to this lab and these accounts exist solely to give `Add-LabGroupMembers.ps1` a realistic multi-row CSV to operate on in Step Two.
+The bulk membership script needed more accounts to operate on. `New-LabUser.ps1` (Lab 01) was run three times from `C:\Scripts` on WIN11-CLIENT01 to create `jsmith`, `mjohnson`, and `akim` as throwaway accounts, all with default parameters, `Domain-Users-Standard` membership and no `-LinuxAccess`, since these exist solely to give `Add-LabGroupMembers.ps1` a realistic multi-row CSV in Step Two.
 
 ```powershell
 .\New-LabUser.ps1 -FirstName John -LastName Smith -SamAccountName jsmith
@@ -125,7 +125,7 @@ All three runs completed cleanly with no errors. For each account, the pre-fligh
 - **PASS**: member of role group `Domain-Users-Standard`
 - **PASS**: not a member of `Linux-Admins` (Linux access not requested)
 
-This result was identical for `jsmith`, `mjohnson`, and `akim`, confirming `New-LabUser.ps1` behaves consistently across repeated runs against different account names, which Lab 01 validated for a single account (`jdoe`) but had not exercised back-to-back for several accounts in the same session.
+The result was identical for all three, confirming `New-LabUser.ps1` behaves consistently across repeated runs against different account names, which Lab 01 validated for a single account (`jdoe`) but had not exercised back-to-back in one session.
 
 <p align="center">
   <img src="../../images/automation-and-scripting/02-group-and-ou-administration/01-provision-test-accounts.jpg" width="900">
@@ -135,13 +135,13 @@ This result was identical for `jsmith`, `mjohnson`, and `akim`, confirming `New-
   <em>New-LabUser.ps1 run three times from WIN11-CLIENT01 to provision jsmith, mjohnson, and akim, each showing the pre-flight pass, account creation, Domain-Users-Standard assignment, and all four validation checks returning PASS.</em>
 </p>
 
-No issues were encountered in this step. The domain now has three additional accounts (`jsmith`, `mjohnson`, `akim`) beyond `labadmin`, `testuser01`, and the disabled `jdoe`, available as bulk-add targets for Step Two.
+The domain now holds `jsmith`, `mjohnson`, and `akim` beyond `labadmin`, `testuser01`, and the disabled `jdoe`, available as bulk-add targets for Step Two.
 
 ### Step Two - Build Add-LabGroupMembers.ps1
 
 #### Verifying Add-ADGroupMember's Behavior on Invalid Members
 
-Before writing the script's error-handling logic, the open question from the planning phase, whether `Add-ADGroupMember` fails an entire `-Members` array call if one name in it is invalid, or adds the valid names and fails only on the bad one, was verified directly against DC01 rather than assumed. A disposable test group was created, a mixed valid/invalid `-Members` array was passed to `Add-ADGroupMember` against it, the result was queried back, and the test group was removed:
+The planning phase left one question open: does `Add-ADGroupMember` fail an entire `-Members` array if one name in it is invalid, or add the valid names and fail only on the bad one? It was verified directly against DC01 rather than assumed. A disposable test group was created, a mixed valid/invalid `-Members` array passed to it, the result queried back, and the group removed:
 
 ```powershell
 New-ADGroup -Name "Test-BulkAdd-Verify" -GroupScope Global -GroupCategory Security -Path "OU=Groups,DC=corp,DC=home,DC=arpa"
@@ -161,7 +161,7 @@ Add-ADGroupMember : Cannot find an object with identity: 'doesnotexist999' under
 + FullyQualifiedErrorId : SetADGroupMember.ValidateMembersParameter,Microsoft.ActiveDirectory.Management.Commands.AddADGroupMember
 ```
 
-The `FullyQualifiedErrorId` (`SetADGroupMember.ValidateMembersParameter`) shows the entire `-Members` array is validated before any change is made, not processed member-by-member. The subsequent `Get-ADGroupMember -Identity "Test-BulkAdd-Verify"` returned no output, confirming `jsmith`, the one valid name in the array, was **not** added despite being valid; the invalid name blocked the whole call.
+The `FullyQualifiedErrorId` (`SetADGroupMember.ValidateMembersParameter`) shows the entire `-Members` array is validated before any change is made, not processed member-by-member. The subsequent `Get-ADGroupMember -Identity "Test-BulkAdd-Verify"` returned no output, confirming `jsmith`, the one valid name in the array, was **not** added; the invalid name blocked the whole call.
 
 <p align="center">
   <img src="../../images/automation-and-scripting/02-group-and-ou-administration/02-verify-addadgroupmember-behavior.jpg" width="900">
@@ -171,7 +171,7 @@ The `FullyQualifiedErrorId` (`SetADGroupMember.ValidateMembersParameter`) shows 
   <em>Test-BulkAdd-Verify diagnostic showing Add-ADGroupMember failing outright on the invalid member doesnotexist999, Get-ADGroupMember confirming jsmith was not added despite being valid, and the disposable test group removed afterward.</em>
 </p>
 
-This resolves the open question from planning: `Add-ADGroupMember` validates its entire `-Members` array atomically, so a single bad `SamAccountName` in a group's batch would silently block every valid member alongside it if the script called `Add-ADGroupMember` directly against the raw CSV rows. To preserve the partial-success batch model from the Design Decisions above, at the row level and not just at the group level, each requested member is pre-validated individually with `Get-ADUser -Identity` before `Add-ADGroupMember` is ever called for that group, and only the members that pass are included in the array.
+So a single bad `SamAccountName` in a batch would silently block every valid member alongside it if the script passed raw CSV rows straight to `Add-ADGroupMember`. To preserve the partial-success model at the row level and not just the group level, each requested member is pre-validated individually with `Get-ADUser -Identity` first, and only the members that pass are included in the array.
 
 #### Script Implementation
 
@@ -278,7 +278,7 @@ Finally, the result is validated by querying the group's membership back, per me
 
 #### Creating the Script on WIN11-CLIENT01
 
-With the verification and implementation above complete, the finalized script was created in `C:\Scripts` on WIN11-CLIENT01, the same execution environment used for `New-LabUser.ps1` and `Remove-LabUser.ps1` in Lab 01, consistent with the execution-location convention established in [ADR-016](../architecture/decisions/016-run-automation-scripts-from-domain-joined-client.md). No execution policy change was needed; `RemoteSigned` at `CurrentUser` scope was already set on WIN11-CLIENT01 during Lab 01 and persisted. The script was pasted into a new file in the editor and saved as `C:\Scripts\Add-LabGroupMembers.ps1`.
+The finalized script was saved as `C:\Scripts\Add-LabGroupMembers.ps1` on WIN11-CLIENT01, the same execution environment Lab 01 used, per [ADR-016](../architecture/decisions/016-run-automation-scripts-from-domain-joined-client.md). No execution policy change was needed; `RemoteSigned` at `CurrentUser` scope was already set during Lab 01 and persisted.
 
 <p align="center">
   <img src="../../images/automation-and-scripting/02-group-and-ou-administration/03-create-script-file.jpg" width="900">
@@ -288,7 +288,7 @@ With the verification and implementation above complete, the finalized script wa
   <em>Add-LabGroupMembers.ps1 open in the editor on WIN11-CLIENT01 and saved to C:\Scripts, shown alongside New-LabUser.ps1 and Remove-LabUser.ps1 in the directory listing.</em>
 </p>
 
-The finalized script is also saved to `infrastructure/automation-and-scripting/group-and-ou-administration/Add-LabGroupMembers.ps1` in the repository's script library.
+A copy lives in the repository at `infrastructure/automation-and-scripting/group-and-ou-administration/Add-LabGroupMembers.ps1`.
 
 #### Running Add-LabGroupMembers.ps1 Against the Step One Test Accounts
 
@@ -419,7 +419,7 @@ if ($ExportPath) {
 
 #### Creating the Script on WIN11-CLIENT01
 
-With the design and implementation above finalized, the script was created in `C:\Scripts` on WIN11-CLIENT01, the same execution environment used for the other scripts in this track, consistent with the execution-location convention established in [ADR-016](../architecture/decisions/016-run-automation-scripts-from-domain-joined-client.md). It was pasted into a new file in the editor and saved as `C:\Scripts\Get-LabOUReport.ps1`, alongside `New-LabUser.ps1`, `Remove-LabUser.ps1`, and `Add-LabGroupMembers.ps1`.
+The script was saved as `C:\Scripts\Get-LabOUReport.ps1` alongside the track's other scripts on WIN11-CLIENT01, per [ADR-016](../architecture/decisions/016-run-automation-scripts-from-domain-joined-client.md).
 
 <p align="center">
   <img src="../../images/automation-and-scripting/02-group-and-ou-administration/06-create-get-labouereport.jpg" width="900">
@@ -429,7 +429,7 @@ With the design and implementation above finalized, the script was created in `C
   <em>Get-LabOUReport.ps1 open in the editor on WIN11-CLIENT01 and saved to C:\Scripts, shown alongside the other scripts and CSV files from Step Two in the directory listing.</em>
 </p>
 
-The finalized script is also saved to `infrastructure/automation-and-scripting/group-and-ou-administration/Get-LabOUReport.ps1` in the repository's script library.
+A copy lives in the repository at `infrastructure/automation-and-scripting/group-and-ou-administration/Get-LabOUReport.ps1`.
 
 #### Running Get-LabOUReport.ps1 Against the Live Environment
 
@@ -457,7 +457,7 @@ The script ran end to end with no errors, reporting 5 OU(s):
   <em>Get-LabOUReport.ps1 run from WIN11-CLIENT01 with no -ExportPath, showing all 5 OUs in the domain sorted alphabetically with their per-OU user and computer counts.</em>
 </p>
 
-The result matched what was independently expected from the environment's known state: `IT` holding `labadmin` (1 user), `User Accounts` holding `testuser01`, the disabled `jdoe`, and the three Step One accounts `jsmith`/`mjohnson`/`akim` (5 users), `Workstations` holding the `WIN11-CLIENT01` and Ubuntu Server computer objects (2 computers) with no users, `Groups` holding neither users nor computers since it only contains group objects that this script does not count, and the built-in `Domain Controllers` OU, not one of the four custom OUs but a real OU nonetheless, correctly appearing with DC01's computer object (1 computer). Sorting by `Name` produced the alphabetical row order seen above rather than whatever order `Get-ADOrganizationalUnit` returned OUs in. This confirms the `-SearchScope OneLevel` design reports each OU's directly-contained objects correctly, and that `Get-ADOrganizationalUnit -Filter *` was right to enumerate every OU in the domain rather than only the four created by hand in the enterprise infrastructure track.
+The result matched the environment's known state: `IT` holding `labadmin` (1 user); `User Accounts` holding `testuser01`, the disabled `jdoe`, and the three Step One accounts (5 users); `Workstations` holding the `WIN11-CLIENT01` and Ubuntu Server computer objects (2 computers) and no users; `Groups` holding neither, since it contains only group objects this script does not count; and the built-in `Domain Controllers` OU, not one of the four custom OUs but a real OU nonetheless, correctly appearing with DC01's computer object. Sorting by `Name` produced the alphabetical row order rather than whatever order `Get-ADOrganizationalUnit` returned. This confirms `-SearchScope OneLevel` reports each OU's directly-contained objects correctly, and that `-Filter *` was right to enumerate every OU rather than only the four created by hand in the enterprise infrastructure track.
 
 #### Testing the -ExportPath CSV Export
 
@@ -467,13 +467,13 @@ The script was run again, this time with `-ExportPath` supplied, to confirm the 
 .\Get-LabOUReport.ps1 -ExportPath "C:\Scripts\ou-report.csv"
 ```
 
-The console output matched the first run exactly, the same 5 OUs with the same `UserCount`/`ComputerCount` values, followed by a confirmation line, `Report exported to 'C:\Scripts\ou-report.csv'.` The exported file was then checked directly:
+The console output matched the first run exactly, followed by `Report exported to 'C:\Scripts\ou-report.csv'.` The exported file was checked directly:
 
 ```powershell
 Import-Csv "C:\Scripts\ou-report.csv"
 ```
 
-This returned the same 5 rows with identical `Name`, `DistinguishedName`, `UserCount`, and `ComputerCount` values as the console table, `Domain Controllers` 0/1, `Groups` 0/0, `IT` 1/0, `User Accounts` 5/0, `Workstations` 0/2.
+This returned the same 5 rows with identical values to the console table: `Domain Controllers` 0/1, `Groups` 0/0, `IT` 1/0, `User Accounts` 5/0, `Workstations` 0/2.
 
 <p align="center">
   <img src="../../images/automation-and-scripting/02-group-and-ou-administration/08-run-get-labouereport-exportpath.jpg" width="900">
@@ -483,7 +483,7 @@ This returned the same 5 rows with identical `Name`, `DistinguishedName`, `UserC
   <em>Get-LabOUReport.ps1 run with -ExportPath, showing the console table, the export confirmation line, and Import-Csv against the resulting file returning matching data.</em>
 </p>
 
-This confirms `Export-Csv` is writing the same report data reflected in the console, not a stale or differently-scoped copy, closing out the last untested part of the script's design.
+`Export-Csv` is writing the same report data reflected in the console, not a stale or differently-scoped copy, closing out the last untested part of the script's design.
 
 ### Step Four - Build Get-LabAccountInventory.ps1
 
@@ -512,7 +512,7 @@ $users = Get-ADUser -Filter * -Properties Enabled, DistinguishedName, whenCreate
 Write-Host "Found $($users.Count) user account(s). Resolving group memberships per account..." -ForegroundColor Cyan
 ```
 
-For each account, `Get-ADPrincipalGroupMembership` resolves its current group memberships, the same cmdlet `Remove-LabUser.ps1` (Lab 01) already uses. The result is filtered to exclude the account's primary group (`Domain Users` for every account in this domain) by comparing each returned group's `DistinguishedName` against the user's `PrimaryGroup` property, the identical comparison pattern `Remove-LabUser.ps1` uses to distinguish removable memberships from the primary group. Since every account shares the same primary group, including it in every row would add no differentiating signal; the filtered list is then joined into a single `"; "`-delimited string so each account still fits one CSV row:
+For each account, `Get-ADPrincipalGroupMembership` resolves its current group memberships, the same cmdlet `Remove-LabUser.ps1` (Lab 01) uses. The result is filtered to exclude the primary group (`Domain Users` for every account here) by comparing each returned group's `DistinguishedName` against the user's `PrimaryGroup` property, the identical pattern `Remove-LabUser.ps1` uses. Since every account shares that primary group, including it in every row adds no signal; the filtered list is joined into one `"; "`-delimited string so each account fits a single CSV row:
 
 ```powershell
 $report = foreach ($user in $users) {
@@ -533,7 +533,7 @@ $report = foreach ($user in $users) {
 }
 ```
 
-`LastLogonDate` is left as whatever `Get-ADUser` returns, including `$null`, rather than substituted with a placeholder value. It is a replicated attribute that updates periodically rather than on every logon, so `$null` legitimately means an account has no recorded logon, not that the query failed. The attribute set as a whole (`Enabled`, `DistinguishedName`, `WhenCreated`, `PasswordLastSet`, `LastLogonDate`, `Groups`) was chosen to be meaningful in this specific environment; this domain has no populated `Department`, `Title`, or `Manager` attributes, since accounts here are lab test accounts rather than a real HR-driven directory, so a generic inventory template built around those fields would mostly report empty values.
+`LastLogonDate` is left as whatever `Get-ADUser` returns, including `$null`, rather than substituted with a placeholder. It is a replicated attribute that updates periodically rather than on every logon, so `$null` legitimately means no recorded logon rather than a failed query. The attribute set as a whole (`Enabled`, `DistinguishedName`, `WhenCreated`, `PasswordLastSet`, `LastLogonDate`, `Groups`) was chosen to be meaningful here: this domain has no populated `Department`, `Title`, or `Manager` attributes, so a generic inventory template built around those fields would mostly report empty values.
 
 The report prints to the console as a table by default, and is additionally written to CSV via `Export-Csv` if `-ExportPath` is supplied, matching `Get-LabOUReport.ps1`'s output convention exactly:
 
@@ -548,7 +548,7 @@ if ($ExportPath) {
 
 #### Creating the Script on WIN11-CLIENT01
 
-With the design and implementation above finalized, the script was created in `C:\Scripts` on WIN11-CLIENT01, the same execution environment used for the other scripts in this track, consistent with the execution-location convention established in [ADR-016](../architecture/decisions/016-run-automation-scripts-from-domain-joined-client.md). It was pasted into a new file in the editor and saved as `C:\Scripts\Get-LabAccountInventory.ps1`, alongside `New-LabUser.ps1`, `Remove-LabUser.ps1`, `Add-LabGroupMembers.ps1`, and `Get-LabOUReport.ps1`.
+The script was saved as `C:\Scripts\Get-LabAccountInventory.ps1` alongside the track's other scripts on WIN11-CLIENT01, per [ADR-016](../architecture/decisions/016-run-automation-scripts-from-domain-joined-client.md).
 
 <p align="center">
   <img src="../../images/automation-and-scripting/02-group-and-ou-administration/09-create-get-labaccountinventory.jpg" width="900">
@@ -558,7 +558,7 @@ With the design and implementation above finalized, the script was created in `C
   <em>Get-LabAccountInventory.ps1 open in the editor on WIN11-CLIENT01 and saved to C:\Scripts, shown alongside the other scripts and CSV files from the earlier Lab 02 steps in the directory listing.</em>
 </p>
 
-The finalized script is also saved to `infrastructure/automation-and-scripting/group-and-ou-administration/Get-LabAccountInventory.ps1` in the repository's script library.
+A copy lives in the repository at `infrastructure/automation-and-scripting/group-and-ou-administration/Get-LabAccountInventory.ps1`.
 
 #### Running Get-LabAccountInventory.ps1 Against the Live Environment
 
@@ -600,13 +600,13 @@ The script was run again, this time with `-ExportPath` supplied, to confirm the 
 .\Get-LabAccountInventory.ps1 -ExportPath "C:\Scripts\account-inventory.csv"
 ```
 
-The console output matched the first run exactly, the same 9 accounts with the same `Enabled`, `DistinguishedName`, `WhenCreated`, `PasswordLastSet`, `LastLogonDate`, and `Groups` values, followed by a confirmation line, `Report exported to 'C:\Scripts\account-inventory.csv'.` The exported file was then checked directly:
+The console output matched the first run exactly across all 9 accounts, followed by `Report exported to 'C:\Scripts\account-inventory.csv'.` The exported file was checked directly:
 
 ```powershell
 Import-Csv "C:\Scripts\account-inventory.csv"
 ```
 
-This returned the same 9 records with identical values to the console table for every field. The two fields most likely to behave unexpectedly through `Export-Csv`, held up correctly: `PasswordLastSet` and `LastLogonDate` remained genuinely blank for `akim`, `Guest`, `jsmith`, and `mjohnson` (`krbtgt`'s `LastLogonDate` also stayed blank), rather than appearing as a literal `NULL` or empty-string artifact, and `Groups`, a single delimited field, stayed intact as one `"; "`-joined value per account (for example, `akim`'s `Groups` field still reads `IT-Admins; Domain-Users-Standard; Linux-Admins`) rather than being split across columns. `jdoe`'s `Groups` field was blank in both the console and the CSV, consistent with `jdoe` having no group memberships beyond the excluded primary group.
+This returned the same 9 records with identical values for every field. The two fields most likely to behave unexpectedly through `Export-Csv` held up: `PasswordLastSet` and `LastLogonDate` stayed genuinely blank for `akim`, `Guest`, `jsmith`, and `mjohnson` (and `krbtgt`'s `LastLogonDate`) rather than becoming a literal `NULL` or empty-string artifact, and `Groups` stayed intact as one `"; "`-joined value per account, `akim`'s still reading `IT-Admins; Domain-Users-Standard; Linux-Admins`, rather than splitting across columns. `jdoe`'s `Groups` field was blank in both, consistent with it having no memberships beyond the excluded primary group.
 
 <p align="center">
   <img src="../../images/automation-and-scripting/02-group-and-ou-administration/11-run-get-labaccountinventory-exportpath.jpg" width="900">
@@ -616,24 +616,17 @@ This returned the same 9 records with identical values to the console table for 
   <em>Get-LabAccountInventory.ps1 run with -ExportPath, showing the console table followed by the export confirmation line, and Import-Csv against the resulting file returning the same 9 records with matching data.</em>
 </p>
 
-This confirms `Export-Csv` is writing the same report data reflected in the console, not a stale or differently-scoped copy, and that the two fields specific to this script, `LastLogonDate` and the joined `Groups` string, survive the round trip to CSV intact.
+The joined `Groups` string and the null `LastLogonDate` both survive the round trip to CSV intact.
 
 ### Step Five - Run All Three Scripts and Validate Against Known State
 
-**Revised scope.** This step was originally planned, before Steps Two through Four were implemented, as a single exercise: run `Add-LabGroupMembers.ps1` against the Step One test accounts, then run both reporting scripts, and manually cross-check the output against what is independently known about the environment. That is no longer the right shape for this step. Each script was already built, run against the live environment, and documented individually: `Add-LabGroupMembers.ps1` in Step Two (a `members.csv` run plus a negative test), `Get-LabOUReport.ps1` in Step Three (a console run plus `-ExportPath`), and `Get-LabAccountInventory.ps1` in Step Four (a console run plus `-ExportPath`). Re-running all three scripts again here would only reproduce results that are already real and already documented.
+**Revised scope.** This step was originally planned, before Steps Two through Four were implemented, as a single exercise: run all three scripts and manually cross-check the output against what is independently known about the environment. That no longer fit. Each script had already been built, run against the live environment, and documented individually: `Add-LabGroupMembers.ps1` in Step Two (a `members.csv` run plus a negative test), `Get-LabOUReport.ps1` in Step Three and `Get-LabAccountInventory.ps1` in Step Four (each a console run plus `-ExportPath`). Re-running all three here would only reproduce results that are already real and already documented.
 
-What those three steps did not include is a standalone, independently-typed `Get-AD*` query, run outside of any script, compared number-for-number against what a script reported. Every check performed so far came either from a script's own internal validation (`Add-LabGroupMembers.ps1`'s post-add `Get-ADGroupMember` query) or from prose reasoning about known environment state (Step Three's and Step Four's narratives). Step Five is revised to close that specific gap: closing the loop the same way Lab 01 did, not trusting a script's own success message or its author's reasoning without an independent query against the same source of truth, using the environment state that Steps Two through Four already produced.
-
-**Planned queries for this step:**
-
-1. **Cross-check `Add-LabGroupMembers.ps1` (against Step Two):** `Get-ADGroupMember -Identity IT-Admins | Select SamAccountName` and `Get-ADGroupMember -Identity Linux-Admins | Select SamAccountName`, run interactively, checked against Step Two's PASS results (`jsmith` and `mjohnson` in `IT-Admins`, `akim` in both `IT-Admins` and `Linux-Admins`).
-2. **Cross-check `Get-LabOUReport.ps1` (against Step Three):** `Get-ADUser -SearchBase <OU DN> -SearchScope OneLevel -Filter *` and the equivalent `Get-ADComputer` call, run interactively for at least two OUs, checked against Step Three's table.
-3. **Cross-check `Get-LabAccountInventory.ps1` (against Step Four):** `(Get-ADUser -Filter *).Count` run interactively, checked against the reported count of 9, and `Get-ADPrincipalGroupMembership -Identity akim | Select Name` run interactively, checked against `akim`'s `Groups` field from Step Four.
-4. **Confirm no unintended AD writes:** a reasoning-based review, not a live query, of the three finalized scripts confirming the two reporting scripts call only `Get-*` cmdlets and `Add-LabGroupMembers.ps1` calls only `Add-ADGroupMember`, never a removal cmdlet.
+What those three steps did not include is a standalone, independently-typed `Get-AD*` query, run outside of any script, compared number-for-number against what a script reported. Every check so far came either from a script's own internal validation (`Add-LabGroupMembers.ps1`'s post-add `Get-ADGroupMember` query) or from prose reasoning about known environment state. Step Five was revised to close that gap the same way Lab 01 did: three independent queries, one per script cross-checked against its own documented results, plus a review of all three finalized scripts confirming no unintended AD writes. That last one is a reasoning-based review rather than a live query.
 
 #### Running the Independent Verification Queries
 
-All three planned queries were run interactively from `C:\Scripts` on WIN11-CLIENT01, outside of any script.
+All four checks were performed from `C:\Scripts` on WIN11-CLIENT01, outside of any script.
 
 **Cross-check against Step Two.** `Get-ADGroupMember -Identity IT-Admins | Select-Object SamAccountName` returned `labadmin`, `jsmith`, `mjohnson`, and `akim`. `Get-ADGroupMember -Identity Linux-Admins | Select-Object SamAccountName` returned `labadmin` and `akim`.
 
@@ -645,7 +638,7 @@ All three planned queries were run interactively from `C:\Scripts` on WIN11-CLIE
   <em>Get-ADGroupMember run independently against IT-Admins and Linux-Admins, confirming the memberships Add-LabGroupMembers.ps1 reported as PASS in Step Two.</em>
 </p>
 
-Both `jsmith` and `mjohnson` appear in `IT-Admins`, and `akim` appears in both `IT-Admins` and `Linux-Admins`, matching every PASS result from Step Two's `members.csv` run and negative test. `labadmin` also appears in both groups; this was not added by `Add-LabGroupMembers.ps1` and was already known from Step Four's account inventory, where `labadmin`'s `Groups` field read `Domain Admins; IT-Admins; Linux-Admins`, so its presence here is consistent with prior evidence rather than a new or unexpected result.
+Both `jsmith` and `mjohnson` appear in `IT-Admins`, and `akim` in both `IT-Admins` and `Linux-Admins`, matching every PASS result from Step Two's `members.csv` run and negative test. `labadmin` also appears in both, not added by `Add-LabGroupMembers.ps1` but already known from Step Four's inventory, where its `Groups` field read `Domain Admins; IT-Admins; Linux-Admins`, so it is consistent with prior evidence rather than an unexpected result.
 
 **Cross-check against Step Three.** For `OU=User Accounts`, `Get-ADUser -SearchBase "OU=User Accounts,DC=corp,DC=home,DC=arpa" -SearchScope OneLevel -Filter *` returned 5 user objects (`akim`, `jdoe`, `jsmith`, `mjohnson`, `testuser01`), and the equivalent `Get-ADComputer` call returned no objects. For `OU=Workstations`, `Get-ADUser` with the same scope returned no objects, and `Get-ADComputer` returned 2 computer objects (`UBUNTU-SERVER`, `WIN11-CLIENT01`).
 
@@ -669,11 +662,11 @@ This matches Step Three's table exactly: `User Accounts` at 5 users / 0 computer
   <em>(Get-ADUser -Filter *).Count and Get-ADPrincipalGroupMembership run independently against akim, confirming Get-LabAccountInventory.ps1's total row count and one account's group membership from Step Four.</em>
 </p>
 
-The count of 9 matches the total Step Four reported. `akim`'s membership list matches Step Four's `Groups` field for that account (`IT-Admins; Domain-Users-Standard; Linux-Admins`) once `Domain Users` is set aside, the same primary group the script's own filter excludes; its presence in this unfiltered, independent query is expected and confirms the script's exclusion logic is removing the correct group rather than coincidentally omitting something else.
+The count of 9 matches Step Four's total. `akim`'s membership list matches Step Four's `Groups` field (`IT-Admins; Domain-Users-Standard; Linux-Admins`) once `Domain Users` is set aside, the primary group the script's own filter excludes; its presence in this unfiltered query confirms the exclusion logic removes the correct group rather than coincidentally omitting something else.
 
-**No unintended AD writes.** Re-reading the three finalized scripts confirms `Get-LabOUReport.ps1` and `Get-LabAccountInventory.ps1` call only `Get-ADOrganizationalUnit`, `Get-ADUser`, `Get-ADComputer`, and `Get-ADPrincipalGroupMembership`, no cmdlet in either script can modify Active Directory. `Add-LabGroupMembers.ps1` calls `Get-ADGroup`, `Get-ADUser`, `Add-ADGroupMember`, and `Get-ADGroupMember` for its post-add check; the only AD-modifying cmdlet present anywhere across all three scripts is `Add-ADGroupMember`, and it is never paired with a `Remove-*` cmdlet in this script.
+**No unintended AD writes.** Re-reading the three finalized scripts confirms `Get-LabOUReport.ps1` and `Get-LabAccountInventory.ps1` call only `Get-ADOrganizationalUnit`, `Get-ADUser`, `Get-ADComputer`, and `Get-ADPrincipalGroupMembership`. `Add-LabGroupMembers.ps1` calls `Get-ADGroup`, `Get-ADUser`, `Add-ADGroupMember`, and `Get-ADGroupMember`; the only AD-modifying cmdlet anywhere across all three is `Add-ADGroupMember`, never paired with a `Remove-*` cmdlet.
 
-With all four planned checks complete and matching their corresponding steps' documented results, Step Five is complete, and Lab 02 (Group and OU Administration) is complete.
+With all four checks matching their corresponding steps' documented results, Lab 02 is complete.
 
 ---
 
@@ -682,13 +675,13 @@ With all four planned checks complete and matching their corresponding steps' do
 - **PASS**: `Add-LabGroupMembers.ps1`'s `members.csv` run confirmed via its own post-add `Get-ADGroupMember` query, `jsmith` and `mjohnson` added to `IT-Admins`, `akim` added to `Linux-Admins` (Step Two)
 - **PASS**: a CSV row naming a nonexistent account (`doesnotexist999`) was caught and excluded, while the valid row in the same batch (`akim` into `IT-Admins`) still succeeded, confirming the partial-success batch model end to end (Step Two)
 - **PASS**: `Get-LabOUReport.ps1`'s console output and `-ExportPath` CSV export matched each other exactly across all 5 OUs (Step Three)
-- **PASS**: `Get-LabAccountInventory.ps1`'s console output and `-ExportPath` CSV export matched each other exactly across all 9 accounts, including blank `LastLogonDate` values and the joined `Groups` field surviving the round trip intact (Step Four)
+- **PASS**: `Get-LabAccountInventory.ps1`'s console output and CSV export matched exactly across all 9 accounts, including blank `LastLogonDate` values and the joined `Groups` field surviving the round trip (Step Four)
 - **PASS**: `Get-ADGroupMember`, run independently and outside of any script, confirmed `Add-LabGroupMembers.ps1`'s `IT-Admins` and `Linux-Admins` memberships from Step Two (Step Five)
-- **PASS**: `Get-ADUser`/`Get-ADComputer`, run independently with the same `-SearchBase`/`-SearchScope OneLevel`, confirmed `Get-LabOUReport.ps1`'s counts for the `User Accounts` and `Workstations` OUs (Step Five)
+- **PASS**: `Get-ADUser`/`Get-ADComputer`, run independently with the same `-SearchBase`/`-SearchScope OneLevel`, confirmed `Get-LabOUReport.ps1`'s counts for `User Accounts` and `Workstations` (Step Five)
 - **PASS**: `(Get-ADUser -Filter *).Count` and `Get-ADPrincipalGroupMembership`, run independently, confirmed `Get-LabAccountInventory.ps1`'s total row count and `akim`'s group membership from Step Four (Step Five)
-- **PASS**: a review of all three finalized scripts confirmed the only AD-modifying cmdlet present anywhere in the lab is the additive `Add-ADGroupMember` call; both reporting scripts use only `Get-*` cmdlets (Step Five)
+- **PASS**: reviewing all three finalized scripts confirmed the only AD-modifying cmdlet anywhere in the lab is the additive `Add-ADGroupMember`; both reporting scripts use only `Get-*` cmdlets (Step Five)
 
-Every validation in this lab followed the same rule established in Lab 01: never trust a script's own success message alone. `Add-LabGroupMembers.ps1` validates itself internally by querying `Get-ADGroupMember` back after each add, and Step Five went one level further, re-running that same class of query independently, outside of any script, against results the scripts had already reported, closing the loop completely rather than relying solely on each script's self-reported PASS.
+Every validation followed the rule Lab 01 established: never trust a script's own success message alone. `Add-LabGroupMembers.ps1` validates itself by querying `Get-ADGroupMember` back after each add, and Step Five went one level further, re-running that class of query independently against results the scripts had already reported.
 
 ---
 
@@ -696,35 +689,35 @@ Every validation in this lab followed the same rule established in Lab 01: never
 
 **`Add-ADGroupMember` validates its entire `-Members` array atomically, confirmed via a live diagnostic before implementation (Step Two).** The planning phase correctly identified this as an open question rather than assuming an answer either way. A disposable test group, `Test-BulkAdd-Verify`, was used to confirm that a single invalid name in the `-Members` array blocks every valid member in that same call (`FullyQualifiedErrorId: SetADGroupMember.ValidateMembersParameter`), rather than failing only the invalid entry. `Add-LabGroupMembers.ps1` was designed around this finding from the start: each requested member is validated individually with `Get-ADUser` before being included in the `-Members` array passed to `Add-ADGroupMember`, so the cmdlet is never actually called with an invalid name in this lab. The later negative test (Step Two) confirmed the resulting design works as intended, `doesnotexist999` was filtered out before `Add-ADGroupMember` ran, and `akim`, the valid member in the same CSV batch, was still added successfully.
 
-**Areas anticipated during planning but not encountered during live testing.** Several other edge cases identified in the planning phase did not surface as actual problems during this lab's execution, and it is worth being explicit that "not encountered" is not the same as "tested and confirmed handled": duplicate-membership re-runs of `Add-LabGroupMembers.ps1` against an account already in the target group were never actually performed, since no CSV run in this lab re-targeted an existing membership; `Import-Csv`'s header-validation safeguard was never actually triggered by a malformed CSV, since every CSV used in this lab (`members.csv`, `members-negative-test.csv`) was well-formed from the start; the OU structure remained flat throughout the lab, so `Get-LabOUReport.ps1`'s `-SearchScope OneLevel` design was never tested against a nested OU; and `Get-LabAccountInventory.ps1` was only ever run against 9 accounts, far below any `-ResultPageSize` paging concern. Each of these remains a reasonable follow-up test rather than a confirmed gap, since the design decisions behind them were sound reasoning at planning time, just not ones this lab's actual test data happened to exercise.
+**Areas anticipated during planning but not encountered during live testing.** Several planned-for edge cases never surfaced, and "not encountered" is not the same as "tested and confirmed handled": no CSV run re-targeted an existing membership, so duplicate-membership re-runs were never performed; every CSV used (`members.csv`, `members-negative-test.csv`) was well-formed, so `Import-Csv`'s header-validation safeguard never fired; the OU structure stayed flat, so `-SearchScope OneLevel` was never tested against a nested OU; and `Get-LabAccountInventory.ps1` only ever ran against 9 accounts, far below any `-ResultPageSize` paging concern. Each remains a reasonable follow-up test rather than a confirmed gap.
 
 ---
 
 ## Security Considerations
 
-- **CSV input contains no credentials.** Unlike `New-LabUser.ps1`, which handles a `[SecureString]` password, `Add-LabGroupMembers.ps1`'s CSV input contains only group names and `SamAccountName` values, no password or other secret material, so the plaintext-handling concerns documented in Lab 01 do not apply to this lab's bulk script.
-- **Group scope of the bulk script.** A review of the finalized script (Step Five) confirmed `Add-LabGroupMembers.ps1` only ever calls `Add-ADGroupMember`, never `Remove-ADGroupMember` or any account-modifying cmdlet, keeping its blast radius limited to additive group membership changes. Bulk removal, if it is ever needed, is a natural candidate for a separate, explicitly-named script rather than an option bolted onto this one, so that a script's name alone is a reliable signal of whether it can remove access.
-- **Least privilege for the executing account.** As in Lab 01, all three scripts were run as `labadmin` throughout this lab. A production deployment would scope a dedicated service account to read access for the two reporting scripts and write access to group membership only, rather than the broad administrative identity used here.
-- **Read-only guarantee for reporting scripts.** A review of the finalized scripts (Step Five) confirmed `Get-LabOUReport.ps1` and `Get-LabAccountInventory.ps1` use only `Get-*` cmdlets against AD, `Get-ADOrganizationalUnit`, `Get-ADUser`, `Get-ADComputer`, and `Get-ADPrincipalGroupMembership`; no cmdlet in either script can modify AD state.
-- **Exported CSV files as a data-handling boundary.** `Get-LabAccountInventory.ps1`'s `-ExportPath` run produced `account-inventory.csv`, containing account names, OU placement, and group membership for every account in the domain. This is lab data, not production PII, but this file, along with `Get-LabOUReport.ps1`'s `ou-report.csv` and the two `Add-LabGroupMembers.ps1` input CSVs, was deliberately kept out of the repository (stored only in `C:\Scripts` on WIN11-CLIENT01), as a matter of habit consistent with real inventory-reporting practice.
+- **CSV input contains no credentials.** Unlike `New-LabUser.ps1`, which handles a `[SecureString]` password, `Add-LabGroupMembers.ps1`'s CSV holds only group names and `SamAccountName` values, so Lab 01's plaintext-handling concerns do not apply here.
+- **Group scope of the bulk script.** Step Five's review confirmed `Add-LabGroupMembers.ps1` only ever calls `Add-ADGroupMember`, never `Remove-ADGroupMember` or any account-modifying cmdlet, keeping its blast radius to additive membership changes. Bulk removal, if ever needed, belongs in a separate, explicitly-named script rather than bolted onto this one, so a script's name alone signals whether it can remove access.
+- **Least privilege for the executing account.** As in Lab 01, all three ran as `labadmin`. A production deployment would scope a dedicated service account to read access for the reporting scripts and group-membership write access only, rather than the broad administrative identity used here.
+- **Read-only guarantee for reporting scripts.** Step Five's review confirmed `Get-LabOUReport.ps1` and `Get-LabAccountInventory.ps1` use only `Get-ADOrganizationalUnit`, `Get-ADUser`, `Get-ADComputer`, and `Get-ADPrincipalGroupMembership`; no cmdlet in either can modify AD state.
+- **Exported CSV files as a data-handling boundary.** `account-inventory.csv` holds account names, OU placement, and group membership for every account in the domain. Lab data rather than production PII, but it, `ou-report.csv`, and the two `Add-LabGroupMembers.ps1` input CSVs were deliberately kept out of the repository and stored only in `C:\Scripts` on WIN11-CLIENT01, as a habit consistent with real inventory-reporting practice.
 
 ---
 
 ## Outcome
 
-All three scripts meet every objective set out at the start of this lab. `Add-LabGroupMembers.ps1` bulk-adds existing accounts to security groups from a CSV, and its partial-success batch model, an account or group named incorrectly does not block valid rows elsewhere in the same file, was proven with a real negative test, not just asserted from the design. `Get-LabOUReport.ps1` reports a per-OU user and computer census, correctly enumerating every OU in the domain including the built-in `Domain Controllers` OU rather than only the four created by hand in the enterprise infrastructure track. `Get-LabAccountInventory.ps1` reports a full account inventory with resolved, primary-group-excluded group memberships, reusing the exact comparison pattern Lab 01's `Remove-LabUser.ps1` established rather than reinventing it. All three scripts support an optional `-ExportPath` for CSV output that was confirmed, in every case, to match the console output exactly.
+All three scripts meet every objective set out at the start. `Add-LabGroupMembers.ps1` bulk-adds existing accounts to security groups from a CSV, and its partial-success batch model, where a badly named account or group does not block valid rows elsewhere in the same file, was proven with a real negative test rather than asserted from the design. `Get-LabOUReport.ps1` reports a per-OU user and computer census, correctly enumerating every OU including the built-in `Domain Controllers` OU. `Get-LabAccountInventory.ps1` reports a full account inventory with resolved, primary-group-excluded memberships, reusing Lab 01's `Remove-LabUser.ps1` comparison pattern rather than reinventing it. All three support an optional `-ExportPath` confirmed in every case to match the console output exactly.
 
-The open implementation questions identified during planning were resolved by live diagnostic rather than assumption: `Add-ADGroupMember`'s atomic `-Members` array validation was confirmed with a disposable test group before `Add-LabGroupMembers.ps1`'s error-handling design was finalized, not after. Step Five's revised scope, standalone independent queries cross-checked against Steps Two through Four's already-documented results, rather than a blind re-run of all three scripts, closed the validation loop completely: every script's reported result was confirmed by re-querying Active Directory directly, one level removed from any script's own internal validation logic.
+The open implementation question was resolved by live diagnostic rather than assumption: `Add-ADGroupMember`'s atomic `-Members` validation was confirmed with a disposable test group before the error-handling design was finalized, not after. Step Five's revised scope, independent queries cross-checked against Steps Two through Four's documented results rather than a blind re-run, closed the validation loop: every script's reported result was confirmed by re-querying AD directly, one level removed from its own internal validation.
 
 ---
 
 ## Lessons Learned
 
-**Verifying an open question with a live diagnostic, before writing the code that depends on the answer, produces a better design than assuming and course-correcting later.** `Add-LabGroupMembers.ps1`'s partial-success behavior was not something the planning phase could responsibly guess at; `Test-BulkAdd-Verify` answered the question directly, and the resulting pre-validation design was correct on the first real test rather than needing a fix after a live failure.
+**Verifying an open question with a live diagnostic, before writing the code that depends on the answer, beats assuming and course-correcting later.** `Add-LabGroupMembers.ps1`'s partial-success behavior was not something planning could responsibly guess at; `Test-BulkAdd-Verify` answered it directly, and the resulting pre-validation design was correct on the first real test rather than needing a fix after a live failure.
 
-**A step's plan can go stale the moment the step before it actually happens, and that is fine to revise rather than force.** Step Five's original plan, written before any script existed, called for re-running all three scripts together. By the time Step Five actually started, that plan no longer matched reality, all three scripts had already been individually built, run, and documented. Revising Step Five's scope to standalone independent queries, rather than executing a stale plan just because it was already written, produced a more useful step and avoided reproducing results that were already real.
+**A step's plan can go stale the moment the step before it happens, and revising beats forcing it.** Step Five's original plan, written before any script existed, called for re-running all three scripts together. By the time it started, all three had already been individually built, run, and documented. Revising the scope to standalone independent queries produced a more useful step than executing a stale plan would have.
 
-**A pattern proven once can be reused with confidence, without re-verifying it from scratch every time.** `Get-LabAccountInventory.ps1`'s primary-group exclusion logic reused `Remove-LabUser.ps1`'s exact `PrimaryGroup`-comparison pattern from Lab 01 without a new live diagnostic, since that pattern was already empirically proven. Step Five's independent check on `akim`'s group membership confirmed this reuse was correct, `Domain Users` was properly excluded and no other group was accidentally caught in the filter, validating that citing prior evidence, rather than re-testing every reused pattern, was the right call.
+**A pattern proven once can be reused without re-verifying it from scratch.** `Get-LabAccountInventory.ps1`'s primary-group exclusion reused `Remove-LabUser.ps1`'s exact `PrimaryGroup`-comparison pattern without a new live diagnostic, since that pattern was already empirically proven. Step Five's independent check on `akim` confirmed the reuse was correct, `Domain Users` excluded and no other group caught in the filter, validating that citing prior evidence rather than re-testing every reused pattern was the right call.
 
 ---
 
@@ -751,4 +744,3 @@ Research references consulted during the planning phase of this lab.
 - [Bulk Add Users to Groups in Active Directory - Active Directory Pro](https://activedirectorypro.com/add-users-to-active-directory-groups/) - the two-column `GroupName,SamAccountName` CSV shape this lab's format is based on
 - [How To Use Powershell to Add User Accounts to AD Groups - Daniel Engberg](https://www.danielengberg.com/powershell-add-active-directory-users-to-groups-using-a-csv-file/) - documents the naive per-row `foreach` loop pattern that the Design Decisions section above deliberately departs from in favor of grouping by `GroupName`
 
-These sources informed the Design Decisions, Implementation Plan, Validation, and Troubleshooting sections above.
