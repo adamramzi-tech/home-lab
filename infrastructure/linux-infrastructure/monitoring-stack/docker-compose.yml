@@ -5,6 +5,7 @@ services:
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
+    restart: unless-stopped
     networks:
       - monitoring
       - proxy
@@ -22,7 +23,9 @@ services:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
       - /:/rootfs:ro
-    
+
+    restart: unless-stopped
+
     networks:
       - monitoring
 
@@ -31,6 +34,7 @@ services:
     container_name: grafana
     volumes:
       - grafana-data:/var/lib/grafana
+    restart: unless-stopped
     networks:
       - monitoring
       - proxy

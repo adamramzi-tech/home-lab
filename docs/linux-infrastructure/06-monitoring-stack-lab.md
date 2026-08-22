@@ -829,3 +829,175 @@ This architectural transition improved:
 - ingress management
 - internal network segmentation
 - overall infrastructure organization
+
+---
+
+## Adding Container Restart Policies
+
+The stack was deployed without a `restart:` key on any of its three services. Docker's default restart policy is `no`, which means a container that stops for any reason, including a clean host shutdown, stays stopped until it is started again by hand. Every validation performed above was carried out while the containers were already running, so nothing in this lab exercised that condition and the gap went unnoticed.
+
+It surfaced later and from outside this track. The scheduled environment health report built in [Lab 05 of the Infrastructure Automation and Scripting track](../automation-and-scripting/05-scheduled-health-reporting.md) classified Docker as `Unhealthy` and reported `prometheus`, `grafana`, and `node-exporter` as exited. Root-causing that report established that the three containers had been stopped once on 2026-06-18 and that every host reboot since had left them down, because `docker inspect` reported `RestartPolicy=no` on all three. That lab restarted the containers against the unmodified compose file and deferred the configuration change itself, since the compose file is this lab's artifact. The change is documented here.
+
+### Selecting a Restart Policy
+
+Each service was given a restart policy:
+
+```yaml
+restart: unless-stopped
+```
+
+`unless-stopped` restarts a container automatically whenever the Docker daemon starts, which includes every host boot, unless the container had been explicitly stopped beforehand. The alternative, `always`, restarts under the same conditions but also overrides a deliberate stop, bringing back a container an administrator intentionally took down.
+
+`unless-stopped` was selected for consistency with the two containers in this environment that already carried a policy, NGINX Proxy Manager in the [Reverse Proxy Lab](07-reverse-proxy-lab.md) and Portainer in the [Docker Setup](04-docker-setup.md) lab, and because it preserves administrative intent in a lab environment that is sometimes taken down on purpose. The accepted tradeoff is that a stack stopped deliberately stays stopped across a reboot, which is the same end state that left this stack down, but only when the stop was intentional.
+
+The updated compose configuration:
+
+```yaml
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    restart: unless-stopped
+    networks:
+      - monitoring
+      - proxy
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+
+    restart: unless-stopped
+
+    networks:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    volumes:
+      - grafana-data:/var/lib/grafana
+    restart: unless-stopped
+    networks:
+      - monitoring
+      - proxy
+
+networks:
+  monitoring:
+    driver: bridge
+
+  proxy:
+    external: true
+    name: reverse-proxy-lab_proxy
+
+volumes:
+  prometheus-data:
+  grafana-data:
+```
+
+---
+
+### Applying the Change
+
+A restart policy belongs to a container's configuration rather than its runtime state, so it cannot be applied to an existing container by restarting it. The stack was recreated instead:
+
+```bash
+docker compose up -d
+```
+
+All three containers were recreated and started. The named `prometheus-data` and `grafana-data` volumes added earlier in this lab meant metrics history and Grafana dashboards survived the recreation.
+
+The applied policy was then confirmed against the running containers rather than inferred from the compose file:
+
+```bash
+docker inspect -f '{{.Name}} {{.HostConfig.RestartPolicy.Name}}' prometheus node-exporter grafana
+```
+
+Result:
+
+```text
+/prometheus unless-stopped
+/node-exporter unless-stopped
+/grafana unless-stopped
+```
+
+<p align="center">
+  <img src="../../images/linux-infrastructure/06-monitoring-stack-lab/21-restart-policy-applied.jpeg" width="1000">
+</p>
+
+<p align="center">
+  <em>The monitoring stack recreated with the new configuration, all three containers running, and docker inspect confirming the unless-stopped policy on each.</em>
+</p>
+
+---
+
+### Validating Recovery Across a Reboot
+
+Confirming that a policy is set is not the same as confirming that it works, and the condition that had actually failed was a host reboot. The server was rebooted and each container's start time was compared against the host's boot time, with no `docker` command run in between.
+
+Boot time was derived from `/proc/uptime` so that it could be expressed in UTC, matching the format Docker reports container start times in:
+
+```bash
+date -u -d "@$(( $(date +%s) - $(cut -d. -f1 /proc/uptime) ))" +'boot (UTC): %FT%TZ'
+docker inspect -f '{{.Name}} started {{.State.StartedAt}}' prometheus node-exporter grafana
+```
+
+Result:
+
+```text
+boot (UTC): 2026-08-22T19:51:02Z
+/prometheus started 2026-08-22T19:51:46.118133198Z
+/node-exporter started 2026-08-22T19:51:44.731578426Z
+/grafana started 2026-08-22T19:51:46.261153998Z
+```
+
+All three containers were running within forty-five seconds of boot with no manual intervention, and `docker compose ps` reported all three `Up`. The same behavior was observed across an earlier reboot the same afternoon, where a boot at `19:42:24Z` was followed by container starts between `19:43:23Z` and `19:43:25Z`.
+
+<p align="center">
+  <img src="../../images/linux-infrastructure/06-monitoring-stack-lab/22-monitoring-stack-restarted-after-reboot.jpeg" width="1000">
+</p>
+
+<p align="center">
+  <em>Container start times sitting seconds after the host boot time, confirming the restart policy brought the monitoring stack back automatically.</em>
+</p>
+
+---
+
+### Confirming the Ingress Path Survived Recreation
+
+Recreating containers rebuilds their network attachments, so the reverse proxy integration described in the [Reverse Proxy Lab](07-reverse-proxy-lab.md) was rechecked afterward. The proxied hostnames resolve through the Windows workstation's hosts file rather than on Ubuntu Server itself, so the check was performed from the server by supplying the hostname explicitly in the request:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' -H 'Host: prometheus.local' http://127.0.0.1
+curl -s -o /dev/null -w '%{http_code}\n' -H 'Host: grafana.local' http://127.0.0.1
+```
+
+Both returned `302`, the redirect each service issues from its root path, confirming the requests reached the containers through NGINX Proxy Manager rather than failing at the ingress layer.
+
+The metrics pipeline was confirmed through the same path:
+
+```bash
+curl -s -H 'Host: prometheus.local' 'http://127.0.0.1/api/v1/targets?state=active'
+```
+
+Prometheus reported `node-exporter:9100` as an active target with `"health":"up"`, confirming scraping had resumed across the recreation.
+
+---
+
+### Outcome of the Change
+
+The monitoring stack now returns on its own after a host reboot rather than waiting for a manual start. The condition that had kept it down for two months, a stop with nothing configured to bring the containers back, no longer applies, and the compose file is consistent with the restart behavior already used by the reverse proxy and Portainer deployments.
+
+The scheduled health report that surfaced the outage remains in place, so a future failure of these containers for any other reason is still detected rather than discovered by chance.
