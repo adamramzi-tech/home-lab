@@ -36,4 +36,4 @@ Nothing in this directory will contain:
 - exported user, group, or mailbox data
 - report artifacts or runtime output, which stay on WIN11-CLIENT01 as they do in the automation track
 
-Tenant identifiers are redacted where they appear in exported configuration.
+Identifier handling follows the [track README](../../docs/cloud-and-hybrid-identity/README.md): the tenant ID and the verified domain names appear in full because they are publicly resolvable from the domain, while directory object IDs, billing and subscription identifiers, and the emergency access account's user principal name are masked or omitted.

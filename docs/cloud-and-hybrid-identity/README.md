@@ -72,9 +72,11 @@ The comparison between Entra Connect Sync and Entra Cloud Sync required by ADR-0
 
 Microsoft Entra ID Free covers the identity foundation of this track: directory synchronization, user and group administration, and administrative multifactor authentication through security defaults. Several capabilities the later labs need sit above that tier, including conditional access, self-service password reset writeback, Exchange Online mailboxes, and device management.
 
-How the tenant is created is a separate question from what it is licensed for. A new tenant cannot be created from a free or trial account, so this one is created through a Microsoft 365 signup and will hold whatever that subscription carries for as long as it lasts. The free tier described above is what the track's identity foundation depends on, not a claim about what the tenant holds, and Lab 01 records the actual licensing state as the baseline every later lab builds on.
+How the tenant was created is a separate question from what it is licensed for. A new tenant cannot be created from a free or trial account, so this one was created through a Microsoft 365 Business Basic trial signup, and it holds whatever that subscription carries for as long as it lasts. The free tier described above is what the track's identity foundation depends on rather than a claim about what the tenant holds; Lab 01 records the actual licensing state as the baseline every later lab builds on.
 
-Licensing is added as the labs that need it arrive, and each lab records what its work required, so the dependency is visible where it applies rather than assumed across the track.
+That trial converts to a paid subscription on 2026-09-22. Whether to keep, cancel, or replace it is a decision this track takes before Lab 04, which needs Exchange Online mailboxes and therefore a subscription of some kind. The Entra ID Free foundation survives either outcome.
+
+Licensing is added as the labs that need it arrive, and each lab records what its own work required, so the dependency is visible where it applies rather than assumed across the track.
 
 ---
 
@@ -86,7 +88,7 @@ Scripts and exported configuration artifacts produced by this track are maintain
 infrastructure/cloud-and-hybrid-identity/
 ```
 
-Tenant configuration is performed through administrative portals and is therefore documented by this repository rather than defined by it, which is the reverse of the relationship the compose files and script library have with the Linux and automation tracks. Exported configuration is committed only where it carries no credentials, tokens, or user data, with tenant identifiers redacted where they appear.
+Tenant configuration is performed through administrative portals and is therefore documented by this repository rather than defined by it, which is the reverse of the relationship the compose files and script library have with the Linux and automation tracks. Exported configuration is committed only where it carries no credentials, tokens, or user data. Identifiers are handled by whether they are already public rather than by category. The tenant ID and the verified domain names appear in full, because anyone holding the domain can resolve the tenant ID from Microsoft's unauthenticated OpenID Connect discovery endpoint and publishing it reveals nothing the verified domain does not. Directory object IDs are masked in screenshots, billing and subscription identifiers are omitted, and the emergency access account's user principal name is redacted as `[redacted]@brindeck.onmicrosoft.com` wherever it would otherwise appear, since from Lab 05 onward it is the one identity the tenant's conditional access policies deliberately do not constrain.
 
 ---
 
@@ -94,14 +96,16 @@ Tenant configuration is performed through administrative portals and is therefor
 
 | Lab | Status |
 |---|---|
-| [01 - Tenant Foundation and Custom Domain](01-tenant-foundation-and-custom-domain.md) | Planning and research |
+| [01 - Tenant Foundation and Custom Domain](01-tenant-foundation-and-custom-domain.md) | Complete |
 | 02 - Hybrid Identity with Entra Connect | Planned |
 | 03 - Entra ID User, Group, and License Administration | Planned |
 | 04 - Microsoft 365 Administration Workflows | Planned |
 | 05 - Access Control and Device Management | Planned |
 | 06 - Hybrid Identity Automation with Microsoft Graph PowerShell | Planned |
 
-The track is established by [ADR-019](../architecture/decisions/019-establish-cloud-and-hybrid-identity-track.md). `brindeck.com` was registered on 2026-08-22, meeting Lab 01's one external prerequisite, and Lab 01 is in its planning and research phase. No tenant exists yet and no on-premises system has been modified.
+The track is established by [ADR-019](../architecture/decisions/019-establish-cloud-and-hybrid-identity-track.md). Lab 01 is complete: `brindeck.com` was registered on 2026-08-22 and verified in the tenant on 2026-08-23, and the tenant now has a verified primary custom domain, a cloud-only Global Administrator, and a tested emergency access account, all protected by multifactor authentication. No on-premises system has been modified. Lab 02 is next.
+
+Three items carry forward from Lab 01 rather than being closed by it: the tenant holds three Global Administrators pending the privileged role review in Lab 05, the emergency access account needs a phishing-resistant sign-in method and a companion second account to meet Microsoft's guidance, and the Business Basic trial converts to a paid subscription on 2026-09-22.
 
 ---
 
