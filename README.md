@@ -6,7 +6,7 @@ A documentation-first homelab portfolio spanning Linux infrastructure, Windows e
 
 **Core stack:** Ubuntu Server, Docker, NGINX Proxy Manager, Prometheus, Grafana, Tailscale, Windows Server 2022, Active Directory, AD-integrated DNS, Group Policy, PowerShell (RSAT), SSSD and Kerberos, Wazuh SIEM.
 
-**Current status:** The Linux Infrastructure, Enterprise Infrastructure, and Infrastructure Automation and Scripting tracks are all complete. The automation track closed with Lab 05 (Scheduled Health Reporting), leaving a thirteen-script PowerShell library against the live `corp.home.arpa` domain and a Task Scheduler job that reports the environment's health unattended. Cloud and Hybrid Identity is the next track, per [ADR-014](docs/architecture/decisions/014-establish-long-term-infrastructure-expansion-roadmap.md).
+**Current status:** The Linux Infrastructure, Enterprise Infrastructure, and Infrastructure Automation and Scripting tracks are all complete. The automation track closed with Lab 05 (Scheduled Health Reporting), leaving a thirteen-script PowerShell library against the live `corp.home.arpa` domain and a Task Scheduler job that reports the environment's health unattended. Cloud and Hybrid Identity is the next track, established by [ADR-019](docs/architecture/decisions/019-establish-cloud-and-hybrid-identity-track.md). Lab 01 (Tenant Foundation and Custom Domain) is in its planning and research phase, with `brindeck.com` registered on 2026-08-22 as its one external prerequisite; no tenant exists yet and no on-premises system has been modified.
 
 New here? Skim the [Current Environment](#current-environment) for what is running, or the [architecture decision records](docs/architecture/decisions/) for the reasoning behind it.
 
@@ -20,11 +20,11 @@ The project is organized into five tracks:
 
 - **Linux Infrastructure** - Ubuntu Server, Docker, reverse proxy, monitoring, and remote administration
 - **Enterprise Infrastructure** - Virtualization, Windows Server, Active Directory, Group Policy, cross-platform integration, and security monitoring
-- **Infrastructure Automation and Scripting** - PowerShell automation against the existing Active Directory environment *(completed)*
-- **Cloud and Hybrid Identity** - Entra ID, Microsoft Entra Connect, and hybrid identity architecture *(planned)*
+- **Infrastructure Automation and Scripting** - PowerShell automation against the existing Active Directory environment
+- **Cloud and Hybrid Identity** - Entra ID, Microsoft Entra Connect, and hybrid identity architecture *(next)*
 - **Network Infrastructure** - Perimeter firewall, VLAN segmentation, access control policy, and network-layer security *(planned)*
 
-The Linux, enterprise infrastructure, and infrastructure automation and scripting tracks are completed and fully documented. The automation track ran to five labs: Lab 01 (User Lifecycle Automation), Lab 02 (Group and OU Administration), Lab 03 (Static Analysis and Unit Testing), Lab 04 (Group Policy Reporting and Audit), and Lab 05 (Scheduled Health Reporting), which closed the track per [ADR-018](docs/architecture/decisions/018-retire-cross-platform-validation-lab.md). The remaining two tracks are planned and will be implemented sequentially as documented in [ADR-014](docs/architecture/decisions/014-establish-long-term-infrastructure-expansion-roadmap.md).
+The Linux, enterprise infrastructure, and infrastructure automation and scripting tracks are completed and fully documented. The automation track ran to five labs: Lab 01 (User Lifecycle Automation), Lab 02 (Group and OU Administration), Lab 03 (Static Analysis and Unit Testing), Lab 04 (Group Policy Reporting and Audit), and Lab 05 (Scheduled Health Reporting), which closed the track per [ADR-018](docs/architecture/decisions/018-retire-cross-platform-validation-lab.md). Cloud and Hybrid Identity is established by [ADR-019](docs/architecture/decisions/019-establish-cloud-and-hybrid-identity-track.md), which defines its scope, design decisions, and boundaries; Lab 01 is in planning and research and no cloud infrastructure exists yet. Network Infrastructure remains planned. Both will be implemented sequentially as documented in [ADR-014](docs/architecture/decisions/014-establish-long-term-infrastructure-expansion-roadmap.md).
 
 ---
 
@@ -118,7 +118,7 @@ The enterprise infrastructure track focuses on:
 - cross-platform identity integration
 - security monitoring and SIEM deployment
 
-### Infrastructure Automation and Scripting Track *(completed)*
+### Infrastructure Automation and Scripting Track
 
 The infrastructure automation and scripting track focuses on:
 - PowerShell scripting against the existing Active Directory environment
@@ -128,14 +128,17 @@ The infrastructure automation and scripting track focuses on:
 - log parsing and operational scripting
 - static analysis and automated testing of the script library
 
-### Cloud and Hybrid Identity Track *(planned)*
+### Cloud and Hybrid Identity Track *(next)*
 
 The cloud and hybrid identity track focuses on:
-- Microsoft Entra ID and Entra Connect configuration
-- hybrid identity integration between on-premises AD and Azure
-- Entra ID user and group management
-- Microsoft 365 administration workflows
-- cloud identity architecture
+- Microsoft Entra tenant foundation, custom domain verification, and administrative role design
+- hybrid identity between `corp.home.arpa` and Microsoft Entra ID through Entra Connect Sync
+- Entra ID user, group, and license administration across synchronized and cloud-only objects
+- Microsoft 365 administration workflows including Exchange Online mailboxes, shared mailboxes, and groups
+- access control and device management: multifactor authentication, conditional access, self-service password reset with writeback to Active Directory, and device enrollment
+- hybrid identity automation using the Microsoft Graph PowerShell SDK
+
+Scope, design decisions, and boundaries are defined in [ADR-019](docs/architecture/decisions/019-establish-cloud-and-hybrid-identity-track.md). Planned labs, prerequisites, and success criteria are in the [track README](docs/cloud-and-hybrid-identity/README.md).
 
 ### Network Infrastructure Track *(planned)*
 
@@ -213,6 +216,16 @@ These documents live separately from the lab walkthroughs so implementation deta
 
 This track is complete. Per [ADR-018](docs/architecture/decisions/018-retire-cross-platform-validation-lab.md), Scheduled Health Reporting was its fifth and final lab.
 
+### Cloud and Hybrid Identity
+
+Planned labs, prerequisites, licensing constraints, and success criteria are documented in the [track README](docs/cloud-and-hybrid-identity/README.md).
+
+| Phase | Status | Description |
+|---|---|---|
+| [01 - Tenant Foundation and Custom Domain](docs/cloud-and-hybrid-identity/01-tenant-foundation-and-custom-domain.md) | Planning and research | Microsoft Entra tenant creation, custom domain verification through DNS, a cloud-only Global Administrator and emergency access account, and multifactor authentication on administrative sign-in |
+
+Remaining lab documents are added here as each is implemented.
+
 ---
 
 ## Repository Structure
@@ -231,12 +244,14 @@ home-lab/
 ├── images/
 │   ├── linux-infrastructure/
 │   ├── enterprise-infrastructure/
-│   └── automation-and-scripting/
+│   ├── automation-and-scripting/
+│   └── cloud-and-hybrid-identity/
 │
 ├── infrastructure/
 │   ├── linux-infrastructure/
 │   ├── enterprise-infrastructure/
-│   └── automation-and-scripting/
+│   ├── automation-and-scripting/
+│   └── cloud-and-hybrid-identity/
 │
 └── README.md
 ```
@@ -404,4 +419,4 @@ The long-term objective is to build practical real-world experience that reflect
 - administrative workflows are automated and repeatable
 - operational changes are documented and validated incrementally
 
-The planned track sequence (Infrastructure Automation and Scripting, Cloud and Hybrid Identity, Network Infrastructure) is documented in [ADR-014](docs/architecture/decisions/014-establish-long-term-infrastructure-expansion-roadmap.md). The first of those three is now complete; Cloud and Hybrid Identity is next.
+The planned track sequence (Infrastructure Automation and Scripting, Cloud and Hybrid Identity, Network Infrastructure) is documented in [ADR-014](docs/architecture/decisions/014-establish-long-term-infrastructure-expansion-roadmap.md). The first of those three is now complete. Cloud and Hybrid Identity is next and has been established in detail by [ADR-019](docs/architecture/decisions/019-establish-cloud-and-hybrid-identity-track.md).

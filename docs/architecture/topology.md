@@ -230,7 +230,7 @@ Management tools in use:
 
 ## Evolution
 
-The environment evolves across the three tracks defined in ADR-014. The first is complete; the remaining two are planned.
+The environment evolves across the three tracks defined in ADR-014. The first is complete, the second is established and in planning, and the third remains planned.
 
 **Track 3: Infrastructure Automation and Scripting (completed)**
 
@@ -238,9 +238,13 @@ PowerShell automation of Active Directory administration workflows, run from WIN
 
 It did add two management-plane paths that did not exist before, both from WIN11-CLIENT01 and both read-only queries against services already running rather than new remoting technology. Lab 05 (Scheduled Health Reporting) reaches the Wazuh Manager REST API at `192.168.1.226:55000` over HTTPS, and the Portainer REST API through `http://portainer.local` via NGINX Proxy Manager, which requires a `192.168.1.226 portainer.local` hosts-file entry on WIN11-CLIENT01 because ADR-009 removed Portainer's direct LAN port and the proxy host is HTTP-only. It also queries DC01's service state through the Service Control Manager's remote RPC interface, distinct from PowerShell Remoting. The resulting health report runs unattended as a daily Task Scheduler job on WIN11-CLIENT01, making that client the environment's only scheduled, non-interactive execution point.
 
-**Track 4: Cloud and Hybrid Identity (planned)**
+**Track 4: Cloud and Hybrid Identity (next)**
 
-Extension of the on-premises AD environment into Azure via Microsoft Entra Connect. The topology will expand to include a hybrid identity boundary between `corp.home.arpa` and Entra ID. No changes to the existing on-premises topology are anticipated.
+Extension of the on-premises AD environment into Microsoft Entra ID through Entra Connect Sync, scoped by [ADR-019](decisions/019-establish-cloud-and-hybrid-identity-track.md). The topology will expand to include a hybrid identity boundary between `corp.home.arpa` and an Entra tenant. This is the first track to place part of the environment's own identity plane on the public internet: the tenant's administration portals cannot be published through NGINX Proxy Manager or confined to Tailscale the way every existing service is. External consoles are not themselves new, since Tailscale and the domain registrar both have one, but neither holds the directory.
+
+Two on-premises changes are planned. A third virtual machine, `SYNC01`, running Windows Server 2022 and joined to `corp.home.arpa`, will host Entra Connect Sync, since the synchronization engine requires a server operating system and ADR-019 deliberately keeps it off DC01. And a routable user principal name suffix, supplied by a registered public domain, will be added alongside the existing `corp.home.arpa` suffix, because `home.arpa` is reserved by RFC 8375 and cannot be verified in a tenant. Neither changes the domain name, the Kerberos realm, `sAMAccountName` values, DNS, or Group Policy scoping.
+
+Connectivity is outbound only. Password hash synchronization is the chosen authentication method precisely because it requires no publicly reachable on-premises endpoint, so `SYNC01` reaches Microsoft Entra ID outbound and nothing new is exposed inbound.
 
 **Track 5: Network Infrastructure (planned)**
 
