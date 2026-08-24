@@ -34,8 +34,8 @@ The following are introduced by this track and must be in place before the labs 
 
 | Requirement | Introduced in | Notes |
 |---|---|---|
-| A registered public DNS domain | Lab 01 | Verified in the tenant and added to `corp.home.arpa` as an alternative user principal name suffix. `home.arpa` is reserved by RFC 8375 and cannot be verified, so a routable domain is required before any user can synchronize with a matching sign-in name |
-| A Microsoft Entra tenant | Lab 01 | Created through a Microsoft 365 subscription signup, since a new tenant cannot be created from a free or trial account. The track's identity foundation depends only on Microsoft Entra ID Free; Lab 01 records what the tenant actually holds |
+| A registered public DNS domain | Lab 01 (met) | Verified in the tenant and added to `corp.home.arpa` as an alternative user principal name suffix. `home.arpa` is reserved by RFC 8375 and cannot be verified, so a routable domain is required before any user can synchronize with a matching sign-in name |
+| A Microsoft Entra tenant | Lab 01 (met) | Created through a Microsoft 365 subscription signup, since a new tenant cannot be created from a free or trial account. The track's identity foundation depends only on Microsoft Entra ID Free; Lab 01 records what the tenant actually holds |
 | `SYNC01` | Lab 02 | A Windows Server 2022 member server joined to `corp.home.arpa`, hosting Entra Connect Sync. Entra Connect requires a server operating system, so WIN11-CLIENT01 cannot host it, and per ADR-019 it is deliberately not co-located on DC01 |
 | Workstation resources for a third virtual machine | Lab 02 | `SYNC01` runs alongside DC01 and WIN11-CLIENT01 on the same host. If the host cannot support it, ADR-019 treats that as a condition for reassessing the decision rather than as an approved fallback |
 
@@ -58,7 +58,7 @@ Links appear here once a lab document exists; the Track Status table below recor
 | Lab | Focus Area |
 |---|---|
 | [01 - Tenant Foundation and Custom Domain](01-tenant-foundation-and-custom-domain.md) | Tenant creation, public domain registration and DNS verification, administrative role assignment, a cloud-only Global Administrator, an emergency access account excluded from policy, and multifactor authentication on administrative accounts |
-| 02 - Hybrid Identity with Entra Connect | `SYNC01` build and domain join, alternative user principal name suffix preparation in Active Directory, updating `New-LabUser.ps1` to emit the routable suffix for accounts in synchronized organizational units, Entra Connect Sync installation, organizational unit scoped synchronization, password hash synchronization, seamless single sign-on, and observed synchronization cycle and failure behavior |
+| [02 - Hybrid Identity with Entra Connect](02-hybrid-identity-with-entra-connect.md) | `SYNC01` build and domain join, alternative user principal name suffix preparation in Active Directory, updating `New-LabUser.ps1` to emit the routable suffix for accounts in synchronized organizational units, Entra Connect Sync installation, organizational unit scoped synchronization, password hash synchronization, seamless single sign-on, and observed synchronization cycle and failure behavior |
 | 03 - Entra ID User, Group, and License Administration | Synchronized versus cloud-only objects and what can be edited on each, group types and membership models, dynamic group membership, license assignment models, and directory role assignment |
 | 04 - Microsoft 365 Administration Workflows | Exchange Online mailbox provisioning, shared mailboxes, distribution and Microsoft 365 groups, and license assignment and removal across the hybrid user population |
 | 05 - Access Control and Device Management | Multifactor authentication, conditional access policy, self-service password reset with writeback to Active Directory, and Windows device join and enrollment on WIN11-CLIENT01 |
@@ -97,13 +97,13 @@ Tenant configuration is performed through administrative portals and is therefor
 | Lab | Status |
 |---|---|
 | [01 - Tenant Foundation and Custom Domain](01-tenant-foundation-and-custom-domain.md) | Complete |
-| 02 - Hybrid Identity with Entra Connect | Planned |
+| [02 - Hybrid Identity with Entra Connect](02-hybrid-identity-with-entra-connect.md) | Planning and research |
 | 03 - Entra ID User, Group, and License Administration | Planned |
 | 04 - Microsoft 365 Administration Workflows | Planned |
 | 05 - Access Control and Device Management | Planned |
 | 06 - Hybrid Identity Automation with Microsoft Graph PowerShell | Planned |
 
-The track is established by [ADR-019](../architecture/decisions/019-establish-cloud-and-hybrid-identity-track.md). Lab 01 is complete: `brindeck.com` was registered on 2026-08-22 and verified in the tenant on 2026-08-23, and the tenant now has a verified primary custom domain, a cloud-only Global Administrator, and a tested emergency access account, all protected by multifactor authentication. No on-premises system has been modified. Lab 02 is next.
+The track is established by [ADR-019](../architecture/decisions/019-establish-cloud-and-hybrid-identity-track.md). Lab 01 is complete: `brindeck.com` was registered on 2026-08-22 and verified in the tenant on 2026-08-23, and the tenant now has a verified primary custom domain, a cloud-only Global Administrator, and a tested emergency access account, all protected by multifactor authentication. No on-premises system has been modified. Lab 02 is in its planning and research phase; it is the first work in this track to change `corp.home.arpa`, and none of that change has been made yet.
 
 Three items carry forward from Lab 01 rather than being closed by it: the tenant holds three Global Administrators pending the privileged role review in Lab 05, the emergency access account needs a phishing-resistant sign-in method and a companion second account to meet Microsoft's guidance, and the Business Basic trial converts to a paid subscription on 2026-09-22.
 

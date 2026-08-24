@@ -511,3 +511,19 @@ Future infrastructure expansion may include:
 - centralized logging infrastructure
 - Windows monitoring agents and metrics exporting
 - segmented virtual networks
+
+## Planned: SYNC01
+
+One addition is committed rather than speculative. [ADR-019](decisions/019-establish-cloud-and-hybrid-identity-track.md) established the Cloud and Hybrid Identity track, whose Lab 02 introduces a third virtual machine:
+
+| Resource | Planned Allocation |
+|---|---|
+| vCPU | 2 |
+| Memory | 8 GB |
+| Storage | 80 GB thin provisioned |
+
+`SYNC01` will run Windows Server 2022 as a member server joined to `corp.home.arpa`, hosting Microsoft Entra Connect Sync. It is deliberately not co-located on DC01, so that reconfiguring or deliberately breaking the synchronization engine does not put the environment's identity foundation behind the outcome of an experiment.
+
+The allocation starts from Microsoft's documented minimum for an Entra Connect server, 6 GB of memory and 70 GB of disk, rather than from this environment's object count, which is far below the threshold where either figure matters. The disk is rounded to 80 GB to match DC01, which costs nothing under thin provisioning. The memory is rounded to 8 GB deliberately, because committed memory is not reclaimed the way thin-provisioned disk is and because Lab 02 breaks and restarts the synchronization service on this host on purpose in order to document how failures present. A host that is reconfigured repeatedly is the wrong one to run at exactly the vendor floor. With DC01 at 4 GB and WIN11-CLIENT01 at 8 GB, adding it brings committed memory to 20 GB of the host's 32 GB, leaving the headroom this plan's allocation philosophy calls for.
+
+This section describes planned infrastructure and is replaced by a full Virtual Machine Inventory entry once `SYNC01` is built and validated.

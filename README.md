@@ -4,9 +4,9 @@ A documentation-first homelab portfolio spanning Linux infrastructure, Windows e
 
 **What this demonstrates:** end-to-end systems administration across Linux and Windows, centralized identity with Active Directory, cross-platform authentication, security monitoring, and repeatable PowerShell automation, with every significant decision recorded as an architecture decision record and every deployment documented through a plan, validation, and lessons-learned lifecycle.
 
-**Core stack:** Ubuntu Server, Docker, NGINX Proxy Manager, Prometheus, Grafana, Tailscale, Windows Server 2022, Active Directory, AD-integrated DNS, Group Policy, PowerShell (RSAT), SSSD and Kerberos, Wazuh SIEM.
+**Core stack:** Ubuntu Server, Docker, NGINX Proxy Manager, Prometheus, Grafana, Tailscale, Windows Server 2022, Active Directory, AD-integrated DNS, Group Policy, PowerShell (RSAT), SSSD and Kerberos, Wazuh SIEM, Microsoft Entra ID.
 
-**Current status:** The Linux Infrastructure, Enterprise Infrastructure, and Infrastructure Automation and Scripting tracks are all complete. The automation track closed with Lab 05 (Scheduled Health Reporting), leaving a thirteen-script PowerShell library against the live `corp.home.arpa` domain and a Task Scheduler job that reports the environment's health unattended. Cloud and Hybrid Identity is the next track, established by [ADR-019](docs/architecture/decisions/019-establish-cloud-and-hybrid-identity-track.md). Lab 01 (Tenant Foundation and Custom Domain) is in its planning and research phase, with `brindeck.com` registered on 2026-08-22 as its one external prerequisite; no tenant exists yet and no on-premises system has been modified.
+**Current status:** The Linux Infrastructure, Enterprise Infrastructure, and Infrastructure Automation and Scripting tracks are all complete. The automation track closed with Lab 05 (Scheduled Health Reporting), leaving a thirteen-script PowerShell library against the live `corp.home.arpa` domain and a Task Scheduler job that reports the environment's health unattended. Cloud and Hybrid Identity is the current track, established by [ADR-019](docs/architecture/decisions/019-establish-cloud-and-hybrid-identity-track.md). Lab 01 (Tenant Foundation and Custom Domain) is complete: a Microsoft Entra tenant exists with `brindeck.com` verified as its primary domain, a cloud-only Global Administrator, and a tested emergency access account. Lab 02 (Hybrid Identity with Entra Connect) is in planning. No on-premises system has been modified by this track yet.
 
 New here? Skim the [Current Environment](#current-environment) for what is running, or the [architecture decision records](docs/architecture/decisions/) for the reasoning behind it.
 
@@ -21,10 +21,10 @@ The project is organized into five tracks:
 - **Linux Infrastructure** - Ubuntu Server, Docker, reverse proxy, monitoring, and remote administration
 - **Enterprise Infrastructure** - Virtualization, Windows Server, Active Directory, Group Policy, cross-platform integration, and security monitoring
 - **Infrastructure Automation and Scripting** - PowerShell automation against the existing Active Directory environment
-- **Cloud and Hybrid Identity** - Entra ID, Microsoft Entra Connect, and hybrid identity architecture *(next)*
+- **Cloud and Hybrid Identity** - Entra ID, Microsoft Entra Connect, and hybrid identity architecture *(in progress)*
 - **Network Infrastructure** - Perimeter firewall, VLAN segmentation, access control policy, and network-layer security *(planned)*
 
-The Linux, enterprise infrastructure, and infrastructure automation and scripting tracks are completed and fully documented. The automation track ran to five labs: Lab 01 (User Lifecycle Automation), Lab 02 (Group and OU Administration), Lab 03 (Static Analysis and Unit Testing), Lab 04 (Group Policy Reporting and Audit), and Lab 05 (Scheduled Health Reporting), which closed the track per [ADR-018](docs/architecture/decisions/018-retire-cross-platform-validation-lab.md). Cloud and Hybrid Identity is established by [ADR-019](docs/architecture/decisions/019-establish-cloud-and-hybrid-identity-track.md), which defines its scope, design decisions, and boundaries; Lab 01 is in planning and research and no cloud infrastructure exists yet. Network Infrastructure remains planned. Both will be implemented sequentially as documented in [ADR-014](docs/architecture/decisions/014-establish-long-term-infrastructure-expansion-roadmap.md).
+The Linux, enterprise infrastructure, and infrastructure automation and scripting tracks are completed and fully documented. The automation track ran to five labs: Lab 01 (User Lifecycle Automation), Lab 02 (Group and OU Administration), Lab 03 (Static Analysis and Unit Testing), Lab 04 (Group Policy Reporting and Audit), and Lab 05 (Scheduled Health Reporting), which closed the track per [ADR-018](docs/architecture/decisions/018-retire-cross-platform-validation-lab.md). Cloud and Hybrid Identity is underway, established by [ADR-019](docs/architecture/decisions/019-establish-cloud-and-hybrid-identity-track.md), which defines its scope, design decisions, and boundaries. Its first lab is complete and its second is in planning. Network Infrastructure remains planned and will follow, as documented in [ADR-014](docs/architecture/decisions/014-establish-long-term-infrastructure-expansion-roadmap.md).
 
 ---
 
@@ -92,6 +92,14 @@ The Windows 11 workstation serves as the primary management endpoint and virtual
 - every script's reported result independently cross-checked against a source outside the script that produced it, not just trusted on its own self-validation: standalone Active Directory queries for the directory-side scripts, and a direct DC01 service query, the Wazuh dashboard, and a raw `docker ps -a` on Ubuntu Server for the health checks
 - the full thirteen-script library passes a documented PSScriptAnalyzer standard (`PSScriptAnalyzerSettings.psd1`) with zero findings, and carries 172 Pester unit tests against mocked Active Directory, Group Policy, Windows service, REST, and Task Scheduler calls, all runnable on WIN11-CLIENT01 without a live domain, a reachable API, or credentials
 
+### Cloud and Hybrid Identity
+
+- Microsoft Entra tenant `brindeck.onmicrosoft.com`, with `brindeck.com` registered through Cloudflare Registrar, verified by DNS TXT record, and set as the tenant's primary domain
+- a cloud-only Global Administrator operating the tenant, and a separate emergency access account kept on the `onmicrosoft.com` domain with its password and a second, device-independent sign-in method stored offline, validated by a full cold sign-in rather than by registration alone
+- multifactor authentication required for administrative sign-in through security defaults, which also block legacy authentication protocols and device code flow
+- Microsoft Entra ID Free for the identity foundation, under a Microsoft 365 Business Basic trial
+- no synchronization exists: the tenant and `corp.home.arpa` are separate directories with no relationship in either direction, and no on-premises system has been modified by this track. Lab 02 creates the connection
+
 ---
 
 ## Infrastructure Tracks
@@ -128,7 +136,7 @@ The infrastructure automation and scripting track focuses on:
 - log parsing and operational scripting
 - static analysis and automated testing of the script library
 
-### Cloud and Hybrid Identity Track *(next)*
+### Cloud and Hybrid Identity Track *(in progress)*
 
 The cloud and hybrid identity track focuses on:
 - Microsoft Entra tenant foundation, custom domain verification, and administrative role design
@@ -222,7 +230,8 @@ Planned labs, prerequisites, licensing constraints, and success criteria are doc
 
 | Phase | Status | Description |
 |---|---|---|
-| [01 - Tenant Foundation and Custom Domain](docs/cloud-and-hybrid-identity/01-tenant-foundation-and-custom-domain.md) | Planning and research | Microsoft Entra tenant creation, custom domain verification through DNS, a cloud-only Global Administrator and emergency access account, and multifactor authentication on administrative sign-in |
+| [01 - Tenant Foundation and Custom Domain](docs/cloud-and-hybrid-identity/01-tenant-foundation-and-custom-domain.md) | Complete | Microsoft Entra tenant creation, custom domain verification through DNS, a cloud-only Global Administrator and emergency access account, and multifactor authentication on administrative sign-in |
+| [02 - Hybrid Identity with Entra Connect](docs/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect.md) | Planning and research | `SYNC01` build and domain join, a routable user principal name suffix in Active Directory, Entra Connect Sync with organizational unit scoped synchronization and password hash synchronization, seamless single sign-on, and observed synchronization cycle and failure behavior |
 
 Remaining lab documents are added here as each is implemented.
 
@@ -419,4 +428,4 @@ The long-term objective is to build practical real-world experience that reflect
 - administrative workflows are automated and repeatable
 - operational changes are documented and validated incrementally
 
-The planned track sequence (Infrastructure Automation and Scripting, Cloud and Hybrid Identity, Network Infrastructure) is documented in [ADR-014](docs/architecture/decisions/014-establish-long-term-infrastructure-expansion-roadmap.md). The first of those three is now complete. Cloud and Hybrid Identity is next and has been established in detail by [ADR-019](docs/architecture/decisions/019-establish-cloud-and-hybrid-identity-track.md).
+The planned track sequence (Infrastructure Automation and Scripting, Cloud and Hybrid Identity, Network Infrastructure) is documented in [ADR-014](docs/architecture/decisions/014-establish-long-term-infrastructure-expansion-roadmap.md). The first of those three is now complete. Cloud and Hybrid Identity is underway, established in detail by [ADR-019](docs/architecture/decisions/019-establish-cloud-and-hybrid-identity-track.md), with its tenant foundation built and hybrid identity in planning.

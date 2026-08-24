@@ -196,7 +196,9 @@ corp.home.arpa [domain]
 
 ## Management Plane
 
-All infrastructure is administered remotely from the Windows 11 workstation. No direct physical console access is required during normal operations.
+All on-premises infrastructure is administered remotely from the Windows 11 workstation. No direct physical console access is required during normal operations.
+
+One management surface no longer fits that description. Since Lab 01 of the Cloud and Hybrid Identity track, the environment includes a Microsoft Entra tenant whose administration portals are reachable from any network rather than from the workstation alone, and which cannot be published through NGINX Proxy Manager or confined to Tailscale the way every other console here can be.
 
 Management tools in use:
 
@@ -210,6 +212,7 @@ Management tools in use:
 | RSAT (WIN11-CLIENT01) | Remote Active Directory, DNS, and Group Policy administration |
 | PowerShell script library (WIN11-CLIENT01) | AD user and group lifecycle, OU and account inventory, Group Policy reporting, and scheduled environment health reporting, per [ADR-016](decisions/016-run-automation-scripts-from-domain-joined-client.md) |
 | Task Scheduler (WIN11-CLIENT01) | Daily unattended run of `Invoke-LabHealthReport.ps1`, reporting AD service state, Wazuh agent enrollment, and Docker container status |
+| Microsoft Entra admin center and Microsoft 365 admin center (browser) | Administration of the `brindeck.onmicrosoft.com` tenant: domains, administrative accounts, and security defaults, per [ADR-019](decisions/019-establish-cloud-and-hybrid-identity-track.md). Internet-facing, authenticated by credentials and multifactor authentication rather than by network position. |
 | Git / GitHub | Documentation version control |
 
 ---
@@ -225,12 +228,13 @@ Management tools in use:
 | Group Policy scope | Computer policy scoped to `OU=Workstations`; user policy scoped independently to `OU=User Accounts` and `OU=IT`. Security group filtering on `Workstation-Security-Baseline` restricts application to `Lab-Workstations` members. |
 | Wazuh agent scope | All three systems (DC01, WIN11-CLIENT01, Ubuntu Server) enrolled as Wazuh agents reporting to wazuh-manager on Ubuntu Server at `192.168.1.226:1514`. |
 | Remote access | Tailscale provides encrypted remote access without exposing SSH publicly. |
+| Cloud identity boundary | A Microsoft Entra tenant (`brindeck.onmicrosoft.com`, primary domain `brindeck.com`) exists as a directory separate from `corp.home.arpa`, holding only cloud-only administrative accounts. No object synchronizes in either direction and no on-premises system authenticates against it. Lab 02 of the Cloud and Hybrid Identity track creates the synchronization relationship; until then the two directories are unrelated. |
 
 ---
 
 ## Evolution
 
-The environment evolves across the three tracks defined in ADR-014. The first is complete, the second is established and in planning, and the third remains planned.
+The environment evolves across the three tracks defined in ADR-014. The first is complete, the second is underway, and the third remains planned.
 
 **Track 3: Infrastructure Automation and Scripting (completed)**
 
@@ -238,11 +242,11 @@ PowerShell automation of Active Directory administration workflows, run from WIN
 
 It did add two management-plane paths that did not exist before, both from WIN11-CLIENT01 and both read-only queries against services already running rather than new remoting technology. Lab 05 (Scheduled Health Reporting) reaches the Wazuh Manager REST API at `192.168.1.226:55000` over HTTPS, and the Portainer REST API through `http://portainer.local` via NGINX Proxy Manager, which requires a `192.168.1.226 portainer.local` hosts-file entry on WIN11-CLIENT01 because ADR-009 removed Portainer's direct LAN port and the proxy host is HTTP-only. It also queries DC01's service state through the Service Control Manager's remote RPC interface, distinct from PowerShell Remoting. The resulting health report runs unattended as a daily Task Scheduler job on WIN11-CLIENT01, making that client the environment's only scheduled, non-interactive execution point.
 
-**Track 4: Cloud and Hybrid Identity (next)**
+**Track 4: Cloud and Hybrid Identity (in progress)**
 
-Extension of the on-premises AD environment into Microsoft Entra ID through Entra Connect Sync, scoped by [ADR-019](decisions/019-establish-cloud-and-hybrid-identity-track.md). The topology will expand to include a hybrid identity boundary between `corp.home.arpa` and an Entra tenant. This is the first track to place part of the environment's own identity plane on the public internet: the tenant's administration portals cannot be published through NGINX Proxy Manager or confined to Tailscale the way every existing service is. External consoles are not themselves new, since Tailscale and the domain registrar both have one, but neither holds the directory.
+Extension of the on-premises AD environment into Microsoft Entra ID through Entra Connect Sync, scoped by [ADR-019](decisions/019-establish-cloud-and-hybrid-identity-track.md). The tenant now exists: Lab 01 created `brindeck.onmicrosoft.com` with `brindeck.com` verified as its primary domain and an administrative model that depends on nothing on-premises. What does not yet exist is the boundary between the two, which Lab 02 creates. This is the first track to place part of the environment's own identity plane on the public internet: the tenant's administration portals cannot be published through NGINX Proxy Manager or confined to Tailscale the way every existing service is. External consoles are not themselves new, since Tailscale and the domain registrar both have one, but neither holds the directory.
 
-Two on-premises changes are planned. A third virtual machine, `SYNC01`, running Windows Server 2022 and joined to `corp.home.arpa`, will host Entra Connect Sync, since the synchronization engine requires a server operating system and ADR-019 deliberately keeps it off DC01. And a routable user principal name suffix, supplied by a registered public domain, will be added alongside the existing `corp.home.arpa` suffix, because `home.arpa` is reserved by RFC 8375 and cannot be verified in a tenant. Neither changes the domain name, the Kerberos realm, `sAMAccountName` values, DNS, or Group Policy scoping.
+Two on-premises changes remain planned, and neither has been made yet. A third virtual machine, `SYNC01`, running Windows Server 2022 and joined to `corp.home.arpa`, will host Entra Connect Sync, since the synchronization engine requires a server operating system and ADR-019 deliberately keeps it off DC01. And a routable user principal name suffix, supplied by a registered public domain, will be added alongside the existing `corp.home.arpa` suffix, because `home.arpa` is reserved by RFC 8375 and cannot be verified in a tenant. Neither changes the domain name, the Kerberos realm, `sAMAccountName` values, DNS, or Group Policy scoping.
 
 Connectivity is outbound only. Password hash synchronization is the chosen authentication method precisely because it requires no publicly reachable on-premises endpoint, so `SYNC01` reaches Microsoft Entra ID outbound and nothing new is exposed inbound.
 
