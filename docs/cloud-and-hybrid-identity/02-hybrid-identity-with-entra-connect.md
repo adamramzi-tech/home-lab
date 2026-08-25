@@ -2,9 +2,9 @@
 
 ## Status
 
-Planning and research phase.
+Steps One and Two are complete.
 
-Lab 01 left a tenant with a verified primary custom domain and an administrative model that does not depend on Active Directory. Nothing on-premises has been modified by this track yet, `SYNC01` does not exist, and no directory object has synchronized. This document is the plan and the research behind it, written before implementation.
+Lab 01 left a tenant with a verified primary custom domain and an administrative model that does not depend on Active Directory. `SYNC01` now exists: it was built to the allocation in Design Decisions, joined to `corp.home.arpa`, confirmed in `OU=Workstations`, and enrolled as a Wazuh agent alongside the other three hosts. The pre-synchronization baseline is recorded on both sides: 6 users and 4 groups on-premises, 3 users and 1 group in the tenant. No directory object has synchronized, `brindeck.com` has not yet been added as a UPN suffix, and Entra Connect is not installed. Steps Three through Ten are not yet started.
 
 ---
 
@@ -201,15 +201,46 @@ A password changed on-premises is expected in the cloud within minutes. A newly 
 
 ## Implementation Plan
 
-### Step One: Build SYNC01 and join the domain
+### Step One: Built SYNC01 and joined the domain
 
-Create the virtual machine to the allocation above, install Windows Server 2022 with the full desktop experience, apply updates, set the hostname to `SYNC01`, configure a static address consistent with the enterprise addressing scheme, and join `corp.home.arpa`. Confirm the computer account lands in `OU=Workstations` per the existing `redircmp` redirect, and take a pre-installation snapshot.
+The virtual machine was created at `D:\VMware\Virtual Machines\SYNC01` to the allocation from Design Decisions: 2 vCPU, 8 GB memory, an 80 GB thin-provisioned disk, and a Bridged (Automatic) network adapter with Replicate physical network connection state enabled. This went straight onto the bridged adapter rather than staging through NAT the way DC01 and WIN11-CLIENT01 originally did; that staged approach was a first-deployment risk reduction in Lab 01 of the enterprise track, and it had no reason to repeat here since the bridged LAN was already proven and Entra Connect needs both LAN and internet reachability from the start.
 
-Enroll the Wazuh agent, so that the environment's newest system is monitored on the same terms as the other three rather than becoming the one host nothing watches.
+<img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/01-sync01-vm-creation-summary.jpg" alt="01-sync01-vm-creation-summary" width="700">
 
-### Step Two: Record the pre-synchronization baseline
+Windows Server 2022 Standard Evaluation (Desktop Experience) was installed from the same ISO recorded in the enterprise infrastructure track's prerequisites, VMware Tools 13.1.0.0 was installed, and Windows Update was run to a current baseline, including the August 2026 cumulative update (KB5120242) and its corresponding .NET Framework updates, ending at OS build 10.0.20348.5499. The hostname was set to `SYNC01`, and the adapter was configured with the static address `192.168.1.30 / 255.255.255.0`, gateway `192.168.1.1`, and DC01 (`192.168.1.10`) as the preferred DNS server, continuing the `.10` / `.20` / `.226` pattern the enterprise track already established.
 
-Capture what both directories hold before anything connects them: the object counts and user principal names in each organizational unit on the Active Directory side, and the user and group counts in the tenant on the cloud side. This is the "before" that the whole lab is measured against, and Lab 01's experience with security defaults is the argument for capturing it rather than assuming it.
+The first domain-join attempt failed even with that configuration correct; the diagnosis and fix are recorded in Troubleshooting and Adjustments. Once resolved, `SYNC01` joined `corp.home.arpa` using an Enterprise Admin credential, and the computer account was confirmed in `OU=Workstations` per the existing `redircmp` redirect:
+
+<img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/05-sync01-computer-account-ou-workstations.jpg" alt="05-sync01-computer-account-ou-workstations" width="700">
+
+A pre-installation snapshot, `SYNC01 - Domain Joined, Pre-Entra-Connect`, was taken immediately afterward as the rollback point for the Entra Connect installation in Step Five.
+
+The Wazuh agent (`v4.14.5`) was installed and enrolled against the existing manager at `192.168.1.226`, so the environment's newest system is monitored on the same terms as the other three rather than becoming the one host nothing watches:
+
+<img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/06-wazuh-four-agents-active.jpg" alt="06-wazuh-four-agents-active" width="700">
+
+The time zone was also set to Eastern Time to match DC01 and WIN11-CLIENT01, rather than left on the installer's default. This matters more here than it would on an ordinary member server: Kerberos authentication depends on clock skew between `SYNC01` and DC01 staying within tolerance, and a mismatched time zone display, even with the underlying UTC time correct, is the kind of thing worth eliminating as a variable before it complicates diagnosing something else later in this lab. `Get-TimeZone` confirmed Eastern Standard Time, and `w32tm /query /status` confirmed `SYNC01` was already synced to DC01 as its time source; `w32tm /resync` was run to force an immediate sync and validate it rather than waiting on the next poll interval:
+
+<img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/07-sync01-timezone-ntp-resync.jpg" alt="07-sync01-timezone-ntp-resync" width="700">
+
+### Step Two: Recorded the pre-synchronization baseline
+
+On the Active Directory side, queried from WIN11-CLIENT01:
+
+| Organizational Unit | Users | Groups |
+|---|---|---|
+| `User Accounts` | 5 — `testuser01`, Jane Doe, John Smith, Mary Johnson, Alex Kim | 0 |
+| `IT` | 1 — `labadmin` | 0 |
+| `Workstations` | 0 | 0 |
+| `Groups` | 0 | 4 — `IT-Admins`, `Domain-Users-Standard`, `Lab-Workstations`, `Linux-Admins` |
+
+All six users still carried `@corp.home.arpa` user principal names, confirming the suffix work in Step Three had not run yet.
+
+On the cloud side, the tenant (`brindeck.onmicrosoft.com`, tenant ID `dc2a02ec-636d-4df3-9af2-2908706aed4b`) held 3 users, 1 group, 0 devices, and 0 apps, consistent with Lab 01's account that only cloud-only administrative accounts exist there:
+
+<img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/08-tenant-baseline-pre-sync.jpg" alt="08-tenant-baseline-pre-sync" width="500">
+
+This is the "before" every later step in this lab is measured against: 6 users and 4 groups on-premises, none of it in the tenant's reach yet, and a tenant whose 3 users and 1 group should remain untouched by anything arriving from `User Accounts` or `Groups`, since neither the routable suffix nor Entra Connect exist yet.
 
 ### Step Three: Add the routable user principal name suffix
 
@@ -271,7 +302,31 @@ Confirm that DC01, WIN11-CLIENT01, and Ubuntu Server still behave as the earlier
 
 ## Troubleshooting and Adjustments
 
-*Recorded during implementation, documenting issues actually encountered.*
+### Domain Join Failed Initially Because IPv6 Interfered with DNS Resolution
+
+During Step One, the first attempt to join `SYNC01` to `corp.home.arpa` failed with "An Active Directory Domain Controller (AD DC) for the domain 'corp.home.arpa' could not be contacted," even though the IPv4 address, subnet, gateway, and preferred DNS server (`192.168.1.10`) were all configured correctly.
+
+<img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/02-sync01-domain-join-dc-unreachable.jpg" alt="02-sync01-domain-join-dc-unreachable" width="700">
+
+`ipconfig /all` showed why: alongside the intended IPv4 DNS server, the Ethernet0 adapter also had IPv6 autoconfiguration active, with its own IPv6 addresses and an IPv6 DNS server entry. The mixed IPv4/IPv6 configuration was enough to prevent domain-controller discovery from completing over the intended path.
+
+<img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/03-sync01-ipconfig-ipv6-interference.jpg" alt="03-sync01-ipconfig-ipv6-interference" width="700">
+
+This is not evidence that IPv6 is broadly incompatible with Active Directory, and it is not a general recommendation to disable it. It is what was actually observed on this host, in this configuration, at this point in setup: a targeted workaround for interference that was diagnosed directly, not an assumption applied on principle. The IPv6 binding was disabled on the Ethernet0 adapter, the DNS cache was flushed and re-registered, and domain-controller discovery was verified directly before retrying the join:
+
+```powershell
+Disable-NetAdapterBinding -Name "Ethernet0" -ComponentID ms_tcpip6
+ipconfig /flushdns
+ipconfig /registerdns
+Get-DnsClientServerAddress
+nltest /dsgetdc:corp.home.arpa
+```
+
+`Get-DnsClientServerAddress` confirmed the IPv4 DNS server was `192.168.1.10` with no IPv6 server configured, and `nltest /dsgetdc:corp.home.arpa` located `\\DC01.corp.home.arpa` at `192.168.1.10` successfully:
+
+<img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/04-sync01-ipv6-disabled-dsgetdc-success.jpg" alt="04-sync01-ipv6-disabled-dsgetdc-success" width="700">
+
+The domain join was retried immediately afterward and completed without further issue.
 
 ---
 

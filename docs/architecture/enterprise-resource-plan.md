@@ -352,6 +352,51 @@ Long-term snapshot accumulation is avoided to reduce:
 
 ---
 
+## SYNC01
+
+### Role
+
+- Member server hosting Microsoft Entra Connect Sync (Cloud and Hybrid Identity track, Lab 02)
+
+### Operating System
+
+- Windows Server 2022 Standard Evaluation (Desktop Experience)
+
+### Deployed Resources
+
+| Resource | Allocation |
+|---|---|
+| vCPU | 2 |
+| Memory | 8 GB |
+| Storage | 80 GB thin provisioned |
+
+### Current Configuration
+
+- Hostname: `SYNC01`
+- Static IP: `192.168.1.30`
+- Subnet mask: `255.255.255.0`
+- Default gateway: `192.168.1.1`
+- DNS (primary): `192.168.1.10` (DC01)
+- Networking: VMware Bridged (Automatic), Replicate physical network connection state enabled
+- OS Build: 10.0.20348.5499
+- Domain: `corp.home.arpa`
+- Computer account: `CN=SYNC01,OU=Workstations,DC=corp,DC=home,DC=arpa`
+- Snapshot: `SYNC01 - Domain Joined, Pre-Entra-Connect`
+- Wazuh agent: enrolled and Active
+
+### Responsibilities
+
+- Microsoft Entra Connect Sync (installation planned for Lab 02 Step Five)
+- hybrid identity synchronization between `corp.home.arpa` and `brindeck.onmicrosoft.com`, once installed
+
+### Current and Planned Usage
+
+- Entra Connect Sync installation and configuration
+- organizational-unit-scoped directory synchronization
+- password hash synchronization and seamless single sign-on support
+
+---
+
 # Identity and DNS Strategy
 
 ## Internal Domain
@@ -512,18 +557,4 @@ Future infrastructure expansion may include:
 - Windows monitoring agents and metrics exporting
 - segmented virtual networks
 
-## Planned: SYNC01
-
-One addition is committed rather than speculative. [ADR-019](decisions/019-establish-cloud-and-hybrid-identity-track.md) established the Cloud and Hybrid Identity track, whose Lab 02 introduces a third virtual machine:
-
-| Resource | Planned Allocation |
-|---|---|
-| vCPU | 2 |
-| Memory | 8 GB |
-| Storage | 80 GB thin provisioned |
-
-`SYNC01` will run Windows Server 2022 as a member server joined to `corp.home.arpa`, hosting Microsoft Entra Connect Sync. It is deliberately not co-located on DC01, so that reconfiguring or deliberately breaking the synchronization engine does not put the environment's identity foundation behind the outcome of an experiment.
-
-The allocation starts from Microsoft's documented minimum for an Entra Connect server, 6 GB of memory and 70 GB of disk, rather than from this environment's object count, which is far below the threshold where either figure matters. The disk is rounded to 80 GB to match DC01, which costs nothing under thin provisioning. The memory is rounded to 8 GB deliberately, because committed memory is not reclaimed the way thin-provisioned disk is and because Lab 02 breaks and restarts the synchronization service on this host on purpose in order to document how failures present. A host that is reconfigured repeatedly is the wrong one to run at exactly the vendor floor. With DC01 at 4 GB and WIN11-CLIENT01 at 8 GB, adding it brings committed memory to 20 GB of the host's 32 GB, leaving the headroom this plan's allocation philosophy calls for.
-
-This section describes planned infrastructure and is replaced by a full Virtual Machine Inventory entry once `SYNC01` is built and validated.
+`SYNC01`, the third virtual machine committed by [ADR-019](decisions/019-establish-cloud-and-hybrid-identity-track.md), was built and validated in Lab 02 Step One; its entry now appears under Virtual Machine Inventory above rather than here as planned infrastructure.
