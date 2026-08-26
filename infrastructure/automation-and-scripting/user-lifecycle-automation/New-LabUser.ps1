@@ -51,9 +51,18 @@ catch {
     return
 }
 
-# Derive display name and UPN from the supplied parameters
+# Derive display name and UPN from the supplied parameters.
+# The UPN suffix follows the target OU: accounts created in the synchronized
+# OU=User Accounts get the routable @brindeck.com suffix added in the Cloud
+# and Hybrid Identity track's Lab 02 (ADR-019), so they synchronize into
+# Microsoft Entra ID with a sign-in name that matches their on-premises
+# identity. Every other OU keeps the original on-premises @corp.home.arpa
+# suffix, since it is never subject to synchronization.
 $displayName = "$FirstName $LastName"
-$userPrincipalName = "$SamAccountName@corp.home.arpa"
+
+$SynchronizedOU = "OU=User Accounts,DC=corp,DC=home,DC=arpa"
+$upnSuffix = if ($TargetOU -eq $SynchronizedOU) { "brindeck.com" } else { "corp.home.arpa" }
+$userPrincipalName = "$SamAccountName@$upnSuffix"
 
 Write-Host "Creating account '$SamAccountName' in $TargetOU..." -ForegroundColor Cyan
 

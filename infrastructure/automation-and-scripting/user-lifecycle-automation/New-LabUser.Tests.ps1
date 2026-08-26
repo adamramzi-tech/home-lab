@@ -153,12 +153,41 @@ Describe 'New-LabUser.ps1' {
             }
 
             It 'derives the display name and UPN from the supplied first and last name' {
+                # -TargetOU is not specified, so this exercises the default (OU=User Accounts),
+                # which is the synchronized OU: the UPN suffix is @brindeck.com, not
+                # @corp.home.arpa. See the 'User principal name suffix' Context below for the
+                # suffix logic itself; this test is only about the local-part derivation.
                 & $script:ScriptPath -FirstName 'Jane' -LastName 'Doe' -SamAccountName 'jdoe2' -InitialPassword $script:TestPassword
 
                 Should -Invoke New-ADUser -Times 1 -Exactly -ParameterFilter {
                     $PesterBoundParameters['Name'] -eq 'Jane Doe' -and
                     $PesterBoundParameters['DisplayName'] -eq 'Jane Doe' -and
-                    $PesterBoundParameters['UserPrincipalName'] -eq 'jdoe2@corp.home.arpa'
+                    $PesterBoundParameters['UserPrincipalName'] -eq 'jdoe2@brindeck.com'
+                }
+            }
+        }
+
+        Context 'User principal name suffix' {
+
+            # Cloud and Hybrid Identity track, Lab 02 (ADR-019): the UPN suffix follows
+            # -TargetOU. OU=User Accounts is the only synchronized OU this script targets by
+            # default, so it gets the routable @brindeck.com suffix; every other OU keeps the
+            # on-premises @corp.home.arpa suffix, since it is never subject to synchronization.
+
+            It 'uses the routable @brindeck.com suffix when -TargetOU is not specified (defaults to the synchronized OU=User Accounts)' {
+                & $script:ScriptPath -FirstName 'Test' -LastName 'User' -SamAccountName 'tuser01' -InitialPassword $script:TestPassword
+
+                Should -Invoke New-ADUser -Times 1 -Exactly -ParameterFilter {
+                    $PesterBoundParameters['UserPrincipalName'] -eq 'tuser01@brindeck.com'
+                }
+            }
+
+            It 'uses the on-premises @corp.home.arpa suffix when -TargetOU targets a non-synchronized OU' {
+                & $script:ScriptPath -FirstName 'Test' -LastName 'User' -SamAccountName 'tuser01' `
+                    -TargetOU 'OU=IT,DC=corp,DC=home,DC=arpa' -InitialPassword $script:TestPassword
+
+                Should -Invoke New-ADUser -Times 1 -Exactly -ParameterFilter {
+                    $PesterBoundParameters['UserPrincipalName'] -eq 'tuser01@corp.home.arpa'
                 }
             }
         }

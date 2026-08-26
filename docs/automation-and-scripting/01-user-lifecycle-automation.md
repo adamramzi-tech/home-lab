@@ -707,3 +707,12 @@ Research references consulted during the planning phase of this lab.
 
 - [Delete or Disable an Active Directory Account? One Best Practice - Imanami](https://www.imanami.com/delete-or-disable-an-active-directory-account-one-best-practice/) - summarizes the standard tradeoff: disabling preserves the SID and account history for reversibility and auditing, deleting removes access immediately but is not easily reversible
 - [Best Practices - Disabling Users in Active Directory - ITAdminTools](https://www.itadmintools.com/2013/08/best-practices-disabling-users-in.html) - supports the offboarding approach used here (disable, remove removable group memberships, retain the account object) over outright deletion
+
+---
+
+## Later Revision: UPN Suffix Logic Added by Lab 02 of the Cloud and Hybrid Identity Track
+
+`New-LabUser.ps1`'s user principal name derivation, hardcoded to `@corp.home.arpa` when this lab was written, was changed on 2026-08-26. It now derives the suffix from `-TargetOU`: accounts created in `OU=User Accounts` receive the routable `@brindeck.com` suffix added by [ADR-019](../architecture/decisions/019-establish-cloud-and-hybrid-identity-track.md), and every other OU keeps `@corp.home.arpa`. `New-LabUser.Tests.ps1` was extended to cover both branches, and the change was proven live against both.
+
+The change itself, its test coverage, and the live proof are documented in Step Four of [Lab 02, Hybrid Identity with Entra Connect](../cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect.md), not rewritten into Steps One through Eight above, per this repository's convention for revising an already-completed lab.
+

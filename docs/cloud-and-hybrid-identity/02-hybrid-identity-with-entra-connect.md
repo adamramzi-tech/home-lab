@@ -2,9 +2,9 @@
 
 ## Status
 
-Steps One and Two are complete.
+Steps One through Four are complete.
 
-Lab 01 left a tenant with a verified primary custom domain and an administrative model that does not depend on Active Directory. `SYNC01` now exists: it was built to the allocation in Design Decisions, joined to `corp.home.arpa`, confirmed in `OU=Workstations`, and enrolled as a Wazuh agent alongside the other three hosts. The pre-synchronization baseline is recorded on both sides: 6 users and 4 groups on-premises, 3 users and 1 group in the tenant. No directory object has synchronized, `brindeck.com` has not yet been added as a UPN suffix, and Entra Connect is not installed. Steps Three through Ten are not yet started.
+Lab 01 left a tenant with a verified primary custom domain and an administrative model that does not depend on Active Directory. `SYNC01` now exists: it was built to the allocation in Design Decisions, joined to `corp.home.arpa`, confirmed in `OU=Workstations`, and enrolled as a Wazuh agent alongside the other three hosts. The pre-synchronization baseline is recorded on both sides: 6 users and 4 groups on-premises, 3 users and 1 group in the tenant. `brindeck.com` is now an alternative UPN suffix in Active Directory, applied to all five users in `OU=User Accounts` (`IT` deliberately untouched), and `New-LabUser.ps1` derives that suffix from the target OU rather than hardcoding the on-premises domain, passing PSScriptAnalyzer and the full thirteen-script Pester suite (174 tests) and proven live against both a synchronized and a non-synchronized OU. No directory object has synchronized yet and Entra Connect is not installed. Steps Five through Ten are not yet started.
 
 ---
 
@@ -242,17 +242,48 @@ On the cloud side, the tenant (`brindeck.onmicrosoft.com`, tenant ID `dc2a02ec-6
 
 This is the "before" every later step in this lab is measured against: 6 users and 4 groups on-premises, none of it in the tenant's reach yet, and a tenant whose 3 users and 1 group should remain untouched by anything arriving from `User Accounts` or `Groups`, since neither the routable suffix nor Entra Connect exist yet.
 
-### Step Three: Add the routable user principal name suffix
+### Step Three: Added the routable user principal name suffix
 
-In Active Directory Domains and Trusts, add `brindeck.com` as an alternative user principal name suffix. Confirm that `corp.home.arpa` remains present and that the domain name, Kerberos realm, and `sAMAccountName` values are untouched.
+`brindeck.com` was added as an alternative UPN suffix in Active Directory Domains and Trusts:
 
-Retarget the users in `OU=User Accounts` to the new suffix, and verify that `IT` is left alone. Then confirm on Ubuntu Server that domain authentication through SSSD and Kerberos still works for a retargeted account, because that is the on-premises consequence most likely to be affected and least likely to be noticed.
+<img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/09-upn-suffix-added-brindeck-com.jpg" alt="09-upn-suffix-added-brindeck-com" width="500">
 
-### Step Four: Update New-LabUser.ps1 and prove it
+`Get-ADDomain` confirmed `corp.home.arpa`, its distinguished name, and every account's `sAMAccountName` were untouched. Adding a suffix only makes it available; it does not retarget any account by itself, and it has nothing to do with Entra Connect, which was not installed at any point during this step.
 
-Change the user principal name derivation so the suffix follows the target organizational unit rather than being hardcoded. Extend `New-LabUser.Tests.ps1` to cover both branches, run the analyzer, and confirm the full thirteen-script library still passes cleanly. Provision one account into `OU=User Accounts` and confirm it is created with `@brindeck.com`, and one into a non-synchronized organizational unit and confirm it keeps `@corp.home.arpa`.
+The five users in `OU=User Accounts` were retargeted with a single scoped command:
 
-Doing this before the first synchronization means the first objects to cross the boundary include one created by the automation library, which is the deliverable ADR-019 actually asks for.
+```powershell
+Get-ADUser -SearchBase 'OU=User Accounts,DC=corp,DC=home,DC=arpa' -Filter * |
+    ForEach-Object { Set-ADUser $_ -UserPrincipalName "$($_.SamAccountName)@brindeck.com" }
+```
+
+A query-back confirmed the result: all five users (`testuser01`, `jdoe`, `jsmith`, `mjohnson`, `akim`) now carry `@brindeck.com` with `SamAccountName` unchanged, and `labadmin` in `IT` remains on `@corp.home.arpa`, untouched by the `-SearchBase` scoping.
+
+Confirming Kerberos on Ubuntu Server surfaced an unrelated, pre-existing DNS misconfiguration on that host; the diagnosis and fix are recorded in Troubleshooting and Adjustments. With it resolved, `kinit testuser01@CORP.HOME.ARPA` returned a valid TGT issued by DC01, confirming the retargeted UPN has no effect on Kerberos authentication, which is driven by `sAMAccountName` and the realm, not the `userPrincipalName` attribute.
+
+### Step Four: Updated New-LabUser.ps1 and proved it
+
+The UPN derivation changed from a hardcoded `"$SamAccountName@corp.home.arpa"` to a suffix chosen by comparing `-TargetOU` against the synchronized OU's distinguished name:
+
+```powershell
+$SynchronizedOU = "OU=User Accounts,DC=corp,DC=home,DC=arpa"
+$upnSuffix = if ($TargetOU -eq $SynchronizedOU) { "brindeck.com" } else { "corp.home.arpa" }
+$userPrincipalName = "$SamAccountName@$upnSuffix"
+```
+
+An exact match against the one synchronized OU, rather than a wildcard, was enough given this environment's flat OU structure.
+
+Extending `New-LabUser.Tests.ps1` meant more than adding cases. The existing test asserting UPN derivation didn't specify `-TargetOU`, so it exercised the (now synchronized) default OU, and its expectation of `@corp.home.arpa` was quietly wrong the moment the script changed. That test was corrected, and a new `Context 'User principal name suffix'` added covering both branches explicitly: `-TargetOU` unspecified (`@brindeck.com`) and pointed at `OU=IT` (`@corp.home.arpa`). `Invoke-ScriptAnalyzer` reported no violations for the changed script or the full library, and `Invoke-Pester` against the full thirteen-script suite passed all 174 tests.
+
+Live proof against both branches followed the same query-back discipline as every other script in this library, once into the default OU and once into a non-synchronized one:
+
+<img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/10-tsync01-provisioned-brindeck-com.jpg" alt="10-tsync01-provisioned-brindeck-com" width="700">
+
+<img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/11-tnosync01-provisioned-corp-home-arpa.jpg" alt="11-tnosync01-provisioned-corp-home-arpa" width="700">
+
+`tsync01`'s first provisioning attempt (not shown above) used a password Active Directory's complexity policy rejected. `New-ADUser` had already created the account object, disabled and passwordless, before failing on the password step, since object creation and password assignment are not atomic; clearing a failed attempt off the screen does not undo it in Active Directory. The stray object was removed with `Remove-ADUser` and the run repeated cleanly.
+
+Doing this before the first synchronization means the first objects to cross the boundary will include one created by the automation library, the deliverable ADR-019 actually asks for.
 
 ### Step Five: Install Entra Connect Sync with Custom settings
 
@@ -329,6 +360,37 @@ nltest /dsgetdc:corp.home.arpa
 The domain join was retried immediately afterward and completed without further issue.
 
 ---
+
+### Ubuntu Server's DNS Override From Lab 06 Had Never Actually Taken Effect
+
+Confirming Kerberos for a retargeted user (Step Three) failed with `kinit: Cannot find KDC for realm "CORP.HOME.ARPA"`. `resolvectl status` showed DC01 present in `eno2`'s candidate DNS server list but not selected as current, and `dig SRV _kerberos._tcp.corp.home.arpa` came back `NXDOMAIN` against whichever server was actually being asked.
+
+The cause traced back further than the immediate symptom. `/etc/netplan/00-installer-config.yaml` contained two `network:` mappings concatenated in one file: the DC01 nameserver override [Lab 06 of the enterprise infrastructure track](../enterprise-infrastructure/06-linux-ad-integration-lab.md) documented adding, immediately followed, with no line break, by the original Subiquity-installer content that override was supposed to replace. YAML does not define what happens when the same top-level key appears twice in one mapping, and the parser in use resolved it by keeping the later occurrence: the original block, with no static nameserver and both `dhcp4` and `dhcp6` enabled. Lab 06's fix had likely never been live since the day it was written. This host has been resolving DNS purely through DHCP the entire time, and it worked anyway only because DC01 happens to be one of the servers this network's DHCP scope hands out; `systemd-resolved` simply hadn't failed over to the other DHCP-supplied candidate, the router, until now.
+
+The file was replaced outright with a single clean mapping, rather than patched, to remove the ambiguity entirely:
+
+```yaml
+network:
+  ethernets:
+    eno2:
+      dhcp4: true
+      dhcp4-overrides:
+        use-dns: false
+      dhcp6: false
+      accept-ra: false
+      match:
+        macaddress: xx:xx:xx:xx:xx:xx  # redacted; matches this host's real NIC address in the actual config
+      set-name: eno2
+      nameservers:
+        addresses:
+          - 192.168.1.10
+  version: 2
+  wifis: {}
+```
+
+`sudo netplan try` applied it, dropping the active SSH session briefly, consistent with the interface actually being reconfigured rather than nothing changing, and `dig SRV _kerberos._tcp.corp.home.arpa` returned `NOERROR` with the correct record afterward. One detail is left unresolved rather than papered over: `resolvectl status` still lists the router and an IPv6 address alongside DC01 in `eno2`'s DNS Servers candidate list even after `dhcp4-overrides.use-dns: false` and `accept-ra: false`, though `Current DNS Server` and every subsequent query correctly use DC01. IPv6 Router Advertisements populating that field through a path the override doesn't fully close is the likely explanation, but it was not confirmed.
+
+This is the same category of failure [Lab 04](../enterprise-infrastructure/04-domain-client-lab.md) diagnosed on WIN11-CLIENT01 (a competing DNS path lacking the AD-integrated zones) and Lab 06 diagnosed on this same host originally (DHCP handing out only the router), just one step further back: a fix that adds the correct server without removing the competing ones is still an incomplete fix.
 
 ## Security Considerations
 
