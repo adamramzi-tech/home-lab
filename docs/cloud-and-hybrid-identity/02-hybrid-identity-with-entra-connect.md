@@ -2,9 +2,11 @@
 
 ## Status
 
-Steps One through Four are complete.
+Steps One through Seven are complete.
 
-Lab 01 left a tenant with a verified primary custom domain and an administrative model that does not depend on Active Directory. `SYNC01` now exists: it was built to the allocation in Design Decisions, joined to `corp.home.arpa`, confirmed in `OU=Workstations`, and enrolled as a Wazuh agent alongside the other three hosts. The pre-synchronization baseline is recorded on both sides: 6 users and 4 groups on-premises, 3 users and 1 group in the tenant. `brindeck.com` is now an alternative UPN suffix in Active Directory, applied to all five users in `OU=User Accounts` (`IT` deliberately untouched), and `New-LabUser.ps1` derives that suffix from the target OU rather than hardcoding the on-premises domain, passing PSScriptAnalyzer and the full thirteen-script Pester suite (174 tests) and proven live against both a synchronized and a non-synchronized OU. No directory object has synchronized yet and Entra Connect is not installed. Steps Five through Ten are not yet started.
+Lab 01 left a tenant with a verified primary custom domain and an administrative model that does not depend on Active Directory. `SYNC01` now exists: it was built to the allocation in Design Decisions, joined to `corp.home.arpa`, confirmed in `OU=Workstations`, and enrolled as a Wazuh agent alongside the other three hosts. The pre-synchronization baseline is recorded on both sides: 6 users and 4 groups on-premises, 3 users and 1 group in the tenant. `brindeck.com` is now an alternative UPN suffix in Active Directory, applied to all five users in `OU=User Accounts` (`IT` deliberately untouched), and `New-LabUser.ps1` derives that suffix from the target OU rather than hardcoding the on-premises domain, passing PSScriptAnalyzer and the full thirteen-script Pester suite (174 tests) and proven live against both a synchronized and a non-synchronized OU.
+
+Entra Connect Sync (version 2.6.84.0) is installed on `SYNC01` using Custom settings, connecting to `corp.home.arpa` as `svc-entraconnect`, a dedicated account in a new `OU=Service Accounts`, and to the tenant as `admin@brindeck.com`. Synchronization is scoped to `User Accounts` and `Groups`, `ms-DS-ConsistencyGuid` was confirmed as the source anchor, and the first synchronization cycle completed cleanly. The tenant now holds nine users and five groups: the five baseline accounts plus `tsync01`, all carrying `@brindeck.com` user principal names and `On-premises sync: Yes`, while `tnosync01`, `labadmin`, and the three pre-existing cloud-only administrative accounts remain correctly outside the synchronized population. `IT-Admins` synchronized as a group with a partially invisible membership, exactly as Design Decisions predicted. A sign-in as `testuser01@brindeck.com` using his existing on-premises password succeeded, confirming password hash synchronization works. Steps Eight through Ten are not yet started.
 
 ---
 
@@ -287,23 +289,45 @@ Doing this before the first synchronization means the first objects to cross the
 
 ### Step Five: Install Entra Connect Sync with Custom settings
 
-Run the installer on `SYNC01`. Choose password hash synchronization as the sign-in method, enable seamless single sign-on, and select `User Accounts` and `Groups` as the synchronized organizational units.
+Before touching `SYNC01`, `OU=Service Accounts` was created and a plain user object, `svc-entraconnect`, was provisioned into it with a non-expiring password, sidestepping the risk Design Decisions raised rather than discovering it. Letting the wizard auto-create the AD DS connector account would have placed it wherever `redirusr`'s redirected default new-user location points, which is `OU=User Accounts`, inside the synchronization scope. Reusing `IT` was considered and rejected: that OU is deliberately framed as the privileged, cloud-invisible boundary for `labadmin`, and this account, unprivileged and needing only read and replication rights, has no reason to sit inside it.
 
-Record what the wizard selects for the source anchor rather than assuming it. The documentation describes conditional logic here: the wizard uses `ms-DS-ConsistencyGuid` if that attribute is unused across the directory, and falls back to `objectGUID` if anything else has populated it. Whichever it picks is effectively permanent, since "the sourceAnchor attribute can only be set during initial installation" and changing it later means uninstalling and reinstalling.
+The installer (`AzureADConnect.msi`, version 2.6.84.0) was downloaded from the Microsoft Entra admin center signed in as `admin@brindeck.com`, and run on `SYNC01` with Customize selected instead of Express settings. Password Hash Synchronization was chosen as the sign-in method with Enable single sign-on checked, `admin@brindeck.com` supplied for the Microsoft Entra ID connection, and `corp\svc-entraconnect` supplied on **Connect your directories** using **Use existing account**. On **Microsoft Entra sign-in configuration**, `corp.home.arpa` showed as Not Added, expected and permanent since `home.arpa` is reserved by RFC 8375 and can never be verified, while `brindeck.com` showed Verified; `userPrincipalName` was left as the sign-in attribute. **Domain and OU filtering** was set to sync only `User Accounts` and `Groups`.
 
-Do not start synchronization at the end of the wizard. The scope is the thing most worth verifying before anything exports.
+On **Uniquely identifying your users**, **Let Azure manage the source anchor** was left at its default, with the wizard's own callout stating it would write back unique values into `ms-DS-ConsistencyGuid` since nothing in the directory had populated that attribute yet, matching the prediction in Design Decisions. No optional features were enabled. Domain administrator credentials were supplied once, only for creating the `AZUREADSSOACC` computer account. On **Ready to configure**, both "Start the synchronization process when configuration completes" and "Enable staging mode" were left unchecked, and Install was run.
+
+Configuration completed successfully and confirmed the source anchor choice explicitly: "Microsoft Entra ID is configured to use AD attribute mS-DS-ConsistencyGuid as the source anchor attribute."
+
+<img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/12-source-anchor-ms-ds-consistencyguid-confirmed.jpg" alt="12-source-anchor-ms-ds-consistencyguid-confirmed" width="700">
+
+Two other notices appeared on that screen. A TPM recommendation for `SYNC01` doesn't apply, this VM has no hardware TPM passed through from the host. A recommendation to enable the Active Directory Recycle Bin on `corp.home.arpa` does apply but is out of scope here, that is a forest-wide, irreversible-once-enabled setting belonging to the Enterprise Infrastructure track rather than this one, and it carries forward as a note rather than being acted on mid-lab.
 
 ### Step Six: Verify scope, then run the first synchronization
 
-With the scheduler still disabled, confirm the configured organizational unit filter matches the intent from Design Decisions, and confirm where the Active Directory connector account was actually created. The `redirusr` redirect this environment applied during the enterprise track means the container Microsoft's documentation names may resolve to an organizational unit that is inside the synchronization scope, and an account that synchronizes itself is worth catching before the first export rather than after. Then run a first cycle deliberately with `Start-ADSyncSyncCycle -PolicyType Initial` and watch it in the Synchronization Service Manager rather than waiting for the schedule.
+`RSAT-AD-Tools` was installed on `SYNC01` so that `ADSyncConfig.psm1`, which depends on the AD DS PowerShell module, could run. `svc-entraconnect` was granted the permissions Custom installation does not configure automatically the way Express does: basic read, password hash synchronization (`Replicate Directory Changes` and `Replicate Directory Changes All`), and read/write on `ms-DS-ConsistencyGuid`, via `Set-ADSyncBasicReadPermissions`, `Set-ADSyncPasswordHashSyncPermissions`, and `Set-ADSyncMsDsConsistencyGuidPermissions` against `corp.home.arpa`.
 
-Read the run's status rather than its completion. The Operations tab distinguishes `success` from `completed-*-errors` and `completed-*-warnings`, and a run that completes with errors is not a run that worked.
+Verifying the OU filter through Synchronization Service Manager's Container Picker failed outright on a defect in this version; the diagnosis and workaround are recorded in Troubleshooting and Adjustments. Confirmed through the working path instead, the filter showed exactly `User Accounts` and `Groups` selected, nothing else, including `Service Accounts` itself, which stayed correctly out of scope.
+
+With the scope confirmed, `Start-ADSyncSyncCycle -PolicyType Initial` was run and watched in the Operations tab. All six connector operations reported `success`, with one exception worth explaining rather than treating as a defect: the Microsoft Entra ID connector's Full Import reported `completed-no-objects`. The tenant already held four objects at that point, three cloud-only administrative accounts and one cloud-only group from Lab 01, but none of them had ever been touched by directory synchronization or carried anything an AD DS connector could match against, so this was the correct result rather than a gap. ADR-019's boundary held even at the level of what the connector considered worth importing.
+
+<img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/15-first-sync-operations-six-runs-success.jpg" alt="15-first-sync-operations-six-runs-success" width="700">
 
 ### Step Seven: Validate the synchronized population
 
-Confirm that users from `User Accounts` appear in the tenant with `@brindeck.com` user principal names matching their on-premises identity, that groups from `Groups` appear, and that nothing from `IT` or `Workstations` arrived. Confirm specifically what happened to `IT-Admins`, whose members are out of scope.
+The tenant went from three users and one group to nine users and five groups. All five baseline accounts (`testuser01`, `jdoe`, `jsmith`, `mjohnson`, `akim`) appeared with `On-premises sync: Yes` and `@brindeck.com` user principal names matching their on-premises identities, alongside `tsync01`, the account `New-LabUser.ps1` provisioned live during Step Four's proof. `tnosync01` and `labadmin`, both in `IT`, did not appear at all, and the three pre-existing cloud-only administrative accounts correctly showed `On-premises sync: No`.
 
-Then confirm the premise the whole track rests on: sign in to a cloud service as a synchronized user, using the on-premises password, and have it work. Change that password on-premises and confirm the new one works in the cloud within minutes, which also demonstrates the two-minute password cycle as distinct from the thirty-minute directory cycle.
+<img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/16-tenant-users-post-sync.jpg" alt="16-tenant-users-post-sync" width="700">
+
+All four groups from `Groups` appeared with `Source: Windows Server AD`, alongside the pre-existing cloud-only `All Company` group. `IT-Admins` confirmed the specific consequence Design Decisions predicted: on-premises the group has four members, `labadmin` plus `jsmith`, `mjohnson`, and `akim`, but the tenant shows only the latter three.
+
+<img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/17-it-admins-cloud-members-three.jpg" alt="17-it-admins-cloud-members-three" width="700">
+
+`labadmin`'s own membership in a synchronized group is invisible in the tenant precisely because `labadmin` never crossed the boundary itself, a real property of organizational-unit filtering rather than a defect.
+
+The sign-in test confirmed the premise the whole track rests on: `testuser01` signed in to `myaccount.microsoft.com` as `testuser01@brindeck.com` using his existing on-premises password and authenticated successfully.
+
+<img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/18-testuser01-signed-in-myaccount.jpg" alt="18-testuser01-signed-in-myaccount" width="700">
+
+Signing in also surfaced an unplanned but genuine finding: Entra ID required immediate Microsoft Authenticator registration before completing the sign-in, even though this is an entirely ordinary user with no administrative role. Lab 01's licensing note describes Security Defaults covering "administrative multifactor authentication," but Security Defaults does not actually support scoping MFA to administrators only, it applies tenant-wide or not at all. This lab did not set out to configure MFA for the general population, that is Lab 05's job, but Security Defaults enforcing it as a side effect is worth recording as an early, unplanned appearance of that later lab's territory.
 
 ### Step Eight: Configure and validate seamless single sign-on
 
@@ -392,6 +416,20 @@ network:
 
 This is the same category of failure [Lab 04](../enterprise-infrastructure/04-domain-client-lab.md) diagnosed on WIN11-CLIENT01 (a competing DNS path lacking the AD-integrated zones) and Lab 06 diagnosed on this same host originally (DHCP handing out only the router), just one step further back: a fix that adds the correct server without removing the competing ones is still an incomplete fix.
 
+### Synchronization Service Manager's Container Picker Failed on a Known Defect in Version 2.6.84.0
+
+Confirming the OU filter for Step Six's scope verification meant opening the `corp.home.arpa` connector's properties in Synchronization Service Manager and selecting **Containers...** on the **Configure Directory Partitions** page. That failed immediately with a .NET resource-loading error: "An error was encountered while selecting containers: Could not find any resources appropriate for the specified culture or the neutral culture... 'Microsoft.DirectoryServices.MetadirectoryServices.UI.ContainerPicker.ContainerPickerControl.resources' was correctly embedded or linked into assembly 'ContainerPicker'..."
+
+<img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/13-container-picker-culture-error.jpg" alt="13-container-picker-culture-error" width="700">
+
+This is a confirmed defect in this specific build rather than anything wrong with the environment. Microsoft's own community forum has a thread on exactly this version and error, a missing localized resource for the Container Picker control, confirmed by Microsoft support, with directory connectivity itself unaffected; the wizard can enumerate OUs correctly elsewhere, only this one dialog in Sync Service Manager is broken. Their recommended workaround is the supported path this lab already relies on for OU filtering: the installer wizard's own **Domain and OU filtering** page rather than Sync Service Manager's picker.
+
+Relaunching the Entra Connect wizard, selecting **Customize synchronization options** from **Additional Tasks**, and returning to **Domain and OU filtering** confirmed the scope correctly: `User Accounts` and `Groups` checked, everything else including the new `Service Accounts` OU unchecked, with no changes made and the wizard exited without reaching **Configure**.
+
+<img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/14-domain-ou-filtering-user-accounts-groups.jpg" alt="14-domain-ou-filtering-user-accounts-groups" width="700">
+
+Since the OU filter had already been set correctly through the installer wizard during Custom setup, not through Sync Service Manager, this defect never called the actual configuration into question, only the one tool available to view it after the fact.
+
 ## Security Considerations
 
 This lab introduces the environment's first path from the local network to a cloud directory, and most of what follows is a consequence of that.
@@ -454,3 +492,7 @@ Identifier handling follows the policy the [track README](README.md) sets. On-pr
 **Domain preparation**
 
 - [Prepare a non-routable domain for directory synchronization](https://learn.microsoft.com/en-us/microsoft-365/enterprise/prepare-a-non-routable-domain-for-directory-synchronization) - that a non-routable user principal name does not fail but is silently synchronized to the `onmicrosoft.com` domain, which is the reason the suffix work precedes the first synchronization
+
+**Known issues**
+
+- [Entra Connect 2.6.84.0 displays error when trying to configure containers](https://techcommunity.microsoft.com/discussions/microsoft-entra/entra-connect-2-6-84-0-displays-error-when-trying-to-configure-containers/4549077) - confirms the Container Picker resource error in Synchronization Service Manager as a defect specific to this build, and the recommended workaround of using the installer wizard's own OU filtering page instead
