@@ -2,11 +2,13 @@
 
 ## Status
 
-Steps One through Seven are complete.
+Steps One through Seven and Step Eight-A are complete.
 
 Lab 01 left a tenant with a verified primary custom domain and an administrative model that does not depend on Active Directory. `SYNC01` now exists: it was built to the allocation in Design Decisions, joined to `corp.home.arpa`, confirmed in `OU=Workstations`, and enrolled as a Wazuh agent alongside the other three hosts. The pre-synchronization baseline is recorded on both sides: 6 users and 4 groups on-premises, 3 users and 1 group in the tenant. `brindeck.com` is now an alternative UPN suffix in Active Directory, applied to all five users in `OU=User Accounts` (`IT` deliberately untouched), and `New-LabUser.ps1` derives that suffix from the target OU rather than hardcoding the on-premises domain, passing PSScriptAnalyzer and the full thirteen-script Pester suite (174 tests) and proven live against both a synchronized and a non-synchronized OU.
 
-Entra Connect Sync (version 2.6.84.0) is installed on `SYNC01` using Custom settings, connecting to `corp.home.arpa` as `svc-entraconnect`, a dedicated account in a new `OU=Service Accounts`, and to the tenant as `admin@brindeck.com`. Synchronization is scoped to `User Accounts` and `Groups`, `ms-DS-ConsistencyGuid` was confirmed as the source anchor, and the first synchronization cycle completed cleanly. The tenant now holds nine users and five groups: the five baseline accounts plus `tsync01`, all carrying `@brindeck.com` user principal names and `On-premises sync: Yes`, while `tnosync01`, `labadmin`, and the three pre-existing cloud-only administrative accounts remain correctly outside the synchronized population. `IT-Admins` synchronized as a group with a partially invisible membership, exactly as Design Decisions predicted. A sign-in as `testuser01@brindeck.com` using his existing on-premises password succeeded, confirming password hash synchronization works. Steps Eight through Ten are not yet started.
+Entra Connect Sync (version 2.6.84.0) is installed on `SYNC01` using Custom settings, connecting to `corp.home.arpa` as `svc-entraconnect`, a dedicated account in a new `OU=Service Accounts`, and to the tenant as `admin@brindeck.com`. Synchronization is scoped to `User Accounts` and `Groups`, `ms-DS-ConsistencyGuid` was confirmed as the source anchor, and the first synchronization cycle completed cleanly. The tenant now holds nine users and five groups: the five baseline accounts plus `tsync01`, all carrying `@brindeck.com` user principal names and `On-premises sync: Yes`, while `tnosync01`, `labadmin`, and the three pre-existing cloud-only administrative accounts remain correctly outside the synchronized population. `IT-Admins` synchronized as a group with a partially invisible membership, exactly as Design Decisions predicted. A sign-in as `testuser01@brindeck.com` using his existing on-premises password succeeded, confirming password hash synchronization works.
+
+Step Eight-A hardened `AZUREADSSOACC`: it now lives in a new, delegation-restricted `OU=Protected Objects` rather than `OU=Workstations`, its own ACL and Kerberos delegation were confirmed clean against `SYNC01` as a control, and its Kerberos encryption type was rolled and set explicitly to AES128/AES256 rather than left unset. Step Eight-B (the seamless SSO Group Policy object and sign-in validation from WIN11-CLIENT01) and Steps Nine and Ten remain not yet started.
 
 ---
 
@@ -133,6 +135,16 @@ The part worth recording before it becomes a surprise is the standing cost. Seam
 This is ordinarily too mundane to be a design decision, and it is one here only because of timing. Microsoft has set a hard cutoff: "all synchronization services in Microsoft Entra Connect Sync will stop working on September 30, 2026 if you're not on at least version 2.5.79.0," and "if you're unable to upgrade before the deadline, all synchronization services will fail until you upgrade to the latest version." This lab is being planned in August 2026, roughly five weeks ahead of that date. A deployment built now on a stale installer would break within the month, during Lab 03 or Lab 04, for reasons that would have nothing to do with the work being done at the time.
 
 The current release as of this writing is 2.6.84.0, published 7 July 2026. The installer is no longer distributed generally: the documentation notes that "the Microsoft Entra Connect Sync .msi installation file is exclusively available on Microsoft Entra Admin Center." Beyond the September deadline, Microsoft retires each 2.x version twelve months after a newer one ships, so version currency is a standing maintenance obligation for this environment rather than a one-time installation detail.
+
+---
+
+### `AZUREADSSOACC` moves into a new, delegation-restricted OU, breaking from operational-role naming
+
+**Decision:** `AZUREADSSOACC` moves out of `OU=Workstations`, where it landed under Lab 03's `redircmp` redirect, into a new organizational unit created directly under the domain root, `OU=Protected Objects`, restricted so that only Domain Admins, Enterprise Admins, Administrators, and SYSTEM can manage it. The `redircmp` redirect itself is untouched: new computer objects still land in `OU=Workstations` by default. This is a one-time relocation of a single existing object, not a change to where computers land.
+
+The reasoning is narrower than an earlier draft of this decision stated. `OU=Workstations` does not put `Workstation-Security-Baseline` on this account regardless of which OU it sits in, that GPO is scoped by security filtering to the `Lab-Workstations` group, and `AZUREADSSOACC` was never a member. The actual problem is `OU=Workstations`' default administrative permissions: it is an ordinary operational OU, hardened for nothing beyond what a workstation needs, and Microsoft's guidance for this specific account is that only Domain Admins should be able to manage it and that it should be safe from accidental deletion. An OU sized for ordinary domain-joined machines does not provide that.
+
+This is also the first OU in the repository organized by protection level rather than by operational role. [naming-and-scope-standards.md](../architecture/naming-and-scope-standards.md)'s Service Account Naming section documents the precedent this departs from: every existing OU, `IT`, `User Accounts`, `Workstations`, `Groups`, `Service Accounts`, groups objects by what they are, not by how sensitive they are. [Lab 03](../enterprise-infrastructure/03-active-directory-lab.md)'s `redircmp` decision set `OU=Workstations` as the redirected computer default without anticipating that anything would need relocating out of it afterward, so neither document currently accounts for `OU=Protected Objects`. Nothing about that is a defect in either document, it just means this decision is the one place the structural change is recorded, and a future OU built for the same reason should be named the same way this one was, for what it protects, not with a tier label.
 
 ---
 
@@ -331,9 +343,46 @@ Signing in also surfaced an unplanned but genuine finding: Entra ID required imm
 
 ### Step Eight: Configure and validate seamless single sign-on
 
-Confirm the `AZUREADSSOACC` computer account was created, and place it in a dedicated, delegation-restricted organizational unit as Microsoft recommends, since it landed in `OU=Workstations` under the `redircmp` redirect from Lab 03 and would otherwise remain subject to that OU's default administrative permissions (`Workstation-Security-Baseline` does not apply regardless of OU, since Lab 05 scopes it by security filtering to the `Lab-Workstations` group, which this computer account never belongs to). Confirm Kerberos delegation is disabled on the account and that no other account holds delegation permissions on it, and confirm `msDS-SupportedEncryptionTypes` uses an AES encryption type rather than RC4, rolling the key over first if it needs to change. Create and link a Group Policy object adding `https://autologon.microsoftazuread-sso.com` to the Local intranet zone, scoped to the synchronized user population, and enable the associated status bar policy setting.
+Split into two phases across separate sessions. Confirming and protecting `AZUREADSSOACC`, the first half of this step, grew from a formality into real diagnostic work at every layer it touched: the OU it needed, the ACL that OU actually had versus what disabling inheritance was expected to produce, whether the account's own permissions matched an ordinary computer object, and what its Kerberos encryption type actually meant. None of that belonged compressed under the same heading as the Group Policy object and the sign-in validation, so Step Eight-A covers the account hardening in full and Step Eight-B, the GPO and validation from WIN11-CLIENT01, is picked up in a later session.
 
-Validate from WIN11-CLIENT01 as a synchronized domain user: reaching a tenant sign-in page should complete without a password prompt. Record the behavior honestly if it does not, since the documentation describes the feature as opportunistic and silently falling back to a normal password prompt on failure, which means a negative result looks identical to the feature not being configured.
+**Step Eight-A: hardened `AZUREADSSOACC` and confirmed it clean.** A new organizational unit, `OU=Protected Objects`, was created directly under the domain root per Design Decisions above, and `AZUREADSSOACC` was moved into it:
+
+```powershell
+New-ADOrganizationalUnit -Name "Protected Objects" -Path "DC=corp,DC=home,DC=arpa" -ProtectedFromAccidentalDeletion $true
+Get-ADComputer -Identity AZUREADSSOACC | Move-ADObject -TargetPath "OU=Protected Objects,DC=corp,DC=home,DC=arpa"
+```
+
+Getting the OU's ACL down to only Domain Admins, Enterprise Admins, Administrators, and SYSTEM took two corrected passes rather than one; the full sequence, including what went wrong on the first attempt, is recorded in Troubleshooting and Adjustments. The clean end state, inheritance disabled and every remaining entry explicit:
+
+<img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/19-protected-objects-ou-final-acl.jpg" alt="19-protected-objects-ou-final-acl" width="700">
+
+With the OU settled, the account's own ACL was checked directly, since Microsoft's guidance and the OU work above both address where the object sits, not what its own permissions are. `AZUREADSSOACC` carries no `BUILTIN\Account Operators` entry at all. Checked against `SYNC01`, an ordinarily domain-joined computer object, as a control: `SYNC01` does carry `Allow BUILTIN\Account Operators FULL CONTROL`, fully inherited, matching what the `computer` object class's schema-defined default security descriptor grants. `AZUREADSSOACC` does not have that entry, and replication metadata confirms the object's security descriptor (`nTSecurityDescriptor`, version 2) was last written at `8/26/2026 7:29:48 PM`, the same timestamp as `whenCreated` to the second, meaning the ACL has been this way since Step Five's provisioning and nothing done in this OU and ACL work changed it. That is an observed difference between this one object and one control in this environment, not a general claim about how Entra Connect provisions every account; no broader mechanism is asserted here.
+
+Delegation checked clean from every angle available: `TrustedForDelegation` and `TrustedToAuthForDelegation` are both `False`, `userAccountControl` decodes to `69632` (`WORKSTATION_TRUST_ACCOUNT | DONT_EXPIRE_PASSWORD`) with no delegation bits set, `PrincipalsAllowedToDelegateToAccount` is empty, nothing in the domain carries an `msDS-AllowedToDelegateTo` pointing at this account, and a domain-wide sweep for unconstrained delegation found exactly one object, `DC01` (`userAccountControl 532480`, `SERVER_TRUST_ACCOUNT | TRUSTED_FOR_DELEGATION`), the expected, correct holder of that flag.
+
+`msDS-SupportedEncryptionTypes` came back completely unset, not RC4:
+
+```powershell
+Get-ADComputer AZUREADSSOACC -Properties msDS-SupportedEncryptionTypes | Select-Object Name, msDS-SupportedEncryptionTypes
+```
+
+An unset value has never meant RC4 by itself; it means no explicit configuration on the object, and the KDC substitutes the domain's `DefaultDomainSupportedEncTypes` registry value in its place. What actually changed, and what matters for the date this lab is being run, is that default. Microsoft's guidance for CVE-2026-20833 moved `DefaultDomainSupportedEncTypes`'s own default to `0x18` (AES-SHA1 only) starting 14 April 2026, with an audit-only phase preceding it from 13 January 2026 and the registry escape hatch removed and enforcement made mandatory in July 2026. Whether DC01 was actually resolving this account to AES or still to RC4 at the moment it was checked depends on DC01's own patch level relative to those dates, which was not confirmed. Rather than depend on that, the account's Kerberos key was rolled and its encryption type set explicitly:
+
+```powershell
+$CloudCred = Get-Credential                                       # admin@brindeck.com, cloud Global Administrator
+New-AzureADSSOAuthenticationContext -CloudCredentials $CloudCred
+$creds = Get-Credential                                           # corp\labadmin
+Update-AzureADSSOForest -OnPremCredentials $creds -PreserveCustomPermissionsOnDesktopSsoAccount
+Set-ADComputer -Identity AZUREADSSOACC -KerberosEncryptionType "AES128,AES256"
+```
+
+`Update-AzureADSSOForest` found and updated the account at its new location under `OU=Protected Objects`, confirming the OU move hadn't confused it. `Get-ADComputer AZUREADSSOACC -Properties msDS-SupportedEncryptionTypes, PasswordLastSet` afterward showed `24` (`AES128 | AES256`) and a `PasswordLastSet` timestamp matching the rollover:
+
+<img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/20-azureadssoacc-key-rollover-aes-encryption-confirmed.jpg" alt="20-azureadssoacc-key-rollover-aes-encryption-confirmed" width="700">
+
+Establishing the authentication context for the rollover fought through some real browser-configuration friction on `SYNC01`, recorded as one line in Troubleshooting and Adjustments.
+
+**Step Eight-B, planned:** create and link a Group Policy object adding `https://autologon.microsoftazuread-sso.com` to the Local intranet zone, scoped to `OU=User Accounts`, and enable the associated status bar policy setting. Validate from WIN11-CLIENT01 as a synchronized domain user: reaching a tenant sign-in page should complete without a password prompt. Record the behavior honestly if it does not, since the documentation describes the feature as opportunistic and silently falling back to a normal password prompt on failure, which means a negative result looks identical to the feature not being configured.
 
 ### Step Nine: Observe the cycle, then break it on purpose
 
@@ -430,6 +479,35 @@ Relaunching the Entra Connect wizard, selecting **Customize synchronization opti
 
 Since the OU filter had already been set correctly through the installer wizard during Custom setup, not through Sync Service Manager, this defect never called the actual configuration into question, only the one tool available to view it after the fact.
 
+### The Protected Objects OU's ACL Needed Two Corrected Passes, Not the One From the Security Tab
+
+Getting `OU=Protected Objects` down to Domain Admins, Enterprise Admins, Administrators, and SYSTEM only did not work on the first attempt, and the reason changed twice before it was actually right.
+
+Right after creation, before any change, the OU's own `dsacls` showed the ordinary default for a brand-new OU under this domain: `Domain Admins` (added at creation via `New-ADOrganizationalUnit`, not inherited), plus `Enterprise Admins`, `Administrators`, `Pre-Windows 2000 Compatible Access`, `Key Admins`, and `Enterprise Key Admins`, all tagged `<Inherited from parent>`, and, notably, `BUILTIN\Account Operators` (create/delete child on `computer`, `user`, `group`, `inetOrgPerson`) and `BUILTIN\Print Operators` (create/delete child, scoped to `printQueue` only) present with no inheritance tag at all:
+
+```text
+Allow BUILTIN\Account Operators       SPECIAL ACCESS for computer
+                                      CREATE CHILD
+                                      DELETE CHILD
+Allow BUILTIN\Print Operators         SPECIAL ACCESS for printQueue
+                                      CREATE CHILD
+                                      DELETE CHILD
+```
+
+The first attempt to fix this used the Security tab's basic checkbox to uncheck "Include inheritable permissions from this object's parent," and it did not take: a follow-up `dsacls` showed every `<Inherited from parent>` entry from before still present, unchanged, alongside a `CORP\Domain Admins FULL CONTROL` entry with no tag, meaning the dialog had added an entry rather than replacing anything.
+
+The correct path is in Advanced Security Settings specifically: **Disable inheritance**, then **Remove all inherited permissions from this object** (not convert). That did strip every `<Inherited from parent>` entry, confirmed by `{This object is protected from inheriting permissions from the parent}` appearing in the next `dsacls` output. But `BUILTIN\Account Operators` and `BUILTIN\Print Operators` were still sitting there afterward, unaffected, because they were never inherited to begin with: they are explicit entries baked into the OU and `computer` object classes' own schema-defined default security descriptors, the same ones that appeared with no tag in the very first snapshot. Disabling inheritance only strips inherited entries, so this pass could only ever have left them behind. They were removed directly instead:
+
+```powershell
+dsacls "OU=Protected Objects,DC=corp,DC=home,DC=arpa" /R "BUILTIN\Account Operators" "BUILTIN\Print Operators"
+```
+
+One more correction was needed after that: re-adding `Enterprise Admins` and `Administrators` through the Advanced Security Settings **Add** dialog had only checked a narrower permission set (read permissions, list contents, write/read property) rather than **Full control**, the checkbox that also selects everything beneath it. Both were corrected to Full control to match `Domain Admins` and `SYSTEM`. The final, clean `dsacls` output is in Step Eight-A above.
+
+### Establishing the Seamless SSO Authentication Context Fought Through Browser Configuration on SYNC01
+
+Getting `New-AzureADSSOAuthenticationContext` to actually render a sign-in window on `SYNC01` took working through Internet Explorer Enhanced Security Configuration, an uninitialized per-user Internet Explorer profile, and the module's embedded browser control needing several Microsoft sign-in domains added to Trusted Sites, none of which reflects anything about this lab's own configuration.
+
 ## Security Considerations
 
 This lab introduces the environment's first path from the local network to a cloud directory, and most of what follows is a consequence of that.
@@ -488,6 +566,7 @@ Identifier handling follows the policy the [track README](README.md) sets. On-pr
 - [Duplicate attribute resiliency](https://learn.microsoft.com/en-us/entra/identity/hybrid/connect/how-to-connect-syncservice-duplicate-attribute-resiliency) - what quarantining an attribute means, and that the export succeeds so the sync client logs no error and does not retry, which is the behavior the induced failure in Step Nine is chosen to expose
 - [Microsoft Entra Connect Health for sync](https://learn.microsoft.com/en-us/entra/identity/hybrid/connect/how-to-connect-health-sync) - the synchronization error report, its thirty-minute refresh, and the alerting the Global Administrator installation decision buys
 - [Synchronization Service Manager: Operations tab](https://learn.microsoft.com/en-us/entra/identity/hybrid/connect/how-to-connect-sync-service-manager-ui-operations) - reading run status, and the distinction between `success` and a run that completed with errors
+- [How to manage Kerberos KDC usage of RC4 for service account ticket issuance: Changes related to CVE-2026-20833](https://support.microsoft.com/en-us/topic/how-to-manage-kerberos-kdc-usage-of-rc4-for-service-account-ticket-issuance-changes-related-to-cve-2026-20833-1ebcda33-720a-4da8-93c1-b0496e1910dc) - what an unset `msDS-SupportedEncryptionTypes` actually falls back to (`DefaultDomainSupportedEncTypes`), and that a patched DC's default for that value changed to `0x18` (AES-SHA1 only) starting 14 April 2026, with enforcement mandatory from July 2026
 
 **Domain preparation**
 
