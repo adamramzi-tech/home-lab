@@ -2,13 +2,13 @@
 
 ## Status
 
-Steps One through Seven and Step Eight-A are complete.
+Steps One through Eight are complete.
 
 Lab 01 left a tenant with a verified primary custom domain and an administrative model that does not depend on Active Directory. `SYNC01` now exists: it was built to the allocation in Design Decisions, joined to `corp.home.arpa`, confirmed in `OU=Workstations`, and enrolled as a Wazuh agent alongside the other three hosts. The pre-synchronization baseline is recorded on both sides: 6 users and 4 groups on-premises, 3 users and 1 group in the tenant. `brindeck.com` is now an alternative UPN suffix in Active Directory, applied to all five users in `OU=User Accounts` (`IT` deliberately untouched), and `New-LabUser.ps1` derives that suffix from the target OU rather than hardcoding the on-premises domain, passing PSScriptAnalyzer and the full thirteen-script Pester suite (174 tests) and proven live against both a synchronized and a non-synchronized OU.
 
 Entra Connect Sync (version 2.6.84.0) is installed on `SYNC01` using Custom settings, connecting to `corp.home.arpa` as `svc-entraconnect`, a dedicated account in a new `OU=Service Accounts`, and to the tenant as `admin@brindeck.com`. Synchronization is scoped to `User Accounts` and `Groups`, `ms-DS-ConsistencyGuid` was confirmed as the source anchor, and the first synchronization cycle completed cleanly. The tenant now holds nine users and five groups: the five baseline accounts plus `tsync01`, all carrying `@brindeck.com` user principal names and `On-premises sync: Yes`, while `tnosync01`, `labadmin`, and the three pre-existing cloud-only administrative accounts remain correctly outside the synchronized population. `IT-Admins` synchronized as a group with a partially invisible membership, exactly as Design Decisions predicted. A sign-in as `testuser01@brindeck.com` using his existing on-premises password succeeded, confirming password hash synchronization works.
 
-Step Eight-A hardened `AZUREADSSOACC`: it now lives in a new, delegation-restricted `OU=Protected Objects` rather than `OU=Workstations`, its own ACL and Kerberos delegation were confirmed clean against `SYNC01` as a control, and its Kerberos encryption type was rolled and set explicitly to AES128/AES256 rather than left unset. Step Eight-B (the seamless SSO Group Policy object and sign-in validation from WIN11-CLIENT01) and Steps Nine and Ten remain not yet started.
+Step Eight-A hardened `AZUREADSSOACC`: it now lives in a new, delegation-restricted `OU=Protected Objects` rather than `OU=Workstations`, its own ACL and Kerberos delegation were confirmed clean against `SYNC01` as a control, and its Kerberos encryption type was rolled and set explicitly to AES128/AES256 rather than left unset. Step Eight-B configured and linked `Seamless-SSO-Zone-Configuration` to `OU=User Accounts` and validated it end to end from WIN11-CLIENT01: `testuser01@brindeck.com` signed in at `myapps.microsoft.com` with no password prompt, and `klist` confirmed the Kerberos ticket behind it, issued with the same AES encryption type Step Eight-A rolled onto `AZUREADSSOACC`. Steps Nine and Ten remain not yet started.
 
 ---
 
@@ -343,7 +343,7 @@ Signing in also surfaced an unplanned but genuine finding: Entra ID required imm
 
 ### Step Eight: Configure and validate seamless single sign-on
 
-Split into two phases across separate sessions. Confirming and protecting `AZUREADSSOACC`, the first half of this step, grew from a formality into real diagnostic work at every layer it touched: the OU it needed, the ACL that OU actually had versus what disabling inheritance was expected to produce, whether the account's own permissions matched an ordinary computer object, and what its Kerberos encryption type actually meant. None of that belonged compressed under the same heading as the Group Policy object and the sign-in validation, so Step Eight-A covers the account hardening in full and Step Eight-B, the GPO and validation from WIN11-CLIENT01, is picked up in a later session.
+Split into two phases across separate sessions. Confirming and protecting `AZUREADSSOACC`, the first half of this step, grew from a formality into real diagnostic work at every layer it touched: the OU it needed, the ACL that OU actually had versus what disabling inheritance was expected to produce, whether the account's own permissions matched an ordinary computer object, and what its Kerberos encryption type actually meant. None of that belonged compressed under the same heading as the Group Policy object and the sign-in validation, so Step Eight-A covers the account hardening in full and Step Eight-B, below, covers the GPO and the validation from WIN11-CLIENT01.
 
 **Step Eight-A: hardened `AZUREADSSOACC` and confirmed it clean.** A new organizational unit, `OU=Protected Objects`, was created directly under the domain root per Design Decisions above, and `AZUREADSSOACC` was moved into it:
 
@@ -382,7 +382,85 @@ Set-ADComputer -Identity AZUREADSSOACC -KerberosEncryptionType "AES128,AES256"
 
 Establishing the authentication context for the rollover fought through some real browser-configuration friction on `SYNC01`, recorded as one line in Troubleshooting and Adjustments.
 
-**Step Eight-B, planned:** create and link a Group Policy object adding `https://autologon.microsoftazuread-sso.com` to the Local intranet zone, scoped to `OU=User Accounts`, and enable the associated status bar policy setting. Validate from WIN11-CLIENT01 as a synchronized domain user: reaching a tenant sign-in page should complete without a password prompt. Record the behavior honestly if it does not, since the documentation describes the feature as opportunistic and silently falling back to a normal password prompt on failure, which means a negative result looks identical to the feature not being configured.
+**Step Eight-B: created and linked the seamless SSO Group Policy object, then validated sign-in from WIN11-CLIENT01.** A new GPO, `Seamless-SSO-Zone-Configuration`, was created in GPMC on DC01 and linked to `OU=User Accounts`, alongside the existing `Standard-User-Environment`. Two User Configuration settings were configured under `Administrative Templates > Windows Components > Internet Explorer > Internet Control Panel > Security Page`, following Microsoft's own Seamless SSO rollout guidance directly: `Site to Zone Assignment List`, enabled with `https://autologon.microsoftazuread-sso.com` mapped to value `1` (Local intranet), and, under the `Intranet Zone` subfolder, `Allow updates to status bar via script`, enabled. The zone value matters in a way that is easy to get backward: Microsoft's own troubleshooting documentation states that placing the URL in Trusted Sites instead of Local intranet does not merely fail to help, it actively blocks sign-in.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/21-seamless-sso-site-to-zone-value.jpg" alt="21-seamless-sso-site-to-zone-value" width="700">
+</p>
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/22-seamless-sso-status-bar-script-enabled.jpg" alt="22-seamless-sso-status-bar-script-enabled" width="700">
+</p>
+
+Since the GPO carries only User Configuration settings, its Computer Configuration half was disabled (`GPO Status: Computer configuration settings disabled`), matching the split `Standard-User-Environment` and `IT-Admin-Environment` already use in this environment rather than leaving an unused half active on it:
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/23-seamless-sso-gpo-linked-user-accounts.jpg" alt="23-seamless-sso-gpo-linked-user-accounts" width="700">
+</p>
+
+Validation ran from WIN11-CLIENT01, logged on as `testuser01` in an ordinary, non-elevated command prompt; `gpresult /r` reports on whoever is actually logged on to the current session and needs no elevation to do so, unlike the automation track's `Get-GPResultantSetOfPolicy -User` cmdlet, which targets an arbitrary named account and does require it:
+
+```
+C:\Users\testuser01>gpupdate /force
+Updating policy...
+
+Computer Policy update has completed successfully.
+User Policy update has completed successfully.
+
+C:\Users\testuser01>gpresult /r
+...
+RSOP data for CORP\testuser01 on WIN11-CLIENT01 : Logging Mode
+----------------------------------------------------------------
+    CN=testuser01,OU=User Accounts,DC=corp,DC=home,DC=arpa
+    Group Policy was applied from:      DC01.corp.home.arpa
+
+    Applied Group Policy Objects
+    -----------------------------
+        Standard-User-Environment
+        Seamless-SSO-Zone-Configuration
+...
+```
+
+Both GPOs applied cleanly to `testuser01` from `OU=User Accounts`, with nothing filtered out.
+
+`Standard-User-Environment`'s restriction on Control Panel access for `testuser01` (enterprise Lab 05) ruled out the usual GUI confirmation of the zone assignment at `Internet Options > Security > Local intranet > Sites`; that finding and the pivot it required are recorded in Troubleshooting and Adjustments below. In its place, the effective values were confirmed directly against the registry locations these two ADMX policies actually write to, both readable non-elevated as `testuser01` since they land under `HKEY_CURRENT_USER`:
+
+```
+C:\Users\testuser01>reg query "HKCU\Software\Policies\Microsoft\Windows\CurrentVersion\Internet Settings\ZoneMap\Domains\microsoftazuread-sso.com\autologon"
+
+HKEY_CURRENT_USER\Software\Policies\Microsoft\Windows\CurrentVersion\Internet Settings\ZoneMap\Domains\microsoftazuread-sso.com\autologon
+    https    REG_DWORD    0x1
+
+C:\Users\testuser01>reg query "HKCU\Software\Policies\Microsoft\Windows\CurrentVersion\Internet Settings\Zones\1" /v 2103
+
+HKEY_CURRENT_USER\Software\Policies\Microsoft\Windows\CurrentVersion\Internet Settings\Zones\1
+    2103    REG_DWORD    0x0
+```
+
+Both matched what the GPO specified: `1` (Local intranet) for the zone assignment, and `0` (Enabled) for value `2103`, the status bar script policy's actual identity inside `inetres.admx`, distinct from an adjacent value name the same template defines for an unrelated setting.
+
+With the policy confirmed applied and its effective values confirmed correct, `klist purge` cleared cached tickets and `testuser01@brindeck.com` was signed in at `https://myapps.microsoft.com`. Sign-in completed straight to the Apps dashboard once the username was entered, no password prompt at all:
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/24-testuser01-seamless-signin-myapps.jpg" alt="24-testuser01-seamless-signin-myapps" width="700">
+</p>
+
+`klist`, run immediately after, showed a second cached ticket beyond the expected `krbtgt` TGT: a service ticket for `HTTP/autologon.microsoftazuread-sso.com`, confirming the Kerberos negotiate against the intranet-zoned endpoint actually happened rather than inferring it from the smooth sign-in alone:
+
+```
+C:\Users\testuser01>klist
+...
+#1>     Client: testuser01 @ CORP.HOME.ARPA
+        Server: HTTP/autologon.microsoftazuread-sso.com @ CORP.HOME.ARPA
+        KerbTicket Encryption Type: AES-256-CTS-HMAC-SHA1-96
+        Ticket Flags 0x40a10000 -> forwardable renewable pre_authent name_canonicalize
+        Session Key Type: AES-256-CTS-HMAC-SHA1-96
+        Kdc Called: DC01.corp.home.arpa
+```
+
+That ticket's encryption type, AES-256-CTS-HMAC-SHA1-96, is the same type Step Eight-A set explicitly on `AZUREADSSOACC`'s Kerberos key. This is that rollover's effect showing up in a live issued ticket, not only in the account's configured property.
+
+The plan's caution about a silent, indistinguishable failure mode did not end up applying: the result was unambiguous, both in the smooth sign-in itself and in the independent `klist` confirmation of the ticket exchange behind it, so there was no negative result requiring the honest-reporting caveat the plan anticipated.
 
 ### Step Nine: Observe the cycle, then break it on purpose
 
@@ -507,6 +585,10 @@ One more correction was needed after that: re-adding `Enterprise Admins` and `Ad
 ### Establishing the Seamless SSO Authentication Context Fought Through Browser Configuration on SYNC01
 
 Getting `New-AzureADSSOAuthenticationContext` to actually render a sign-in window on `SYNC01` took working through Internet Explorer Enhanced Security Configuration, an uninitialized per-user Internet Explorer profile, and the module's embedded browser control needing several Microsoft sign-in domains added to Trusted Sites, none of which reflects anything about this lab's own configuration.
+
+### `Standard-User-Environment`'s Control Panel Restriction Redirected Zone Validation to the Registry
+
+Step Eight-B's plan assumed the usual GUI confirmation of a Site to Zone Assignment List entry, `Internet Options > Security > Local intranet > Sites > Advanced` on WIN11-CLIENT01. `Standard-User-Environment`, applied to `testuser01` from enterprise Lab 05, restricts that account's Control Panel access, closing off that path entirely, `inetcpl.cpl` simply would not open. The two settings were confirmed instead directly against the registry locations the underlying ADMX policies actually write to (`HKCU\...\ZoneMap\Domains\microsoftazuread-sso.com\autologon` and `HKCU\...\Zones\1`, value `2103`), both readable non-elevated as `testuser01` himself since they land under `HKEY_CURRENT_USER`. If anything, this produced more precise evidence than the GUI check would have, an exact registry value rather than a visual read of whether a listbox entry is greyed out.
 
 ## Security Considerations
 
