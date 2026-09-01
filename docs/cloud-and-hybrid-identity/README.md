@@ -36,8 +36,8 @@ The following are introduced by this track and must be in place before the labs 
 |---|---|---|
 | A registered public DNS domain | Lab 01 (met) | Verified in the tenant and added to `corp.home.arpa` as an alternative user principal name suffix. `home.arpa` is reserved by RFC 8375 and cannot be verified, so a routable domain is required before any user can synchronize with a matching sign-in name |
 | A Microsoft Entra tenant | Lab 01 (met) | Created through a Microsoft 365 subscription signup, since a new tenant cannot be created from a free or trial account. The track's identity foundation depends only on Microsoft Entra ID Free; Lab 01 records what the tenant actually holds |
-| `SYNC01` | Lab 02 | A Windows Server 2022 member server joined to `corp.home.arpa`, hosting Entra Connect Sync. Entra Connect requires a server operating system, so WIN11-CLIENT01 cannot host it, and per ADR-019 it is deliberately not co-located on DC01 |
-| Workstation resources for a third virtual machine | Lab 02 | `SYNC01` runs alongside DC01 and WIN11-CLIENT01 on the same host. If the host cannot support it, ADR-019 treats that as a condition for reassessing the decision rather than as an approved fallback |
+| `SYNC01` | Lab 02 (met) | A Windows Server 2022 member server joined to `corp.home.arpa`, hosting Entra Connect Sync. Entra Connect requires a server operating system, so WIN11-CLIENT01 cannot host it, and per ADR-019 it is deliberately not co-located on DC01. Built and domain-joined in Step One at `192.168.1.30`, running Entra Connect Sync v2.6.84.0 since Step Five |
+| Workstation resources for a third virtual machine | Lab 02 (met) | `SYNC01` runs alongside DC01 and WIN11-CLIENT01 on the same host at 2 vCPU, 8 GB memory, and 80 GB thin-provisioned storage. If the host cannot support it, ADR-019 treats that as a condition for reassessing the decision rather than as an approved fallback |
 
 ---
 
@@ -97,15 +97,17 @@ Tenant configuration is performed through administrative portals and is therefor
 | Lab | Status |
 |---|---|
 | [01 - Tenant Foundation and Custom Domain](01-tenant-foundation-and-custom-domain.md) | Complete |
-| [02 - Hybrid Identity with Entra Connect](02-hybrid-identity-with-entra-connect.md) | Planning and research |
+| [02 - Hybrid Identity with Entra Connect](02-hybrid-identity-with-entra-connect.md) | In progress: Steps One through Seven complete |
 | 03 - Entra ID User, Group, and License Administration | Planned |
 | 04 - Microsoft 365 Administration Workflows | Planned |
 | 05 - Access Control and Device Management | Planned |
 | 06 - Hybrid Identity Automation with Microsoft Graph PowerShell | Planned |
 
-The track is established by [ADR-019](../architecture/decisions/019-establish-cloud-and-hybrid-identity-track.md). Lab 01 is complete: `brindeck.com` was registered on 2026-08-22 and verified in the tenant on 2026-08-23, and the tenant now has a verified primary custom domain, a cloud-only Global Administrator, and a tested emergency access account, all protected by multifactor authentication. No on-premises system has been modified. Lab 02 is in its planning and research phase; it is the first work in this track to change `corp.home.arpa`, and none of that change has been made yet.
+The track is established by [ADR-019](../architecture/decisions/019-establish-cloud-and-hybrid-identity-track.md). Lab 01 is complete: `brindeck.com` was registered on 2026-08-22 and verified in the tenant on 2026-08-23, and the tenant now has a verified primary custom domain, a cloud-only Global Administrator, and a tested emergency access account, all protected by multifactor authentication. No on-premises system was modified by it. Lab 02 is the first work in this track to change `corp.home.arpa`, and it is in progress. Steps One through Seven are complete: `SYNC01` is built, domain-joined, and enrolled as a Wazuh agent; `brindeck.com` is an alternative user principal name suffix applied to the users in `OU=User Accounts`, five at the time it was added; `New-LabUser.ps1` derives that suffix from the target OU; and Entra Connect Sync v2.6.84.0 is installed on `SYNC01`, scoped to `OU=User Accounts` and `OU=Groups`, with the first synchronization cycle complete and password hash synchronization confirmed by a real sign-in as `testuser01@brindeck.com`. Steps Eight through Ten, covering seamless single sign-on, the observed synchronization cycle and its deliberately induced failure, and the closing validation, are outstanding.
 
 Three items carry forward from Lab 01 rather than being closed by it: the tenant holds three Global Administrators pending the privileged role review in Lab 05, the emergency access account needs a phishing-resistant sign-in method and a companion second account to meet Microsoft's guidance, and the Business Basic trial converts to a paid subscription on 2026-09-22.
+
+Lab 02 has opened two more while still in progress. The Entra Connect installer recommended enabling the Active Directory Recycle Bin on `corp.home.arpa`; the recommendation is sound but the setting is forest-wide and irreversible once enabled, so it belongs to the Enterprise Infrastructure track rather than being applied mid-lab. And Security Defaults were found to enforce multifactor authentication tenant-wide rather than for administrators only, which surfaced when an ordinary synchronized user was required to register Microsoft Authenticator at first cloud sign-in. Lab 01's licensing note describing Security Defaults as covering administrative multifactor authentication is narrower than what the feature actually does; scoping it properly is Lab 05's work.
 
 ---
 

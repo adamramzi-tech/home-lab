@@ -21,6 +21,8 @@ This directory contains the PowerShell script library for the infrastructure aut
 
 The library is thirteen scripts and thirteen test files. Run together from `C:\Scripts` on WIN11-CLIENT01 at the close of Lab 05, it passed a zero-finding `Invoke-ScriptAnalyzer -Recurse` sweep and 172 of 172 Pester tests. Every external call is mocked, so the suite runs without a live domain, a reachable Wazuh or Portainer API, or credentials of any kind.
 
+The library has been changed once since the track closed. Lab 02 of the Cloud and Hybrid Identity track changed `New-LabUser.ps1` to derive the user principal name suffix from `-TargetOU` rather than hardcoding `@corp.home.arpa`, so accounts created in a synchronized organizational unit receive the routable `@brindeck.com` suffix. `New-LabUser.Tests.ps1` gained a `Context` covering both branches and one existing test was corrected, bringing the suite to 174. The analyzer sweep stayed at zero findings. The change is recorded in [Lab 01](../../docs/automation-and-scripting/01-user-lifecycle-automation.md) as an appended revision section, and its reasoning belongs to [ADR-019](../../docs/architecture/decisions/019-establish-cloud-and-hybrid-identity-track.md).
+
 ---
 
 ## Notes

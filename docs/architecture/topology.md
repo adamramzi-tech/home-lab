@@ -37,7 +37,7 @@ Windows 11 Workstation
 │
 ├── Management Plane
 │   ├── SSH → Ubuntu Server
-│   ├── RDP → DC01 (192.168.1.10), WIN11-CLIENT01 (192.168.1.20)
+│   ├── RDP → DC01 (192.168.1.10), WIN11-CLIENT01 (192.168.1.20), SYNC01 (192.168.1.30)
 │   ├── Browser → grafana.local, portainer.local, prometheus.local, npm.local
 │   │             https://192.168.1.226:8443 (Wazuh Dashboard)
 │   └── VS Code Remote Workflows
@@ -55,16 +55,30 @@ Windows 11 Workstation
     │       ├── Group Policy: three custom GPOs deployed and validated
     │       └── Wazuh Agent: enrolled and Active (Windows Security event forwarding)
     │
-    └── WIN11-CLIENT01 (192.168.1.20)
-        └── Windows 11 Enterprise Evaluation
-            ├── Static IP: 192.168.1.20
+    ├── WIN11-CLIENT01 (192.168.1.20)
+    │   └── Windows 11 Enterprise Evaluation
+    │       ├── Static IP: 192.168.1.20
+    │       ├── Bridged networking
+    │       ├── RSAT installed
+    │       ├── Domain: corp.home.arpa
+    │       ├── Computer account: CN=WIN11-CLIENT01,OU=Workstations,DC=corp,DC=home,DC=arpa
+    │       ├── IPv6 disabled (Ethernet0); DNS: 192.168.1.10 (DC01) only
+    │       ├── Group Policy: Workstation-Security-Baseline, Standard-User-Environment
+    │       │   (or IT-Admin-Environment for labadmin) applied and validated
+    │       └── Wazuh Agent: enrolled and Active (Windows Security event forwarding)
+    │
+    └── SYNC01 (192.168.1.30)
+        └── Windows Server 2022 Standard Evaluation
+            ├── Static IP: 192.168.1.30
+            ├── Hostname: SYNC01
             ├── Bridged networking
-            ├── RSAT installed
-            ├── Domain: corp.home.arpa
-            ├── Computer account: CN=WIN11-CLIENT01,OU=Workstations,DC=corp,DC=home,DC=arpa
-            ├── IPv6 disabled (Ethernet0); DNS: 192.168.1.10 (DC01) only
-            ├── Group Policy: Workstation-Security-Baseline, Standard-User-Environment
-            │   (or IT-Admin-Environment for labadmin) applied and validated
+            ├── Domain: corp.home.arpa (member server)
+            ├── Computer account: CN=SYNC01,OU=Workstations,DC=corp,DC=home,DC=arpa
+            ├── DNS: 192.168.1.10 (DC01)
+            ├── Microsoft Entra Connect Sync v2.6.84.0 (outbound only)
+            │   ├── AD DS connector account: svc-entraconnect (OU=Service Accounts)
+            │   ├── Sync scope: OU=User Accounts, OU=Groups
+            │   └── Password hash synchronization; source anchor ms-DS-ConsistencyGuid
             └── Wazuh Agent: enrolled and Active (Windows Security event forwarding)
 
                         ↕ LAN (Cat6, bridged networking)
@@ -142,7 +156,8 @@ The Wazuh stack runs on its own internal Docker network (single-node default).
 
 ```text
 DC01 (192.168.1.10)           ──┐
-WIN11-CLIENT01 (192.168.1.20)  ─┼──► wazuh-manager (192.168.1.226:1514)
+WIN11-CLIENT01 (192.168.1.20)  ─┤
+SYNC01 (192.168.1.30)          ─┼──► wazuh-manager (192.168.1.226:1514)
 Ubuntu Server (192.168.1.226)  ──┘         │
                                             ▼
                                      wazuh-indexer
@@ -169,10 +184,14 @@ corp.home.arpa [domain]
 │   ├── Standard-User-Environment GPO (user-scoped: Control Panel, Run, display, LAN restrictions)
 │   └── testuser01
 │
+├── Service Accounts [OU]
+│   └── svc-entraconnect (Entra Connect Sync AD DS connector account; no GPO linked)
+│
 └── Workstations [OU]
     ├── Workstation-Security-Baseline GPO (computer-scoped: inactivity limit, firewall, audit)
     │   └── Security Filter: Lab-Workstations (Authenticated Users removed)
     ├── WIN11-CLIENT01 (computer account; member of Lab-Workstations)
+    ├── SYNC01 (computer account)
     └── UBUNTU-SERVER (computer account)
 ```
 
@@ -191,6 +210,7 @@ corp.home.arpa [domain]
 | Ubuntu SSH | Tailscale | `ssh user@<tailscale-ip>` | Remote access |
 | DC01 | RDP | `192.168.1.10` | Active Directory domain controller; AD DS and DNS operational; Group Policy deployed; Wazuh agent Active |
 | WIN11-CLIENT01 | RDP | `192.168.1.20` | Domain-joined; computer account in OU=Workstations; Group Policy applied and validated; Wazuh agent Active |
+| SYNC01 | RDP | `192.168.1.30` | Domain-joined member server; computer account in OU=Workstations; hosts Microsoft Entra Connect Sync; Wazuh agent Active |
 
 ---
 
@@ -223,12 +243,12 @@ Management tools in use:
 |---|---|
 | Linux ↔ Enterprise | Two separate physical machines. No shared hypervisor. LAN-connected only. |
 | Docker internal | No backend service exposes ports directly. All access through NPM or direct IP where applicable. |
-| VM networking | DC01 and WIN11-CLIENT01 operate on bridged networking with direct LAN presence. Enterprise VMs are LAN participants alongside the Ubuntu Server host. |
-| AD domain scope | Active Directory domain (`corp.home.arpa`) spans both enterprise VMs and the Ubuntu Server host. DC01 is the authoritative DNS server for the domain. WIN11-CLIENT01 uses DC01 exclusively for DNS (IPv4 only; IPv6 disabled on Ethernet0). Ubuntu Server uses DC01 as its primary DNS server via Netplan. |
+| VM networking | DC01, WIN11-CLIENT01, and SYNC01 operate on bridged networking with direct LAN presence. Enterprise VMs are LAN participants alongside the Ubuntu Server host. |
+| AD domain scope | Active Directory domain (`corp.home.arpa`) spans both enterprise VMs and the Ubuntu Server host. DC01 is the authoritative DNS server for the domain. WIN11-CLIENT01 uses DC01 exclusively for DNS (IPv4 only; IPv6 disabled on Ethernet0). Ubuntu Server uses DC01 as its primary DNS server via Netplan. `SYNC01` is a member server in the same domain and uses DC01 for DNS. Since Lab 02 of the Cloud and Hybrid Identity track, `corp.home.arpa` also carries `brindeck.com` as an alternative user principal name suffix; the domain name, the Kerberos realm, and `sAMAccountName` values are unchanged by it. |
 | Group Policy scope | Computer policy scoped to `OU=Workstations`; user policy scoped independently to `OU=User Accounts` and `OU=IT`. Security group filtering on `Workstation-Security-Baseline` restricts application to `Lab-Workstations` members. |
-| Wazuh agent scope | All three systems (DC01, WIN11-CLIENT01, Ubuntu Server) enrolled as Wazuh agents reporting to wazuh-manager on Ubuntu Server at `192.168.1.226:1514`. |
+| Wazuh agent scope | All four systems (DC01, WIN11-CLIENT01, SYNC01, Ubuntu Server) enrolled as Wazuh agents reporting to wazuh-manager on Ubuntu Server at `192.168.1.226:1514`. |
 | Remote access | Tailscale provides encrypted remote access without exposing SSH publicly. |
-| Cloud identity boundary | A Microsoft Entra tenant (`brindeck.onmicrosoft.com`, primary domain `brindeck.com`) exists as a directory separate from `corp.home.arpa`, holding only cloud-only administrative accounts. No object synchronizes in either direction and no on-premises system authenticates against it. Lab 02 of the Cloud and Hybrid Identity track creates the synchronization relationship; until then the two directories are unrelated. |
+| Cloud identity boundary | A Microsoft Entra tenant (`brindeck.onmicrosoft.com`, primary domain `brindeck.com`) holds a synchronized projection of `corp.home.arpa` alongside its cloud-only administrative accounts. Since Lab 02 of the Cloud and Hybrid Identity track, Entra Connect Sync on `SYNC01` replicates `OU=User Accounts` and `OU=Groups` outbound to the tenant, with password hashes, so a synchronized user authenticates in the cloud against their on-premises password. Synchronization is one-way: Active Directory remains authoritative, nothing writes back, and `OU=IT` stays outside the scope, so `labadmin` and the tenant's administrative accounts exist in one directory only. |
 
 ---
 
@@ -244,9 +264,11 @@ It did add two management-plane paths that did not exist before, both from WIN11
 
 **Track 4: Cloud and Hybrid Identity (in progress)**
 
-Extension of the on-premises AD environment into Microsoft Entra ID through Entra Connect Sync, scoped by [ADR-019](decisions/019-establish-cloud-and-hybrid-identity-track.md). The tenant now exists: Lab 01 created `brindeck.onmicrosoft.com` with `brindeck.com` verified as its primary domain and an administrative model that depends on nothing on-premises. What does not yet exist is the boundary between the two, which Lab 02 creates. This is the first track to place part of the environment's own identity plane on the public internet: the tenant's administration portals cannot be published through NGINX Proxy Manager or confined to Tailscale the way every existing service is. External consoles are not themselves new, since Tailscale and the domain registrar both have one, but neither holds the directory.
+Extension of the on-premises AD environment into Microsoft Entra ID through Entra Connect Sync, scoped by [ADR-019](decisions/019-establish-cloud-and-hybrid-identity-track.md). The tenant now exists: Lab 01 created `brindeck.onmicrosoft.com` with `brindeck.com` verified as its primary domain and an administrative model that depends on nothing on-premises, and Lab 02 built the boundary between the two. This is the first track to place part of the environment's own identity plane on the public internet: the tenant's administration portals cannot be published through NGINX Proxy Manager or confined to Tailscale the way every existing service is. External consoles are not themselves new, since Tailscale and the domain registrar both have one, but neither holds the directory.
 
-Two on-premises changes remain planned, and neither has been made yet. A third virtual machine, `SYNC01`, running Windows Server 2022 and joined to `corp.home.arpa`, will host Entra Connect Sync, since the synchronization engine requires a server operating system and ADR-019 deliberately keeps it off DC01. And a routable user principal name suffix, supplied by a registered public domain, will be added alongside the existing `corp.home.arpa` suffix, because `home.arpa` is reserved by RFC 8375 and cannot be verified in a tenant. Neither changes the domain name, the Kerberos realm, `sAMAccountName` values, DNS, or Group Policy scoping.
+Three on-premises changes were made, all in Lab 02. A third virtual machine, `SYNC01`, running Windows Server 2022 and joined to `corp.home.arpa`, hosts Entra Connect Sync, since the synchronization engine requires a server operating system and ADR-019 deliberately keeps it off DC01. And a routable user principal name suffix, `brindeck.com`, was added alongside the existing `corp.home.arpa` suffix and applied to the users in scope, because `home.arpa` is reserved by RFC 8375 and cannot be verified in a tenant. Neither changed the domain name, the Kerberos realm, `sAMAccountName` values, DNS, or Group Policy scoping. A fifth organizational unit came with them: `OU=Service Accounts`, created to hold `svc-entraconnect`, the AD DS connector account, outside the synchronization scope.
+
+Lab 02 is in progress. Steps One through Seven are complete, leaving synchronization operational and password hash synchronization proven. Seamless single sign-on, the observed synchronization cycle and its deliberately induced failure, and the closing validation that the rest of the environment is unchanged are outstanding.
 
 Connectivity is outbound only. Password hash synchronization is the chosen authentication method precisely because it requires no publicly reachable on-premises endpoint, so `SYNC01` reaches Microsoft Entra ID outbound and nothing new is exposed inbound.
 

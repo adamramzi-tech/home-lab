@@ -6,7 +6,7 @@ A documentation-first homelab portfolio spanning Linux infrastructure, Windows e
 
 **Core stack:** Ubuntu Server, Docker, NGINX Proxy Manager, Prometheus, Grafana, Tailscale, Windows Server 2022, Active Directory, AD-integrated DNS, Group Policy, PowerShell (RSAT), SSSD and Kerberos, Wazuh SIEM, Microsoft Entra ID.
 
-**Current status:** The Linux Infrastructure, Enterprise Infrastructure, and Infrastructure Automation and Scripting tracks are all complete. The automation track closed with Lab 05 (Scheduled Health Reporting), leaving a thirteen-script PowerShell library against the live `corp.home.arpa` domain and a Task Scheduler job that reports the environment's health unattended. Cloud and Hybrid Identity is the current track, established by [ADR-019](docs/architecture/decisions/019-establish-cloud-and-hybrid-identity-track.md). Lab 01 (Tenant Foundation and Custom Domain) is complete: a Microsoft Entra tenant exists with `brindeck.com` verified as its primary domain, a cloud-only Global Administrator, and a tested emergency access account. Lab 02 (Hybrid Identity with Entra Connect) is in planning. No on-premises system has been modified by this track yet.
+**Current status:** The Linux Infrastructure, Enterprise Infrastructure, and Infrastructure Automation and Scripting tracks are all complete. The automation track closed with Lab 05 (Scheduled Health Reporting), leaving a thirteen-script PowerShell library against the live `corp.home.arpa` domain and a Task Scheduler job that reports the environment's health unattended. Cloud and Hybrid Identity is the current track, established by [ADR-019](docs/architecture/decisions/019-establish-cloud-and-hybrid-identity-track.md). Lab 01 (Tenant Foundation and Custom Domain) is complete: a Microsoft Entra tenant exists with `brindeck.com` verified as its primary domain, a cloud-only Global Administrator, and a tested emergency access account. Lab 02 (Hybrid Identity with Entra Connect) is in progress: `SYNC01` is built and joined to the domain, Entra Connect Sync is installed and synchronizing an organizational-unit-scoped population into the tenant, and a synchronized user has signed in to a cloud service with their on-premises password. Seamless single sign-on, the synchronization cycle and failure observations, and the closing validation that the rest of the environment is unchanged remain.
 
 New here? Skim the [Current Environment](#current-environment) for what is running, or the [architecture decision records](docs/architecture/decisions/) for the reasoning behind it.
 
@@ -24,7 +24,7 @@ The project is organized into five tracks:
 - **Cloud and Hybrid Identity** - Entra ID, Microsoft Entra Connect, and hybrid identity architecture *(in progress)*
 - **Network Infrastructure** - Perimeter firewall, VLAN segmentation, access control policy, and network-layer security *(planned)*
 
-The Linux, enterprise infrastructure, and infrastructure automation and scripting tracks are completed and fully documented. The automation track ran to five labs: Lab 01 (User Lifecycle Automation), Lab 02 (Group and OU Administration), Lab 03 (Static Analysis and Unit Testing), Lab 04 (Group Policy Reporting and Audit), and Lab 05 (Scheduled Health Reporting), which closed the track per [ADR-018](docs/architecture/decisions/018-retire-cross-platform-validation-lab.md). Cloud and Hybrid Identity is underway, established by [ADR-019](docs/architecture/decisions/019-establish-cloud-and-hybrid-identity-track.md), which defines its scope, design decisions, and boundaries. Its first lab is complete and its second is in planning. Network Infrastructure remains planned and will follow, as documented in [ADR-014](docs/architecture/decisions/014-establish-long-term-infrastructure-expansion-roadmap.md).
+The Linux, enterprise infrastructure, and infrastructure automation and scripting tracks are completed and fully documented. The automation track ran to five labs: Lab 01 (User Lifecycle Automation), Lab 02 (Group and OU Administration), Lab 03 (Static Analysis and Unit Testing), Lab 04 (Group Policy Reporting and Audit), and Lab 05 (Scheduled Health Reporting), which closed the track per [ADR-018](docs/architecture/decisions/018-retire-cross-platform-validation-lab.md). Cloud and Hybrid Identity is underway, established by [ADR-019](docs/architecture/decisions/019-establish-cloud-and-hybrid-identity-track.md), which defines its scope, design decisions, and boundaries. Its first lab is complete and its second is in progress. Network Infrastructure remains planned and will follow, as documented in [ADR-014](docs/architecture/decisions/014-establish-long-term-infrastructure-expansion-roadmap.md).
 
 ---
 
@@ -71,12 +71,13 @@ The project emphasizes:
 - VMware Workstation Pro (hosted on Windows 11 workstation)
 - DC01: Windows Server 2022 Standard Evaluation, static IP `192.168.1.10`, Active Directory Domain Services deployed, AD-integrated DNS operational, RDP enabled
 - WIN11-CLIENT01: Windows 11 Enterprise Evaluation, static IP `192.168.1.20`, RSAT installed, domain-joined enterprise workstation, computer account in `OU=Workstations`
-- Both VMs on bridged networking with direct LAN presence
+- SYNC01: Windows Server 2022 Standard Evaluation, static IP `192.168.1.30`, domain-joined member server, computer account in `OU=Workstations`, hosting Microsoft Entra Connect Sync (Cloud and Hybrid Identity track, Lab 02)
+- All three VMs on bridged networking with direct LAN presence
 - Active Directory Domain Services deployed: domain `corp.home.arpa` operational, DC01 promoted to domain controller, AD-integrated DNS active, OU structure created, domain user and group accounts created, post-promotion snapshots taken
 - WIN11-CLIENT01 joined to `corp.home.arpa`: computer account confirmed in `OU=Workstations`, domain authentication validated, Kerberos TGT confirmed, secure channel verified, Group Policy processing validated
 - Group Policy deployed: three purpose-built GPOs created, linked, and validated; security group filtering operational on `Workstation-Security-Baseline` using `Lab-Workstations`; RSoP confirmed on WIN11-CLIENT01 and DC01
 - Ubuntu Server joined to `corp.home.arpa`: SSSD and Kerberos configured, identity resolution operational, access restricted to `Linux-Admins` group, SSH authentication validated for permitted and denied users, AD-side computer account and group membership confirmed
-- Wazuh SIEM deployed: Manager, Indexer, and Dashboard running as Docker Compose stack on Ubuntu Server; agents enrolled on DC01, WIN11-CLIENT01, and Ubuntu Server; Windows Security and Linux authentication event collection validated
+- Wazuh SIEM deployed: Manager, Indexer, and Dashboard running as Docker Compose stack on Ubuntu Server; agents enrolled on DC01, WIN11-CLIENT01, Ubuntu Server, and SYNC01; Windows Security and Linux authentication event collection validated
 
 The Windows 11 workstation serves as the primary management endpoint and virtualization host for enterprise labs.
 
@@ -87,10 +88,10 @@ The Windows 11 workstation serves as the primary management endpoint and virtual
 - cross-platform identity chain (AD → SSSD → PAM → SSH) proven in both directions against a live test account (`jdoe`)
 - `Add-LabGroupMembers.ps1`, `Get-LabOUReport.ps1`, and `Get-LabAccountInventory.ps1`: PowerShell scripts run from WIN11-CLIENT01, covering CSV-driven bulk group membership with a partial-success batch model, per-OU user/computer census reporting, and full account inventory reporting with resolved group memberships
 - `Get-LabGPOInventory.ps1`, `Get-LabGPOLinkReport.ps1`, and `Get-LabRSoPReport.ps1`: read-only Group Policy reporting run from WIN11-CLIENT01, covering GPO inventory, per-OU link and inheritance state, and Resultant Set of Policy for a named user and computer
-- `Get-LabADServiceHealth.ps1`, `Get-LabWazuhAgentStatus.ps1`, `Get-LabDockerServiceStatus.ps1`, and `Invoke-LabHealthReport.ps1`: an environment health report covering DC01's Active Directory service state, Wazuh agent enrollment across all three systems, and Docker container state on Ubuntu Server, each check classified `Healthy`/`Unhealthy`/`Unknown` and aggregated worst-wins
+- `Get-LabADServiceHealth.ps1`, `Get-LabWazuhAgentStatus.ps1`, `Get-LabDockerServiceStatus.ps1`, and `Invoke-LabHealthReport.ps1`: an environment health report covering DC01's Active Directory service state, Wazuh agent enrollment across every enrolled system, and Docker container state on Ubuntu Server, each check classified `Healthy`/`Unhealthy`/`Unknown` and aggregated worst-wins
 - a Task Scheduler job on WIN11-CLIENT01, registered by `Register-LabHealthReportTask.ps1`, runs that report daily at 07:00 as `labadmin` at `RunLevel Limited` and writes a timestamped report file on every firing; observed firing unattended with no one logged on
 - every script's reported result independently cross-checked against a source outside the script that produced it, not just trusted on its own self-validation: standalone Active Directory queries for the directory-side scripts, and a direct DC01 service query, the Wazuh dashboard, and a raw `docker ps -a` on Ubuntu Server for the health checks
-- the full thirteen-script library passes a documented PSScriptAnalyzer standard (`PSScriptAnalyzerSettings.psd1`) with zero findings, and carries 172 Pester unit tests against mocked Active Directory, Group Policy, Windows service, REST, and Task Scheduler calls, all runnable on WIN11-CLIENT01 without a live domain, a reachable API, or credentials
+- the full thirteen-script library passes a documented PSScriptAnalyzer standard (`PSScriptAnalyzerSettings.psd1`) with zero findings, and carries 174 Pester unit tests against mocked Active Directory, Group Policy, Windows service, REST, and Task Scheduler calls, all runnable on WIN11-CLIENT01 without a live domain, a reachable API, or credentials; the suite stood at 172 when the track closed and gained two when Cloud Lab 02 changed `New-LabUser.ps1`
 
 ### Cloud and Hybrid Identity
 
@@ -98,7 +99,11 @@ The Windows 11 workstation serves as the primary management endpoint and virtual
 - a cloud-only Global Administrator operating the tenant, and a separate emergency access account kept on the `onmicrosoft.com` domain with its password and a second, device-independent sign-in method stored offline, validated by a full cold sign-in rather than by registration alone
 - multifactor authentication required for administrative sign-in through security defaults, which also block legacy authentication protocols and device code flow
 - Microsoft Entra ID Free for the identity foundation, under a Microsoft 365 Business Basic trial
-- no synchronization exists: the tenant and `corp.home.arpa` are separate directories with no relationship in either direction, and no on-premises system has been modified by this track. Lab 02 creates the connection
+- `SYNC01`, a Windows Server 2022 member server joined to `corp.home.arpa` at `192.168.1.30`, running Microsoft Entra Connect Sync v2.6.84.0 installed with Custom settings, authenticating to the directory as `svc-entraconnect` in a purpose-built `OU=Service Accounts`
+- `brindeck.com` added to Active Directory as an alternative user principal name suffix and applied to the users in `OU=User Accounts`, since `home.arpa` is reserved by RFC 8375 and cannot be verified in a tenant; `OU=IT` deliberately keeps the on-premises suffix
+- one-way synchronization scoped to `OU=User Accounts` and `OU=Groups`, with `ms-DS-ConsistencyGuid` as the source anchor: the tenant now holds nine users and five groups, and `labadmin` and the cloud-only administrative accounts remain outside the synchronized population by design
+- password hash synchronization confirmed working end to end, with a synchronized user signing in to a Microsoft cloud service as `testuser01@brindeck.com` using their existing on-premises password
+- seamless single sign-on, the observed synchronization cycle, and a deliberately induced synchronization failure are outstanding, along with the closing validation that the rest of the environment is unchanged
 
 ---
 
@@ -231,7 +236,7 @@ Planned labs, prerequisites, licensing constraints, and success criteria are doc
 | Phase | Status | Description |
 |---|---|---|
 | [01 - Tenant Foundation and Custom Domain](docs/cloud-and-hybrid-identity/01-tenant-foundation-and-custom-domain.md) | Complete | Microsoft Entra tenant creation, custom domain verification through DNS, a cloud-only Global Administrator and emergency access account, and multifactor authentication on administrative sign-in |
-| [02 - Hybrid Identity with Entra Connect](docs/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect.md) | Planning and research | `SYNC01` build and domain join, a routable user principal name suffix in Active Directory, Entra Connect Sync with organizational unit scoped synchronization and password hash synchronization, seamless single sign-on, and observed synchronization cycle and failure behavior |
+| [02 - Hybrid Identity with Entra Connect](docs/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect.md) | In progress | `SYNC01` build and domain join, a routable user principal name suffix in Active Directory, Entra Connect Sync with organizational unit scoped synchronization and password hash synchronization, seamless single sign-on, and observed synchronization cycle and failure behavior |
 
 Remaining lab documents are added here as each is implemented.
 
@@ -414,6 +419,28 @@ Completed:
 - a live `Unhealthy` report root-caused to a two-month-old monitoring-stack outage the report itself surfaced, remediated, and followed by a `Healthy` result from the next scheduled firing, demonstrating the classification discriminates a real fault from a clean environment
 - the full combined library, all thirteen scripts and thirteen test files, swept together for the first time: a clean `Invoke-ScriptAnalyzer -Recurse` pass and 172 of 172 Pester tests, closing the track's final success criterion and the track itself
 
+### Cloud and Hybrid Identity Track
+
+Completed:
+
+- Microsoft Entra tenant created through a Microsoft 365 Business Basic trial signup, with `brindeck.onmicrosoft.com` as its initial domain
+- `brindeck.com` registered through Cloudflare Registrar, verified in the tenant by DNS TXT record, and set as the primary domain
+- a cloud-only Global Administrator operating the tenant, and a separate emergency access account on the `onmicrosoft.com` domain validated by a full cold sign-in rather than by registration alone
+- multifactor authentication required for administrative sign-in through security defaults, which also block legacy authentication protocols and device code flow
+- `SYNC01` provisioned as a third virtual machine, static IP `192.168.1.30`, joined to `corp.home.arpa`, and enrolled as a Wazuh agent
+- `brindeck.com` added as an alternative user principal name suffix in Active Directory and applied to the five users in `OU=User Accounts`, with `OU=IT` deliberately untouched
+- `New-LabUser.ps1` changed to derive the user principal name suffix from the target OU rather than hardcoding `@corp.home.arpa`, with both branches covered by new Pester cases and proven live against a synchronized and a non-synchronized OU
+- `OU=Service Accounts` created to hold `svc-entraconnect`, the AD DS connector account, outside the synchronization scope, rather than letting the installer place it wherever `redirusr` points
+- Microsoft Entra Connect Sync v2.6.84.0 installed on `SYNC01` with Custom settings, password hash synchronization as the sign-in method, and `ms-DS-ConsistencyGuid` confirmed as the source anchor
+- synchronization scoped to `OU=User Accounts` and `OU=Groups`, verified through Synchronization Service Manager after a Container Picker defect in that version forced a documented workaround
+- first synchronization cycle completed cleanly across all six connector operations; the tenant went from three users and one group to nine users and five groups, all synchronized objects carrying `@brindeck.com` and `On-premises sync: Yes`
+- password hash synchronization proven by a live sign-in as `testuser01@brindeck.com` using an existing on-premises password
+- `IT-Admins` observed synchronizing with a partially invisible membership, the predicted consequence of organizational-unit filtering rather than a defect
+
+In progress:
+
+- Lab 02 Steps Eight through Ten: seamless single sign-on configuration and validation, observation of the synchronization cycle followed by a deliberately induced failure, and confirmation that DC01, WIN11-CLIENT01, and Ubuntu Server still behave as the earlier tracks documented
+
 ---
 
 ## Long-Term Direction
@@ -428,4 +455,4 @@ The long-term objective is to build practical real-world experience that reflect
 - administrative workflows are automated and repeatable
 - operational changes are documented and validated incrementally
 
-The planned track sequence (Infrastructure Automation and Scripting, Cloud and Hybrid Identity, Network Infrastructure) is documented in [ADR-014](docs/architecture/decisions/014-establish-long-term-infrastructure-expansion-roadmap.md). The first of those three is now complete. Cloud and Hybrid Identity is underway, established in detail by [ADR-019](docs/architecture/decisions/019-establish-cloud-and-hybrid-identity-track.md), with its tenant foundation built and hybrid identity in planning.
+The planned track sequence (Infrastructure Automation and Scripting, Cloud and Hybrid Identity, Network Infrastructure) is documented in [ADR-014](docs/architecture/decisions/014-establish-long-term-infrastructure-expansion-roadmap.md). The first of those three is now complete. Cloud and Hybrid Identity is underway, established in detail by [ADR-019](docs/architecture/decisions/019-establish-cloud-and-hybrid-identity-track.md), with its tenant foundation built and directory synchronization operational as of Lab 02.

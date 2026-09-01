@@ -144,6 +144,20 @@ Container names should remain readable and operationally descriptive.
 
 ---
 
+## Service Account Naming
+
+Accounts that exist for a service or an integration rather than for a person are prefixed `svc-` and named for what they serve, not for the product version or the lab that created them.
+
+Examples:
+
+```text
+svc-entraconnect
+```
+
+Service accounts live in `OU=Service Accounts` rather than in the redirected default new-user location, so that placement is a deliberate act and so that they can be excluded from scoping decisions, such as directory synchronization, that apply to ordinary user OUs. They are granted the specific rights their service needs and nothing more, and they are not members of administrative groups by default.
+
+---
+
 ## Docker Network Naming
 
 Docker networks should describe their operational role.
@@ -221,7 +235,7 @@ Current and planned phases include:
 linux-infrastructure/       (completed)
 enterprise-infrastructure/  (completed)
 automation-and-scripting/   (completed)
-cloud-and-hybrid-identity/  (planned)
+cloud-and-hybrid-identity/  (in progress)
 network-infrastructure/     (planned)
 architecture/
 ```
@@ -302,7 +316,7 @@ infrastructure/automation-and-scripting/
 The cloud and hybrid identity track focuses on:
 
 - Microsoft Entra ID and Entra Connect configuration
-- hybrid identity integration between on-premises AD and Azure
+- hybrid identity integration between on-premises AD and Microsoft Entra ID
 - Entra ID user and group management
 - Microsoft 365 administration workflows
 - cloud identity architecture

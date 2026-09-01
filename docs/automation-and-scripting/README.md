@@ -79,6 +79,8 @@ Each script is documented with purpose, usage, parameters, expected output, and 
 
 All five labs are complete, and with them the track. Per [ADR-018](../architecture/decisions/018-retire-cross-platform-validation-lab.md), Scheduled Health Reporting was the track's fifth and final lab. The library it leaves behind is thirteen PowerShell scripts and thirteen Pester test files, swept together at the close of Lab 05 with a clean `Invoke-ScriptAnalyzer` pass and 172 of 172 Pester tests passing.
 
+One change has been made to the library since. Lab 02 of the Cloud and Hybrid Identity track changed `New-LabUser.ps1` to derive the user principal name suffix from the target OU, so accounts created in a synchronized organizational unit receive the routable `@brindeck.com` suffix, and extended `New-LabUser.Tests.ps1` to cover both branches. The suite now stands at 174 tests with the analyzer sweep still clean. The revision is appended to [Lab 01](01-user-lifecycle-automation.md) rather than written into its original narrative.
+
 ---
 
 ## Success Criteria

@@ -386,8 +386,9 @@ Long-term snapshot accumulation is avoided to reduce:
 
 ### Responsibilities
 
-- Microsoft Entra Connect Sync (installation planned for Lab 02 Step Five)
-- hybrid identity synchronization between `corp.home.arpa` and `brindeck.onmicrosoft.com`, once installed
+- Microsoft Entra Connect Sync v2.6.84.0, installed in Lab 02 Step Five using Custom settings
+- hybrid identity synchronization between `corp.home.arpa` and `brindeck.onmicrosoft.com`, scoped to `OU=User Accounts` and `OU=Groups`, using password hash synchronization with `ms-DS-ConsistencyGuid` as the source anchor
+- AD DS connector account `svc-entraconnect`, a plain user object in `OU=Service Accounts` granted basic read, `Replicate Directory Changes`, `Replicate Directory Changes All`, and read/write on `ms-DS-ConsistencyGuid`
 
 ### Current and Planned Usage
 
@@ -424,7 +425,7 @@ DC01 DNS Server (192.168.1.10)
 Public Resolvers (1.1.1.1 / 8.8.8.8)
 ```
 
-WIN11-CLIENT01 is configured to use DC01 (`192.168.1.10`) as its primary DNS server. DC01 points to itself (`192.168.1.10`) as primary DNS.
+WIN11-CLIENT01 is configured to use DC01 (`192.168.1.10`) as its primary DNS server. DC01 points to itself (`192.168.1.10`) as primary DNS. SYNC01, added in Lab 02 of the Cloud and Hybrid Identity track, uses DC01 as its preferred DNS server on the same basis.
 
 This architecture supports:
 - Active Directory service discovery
@@ -435,17 +436,41 @@ This architecture supports:
 
 ---
 
+## Directory Additions from the Cloud and Hybrid Identity Track
+
+The enterprise infrastructure track left `corp.home.arpa` with four organizational units and a single user principal name suffix. Lab 02 of the Cloud and Hybrid Identity track added to both, without changing the domain name, the Kerberos realm, `sAMAccountName` values, DNS, or Group Policy scoping.
+
+Alternative user principal name suffix:
+
+```text
+corp.home.arpa   (default, retained)
+brindeck.com     (alternative, added in Lab 02)
+```
+
+`brindeck.com` was added to the forest as an alternative suffix and applied to the users in `OU=User Accounts`, five at the time it was added. It exists because `home.arpa` is reserved by RFC 8375 and can never be verified in a Microsoft Entra tenant, so an account whose sign-in name ends in `corp.home.arpa` cannot synchronize with a matching user principal name. Accounts in `OU=IT` were deliberately left on the on-premises suffix, since that OU is outside the synchronization scope.
+
+Organizational unit added:
+
+```text
+OU=Service Accounts
+```
+
+`OU=Service Accounts` holds `svc-entraconnect`, the AD DS connector account Entra Connect Sync authenticates with. It was created deliberately rather than letting the installer place the account wherever `redirusr` points, which is `OU=User Accounts` and therefore inside the synchronization scope. The OU itself is out of scope, so nothing in it reaches the tenant.
+
+---
+
 # Networking
 
 ## Virtual Network Configuration
 
-Both DC01 and WIN11-CLIENT01 operate on VMware bridged networking, giving each VM a direct LAN presence through the Windows 11 workstation's physical adapter.
+DC01, WIN11-CLIENT01, and SYNC01 operate on VMware bridged networking, giving each VM a direct LAN presence through the Windows 11 workstation's physical adapter.
 
 Confirmed addressing:
 
 ```text
 DC01               192.168.1.10
 WIN11-CLIENT01     192.168.1.20
+SYNC01             192.168.1.30
 Ubuntu Server      192.168.1.226
 Router             192.168.1.1
 ```
