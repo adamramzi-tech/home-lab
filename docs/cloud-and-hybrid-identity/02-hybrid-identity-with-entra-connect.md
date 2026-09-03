@@ -464,11 +464,63 @@ The plan's caution about a silent, indistinguishable failure mode did not end up
 
 ### Step Nine: Observe the cycle, then break it on purpose
 
-Let the scheduler run unattended and record what a normal cycle looks like over several intervals: `Get-ADSyncScheduler` output, the run history, and how long a change made on-premises takes to appear.
+**Confirmed Duplicate Attribute Resiliency was actually enabled before inducing anything.** If it were off, an incoming UPN collision fails the whole object instead of quarantining one attribute, and the rest of this step would need a different design entirely. `Connect-Entra` was used for this and for every diagnostic step below rather than the Graph SDK cmdlets ADR-019 names elsewhere: `Connect-Entra` is a published alias for `Connect-MgGraph` in the `Microsoft.Entra.Authentication` module, the same Graph plumbing with friendlier cmdlet names layered on top, so it is not a deviation from the Graph-first design, only a more readable surface for interactive, one-off diagnosis. The deprecated `Get-MsolDirSyncProvisioningError`, from the retired MSOnline module, was deliberately not used. Getting `Connect-Entra` to authenticate at all fought through real tooling friction, recorded in Troubleshooting and Adjustments. Once connected:
 
-Then induce a failure and document how it presents and how it is diagnosed. The candidate chosen during planning is a duplicate user principal name conflict, created by giving an on-premises account a user principal name that already belongs to a cloud-only object in the tenant. It is chosen because of how it fails rather than that it fails: with Duplicate Attribute Resiliency active, the conflicting attribute is quarantined and a placeholder assigned, the export succeeds, and the synchronization engine reports no error at all. It is the failure mode most likely to be missed in a real environment and the one that best justifies the Connect Health decision above.
+```powershell
+Get-EntraDirSyncFeature -Feature QuarantineUponUpnConflict
+```
 
-A second candidate, held in reserve, is stopping the ADSync service or severing outbound connectivity from `SYNC01`, which fails loudly and at a different layer. If the first produces a thin result, the second gives a contrasting one.
+returned `True`:
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/25-dar-quarantineuponupnconflict-enabled.jpg" alt="25-dar-quarantineuponupnconflict-enabled" width="700">
+</p>
+
+This is the actual accepted feature name; Microsoft's own conceptual documentation calls the same feature `DuplicateUPNResiliency`, which the cmdlet rejects outright, a genuine naming drift also recorded in Troubleshooting and Adjustments. With confirmation in hand, the narrative below is the one the plan anticipated, not the alternate one a disabled feature would have forced.
+
+**Letting the scheduler run unattended surfaced a real defect: it had never run since installation.** `Get-ADSyncScheduler` showed `SyncCycleEnabled: False`. Synchronization Service Manager's Operations tab confirmed how long that had been true: the most recent recorded activity was a `Full Import` from the day Entra Connect was installed, and the next entry after it was the one just forced manually, a full week later, with nothing in between.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/26-adsync-scheduler-week-long-gap.jpg" alt="26-adsync-scheduler-week-long-gap" width="700">
+</p>
+
+Every change synchronized in this lab up through Step Eight had reached the tenant only because it happened to be pulled in by a manually forced cycle or the installation's own initial sync, never by the scheduler doing its job unattended. `Set-ADSyncScheduler -SyncCycleEnabled $true` corrected it, and a forced `Start-ADSyncSyncCycle -PolicyType Delta` afterward confirmed a live cycle: `SyncCycleInProgress: True` and a `NextSyncCycleStartTimeInUTC` refreshed to thirty minutes out, matching `AllowedSyncCycleInterval`. This is now a standing fact worth carrying into Step Ten's finished-state validation, not only a Step Nine finding.
+
+**Created a disposable, unprivileged cloud-only user as the collision target, per the plan change agreed before this step began.** All three existing cloud-only accounts in the tenant are Global Administrator-tier, including the emergency access account, and none of them was an acceptable thing to collide on purpose. A new cloud-only user, `duptest01@brindeck.com`, was created directly in the Entra admin center instead, with no administrative role assignments. Two on-premises test accounts, `duptest01` and `duptest02`, were then provisioned with `New-LabUser.ps1` in `OU=User Accounts`, which derives their UPN suffix as `brindeck.com` for that OU automatically.
+
+**The first collision attempt reproduced UPN soft match, not Duplicate Attribute Resiliency.** Syncing the new on-premises `duptest01` in, sharing a UPN with the cloud-only `duptest01` created moments earlier, did not quarantine anything. The Entra object that had been a bare cloud-only user was, after the sync, showing a real distinguished name and a populated immutable ID:
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/27-duptest01-soft-match-absorbed-on-premises-properties.jpg" alt="27-duptest01-soft-match-absorbed-on-premises-properties" width="700">
+</p>
+
+Its group membership had also picked up `Domain-Users-Standard`, sourced from Windows Server AD according to the Groups tab, on an object that should have had no on-premises source at all: it had been absorbed rather than flagged. This is UPN soft match doing exactly what it is designed to do: it has been on by default for tenants created after August 2016, and a cloud-only object with no immutable ID set is precisely the case it is built to reconcile as the same identity rather than treat as a conflict. It is a genuinely different mechanism from Duplicate Attribute Resiliency, and this is the near miss that clarified the distinction rather than a wasted attempt.
+
+**The second attempt was blocked one layer lower, by Active Directory itself.** With the on-premises `duptest01` now the object actually holding that UPN, a second on-premises account, `duptest02`, was set to the same value directly:
+
+```
+PS C:\Program Files\Microsoft Azure Active Directory Connect> Set-ADUser -Identity duptest02 -UserPrincipalName "duptest01@brindeck.com"
+Set-ADUser : The operation failed because UPN value provided for addition/modification is not unique forest-wide
+At line:1 char:1
++ Set-ADUser -Identity duptest02 -UserPrincipalName "duptest01@brindeck ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (duptest02:ADUser) [Set-ADUser], ADException
+    + FullyQualifiedErrorId : ActiveDirectoryServer:8648,Microsoft.ActiveDirectory.Management.Commands.SetADUser
+```
+
+Active Directory enforces UPN uniqueness across the whole forest for its own objects, but has no visibility into Entra's cloud-only namespace, which is exactly why a bare cloud-only object, not another on-premises object, is the only viable collision target in a single-forest lab like this one.
+
+**Disabling soft match and retargeting a fresh cloud-only stub produced a genuine quarantine.** `Set-EntraDirSyncFeature -Features 'BlockSoftMatch' -Enable $true` turned the resolution mechanism off, a reversible toggle rather than the permanent commitment `EnableSoftMatchOnUpn` would have been. A new bare cloud-only object, `duptest03@brindeck.com`, was created with no immutable ID, and `duptest02`'s on-premises UPN was retargeted at it. The following delta cycle's export reported success and the Operations tab showed the same zero-updates result on later cycles, no retry, no error surfaced anywhere in the synchronization client. The evidence lived entirely in the tenant: `duptest02`'s on-premises provisioning errors link on its Entra profile led to one recorded conflict.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/28-dar-quarantine-propertyconflict-detail.jpg" alt="28-dar-quarantine-propertyconflict-detail" width="700">
+</p>
+
+This is worth being precise about rather than overclaiming: Duplicate Attribute Resiliency actually has two distinct presentations, a new object provisioned with a placeholder UPN in the `<prefix>+<4digits>@<tenant>.onmicrosoft.com` format, and an update conflict on an already-synced object, which rejects the incoming value, keeps the last known good UPN, and logs the rejection exactly as shown above. What this collision produced is the second variant; the general documentation's placeholder-format case never came up, because `duptest02` was already a synced object by the time the conflicting UPN reached it, not a new one arriving for the first time. The evidence above, a `PropertyConflict` category against `UserPrincipalName`, was judged sufficient on its own for what this step needed to demonstrate: that Duplicate Attribute Resiliency quarantines silently, without failing the export or logging anything the sync client itself would surface. Querying the same record with `Get-EntraUser` returned a `403 Forbidden`, a scopes gap in that particular `Connect-Entra` session rather than a dead end worth chasing further, since the portal had already answered the question.
+
+**Recovery corrected the UPN immediately; the logged conflict record cleared on its own delayed schedule.** Reverting `duptest02`'s on-premises UPN and forcing a delta sync fixed the attribute in the tenant right away, confirmed on the next check. The provisioning error record itself did not clear in that same check, consistent with the plan's warning that a background task in Entra de-quarantines resolved conflicts hourly rather than immediately on the next sync, and an unclearing record at that point was not a sign recovery had failed. It cleared roughly twenty-six minutes later, faster than the full hour the plan anticipated, worth recording as a real data point: the hourly sweep evidently is not anchored to the moment the conflict was created. `BlockSoftMatch` itself was reverted as part of the same cleanup, `Set-EntraDirSyncFeature -Features 'BlockSoftMatch' -Enable $false` confirmed back to `False`: it is a tenant-wide setting Microsoft treats as a temporary measure, not a lab artifact, and leaving it on would have changed how every future object in the tenant reconciles, well past what this step needed to demonstrate.
+
+**Cleanup left one deliberate fixture behind rather than a clean slate.** Both on-premises test objects, `duptest01` and `duptest02`, were deleted outright with `Remove-ADUser` rather than `Remove-LabUser.ps1`, which is built only to disable and offboard an account, not remove the AD object itself, making it the wrong tool for scaffolding meant to disappear entirely; using `Remove-ADUser` directly instead is the same approach Step Four's stray-object cleanup already established. A final forced export confirmed two deletes and one update with no errors. The one surviving object, the cloud-only `duptest03`, was kept rather than deleted, and renamed to `cloudonly-demo01@brindeck.com` with the display name `Cloud-Only Demo Account (Lab 03 fixture)`. The disposition is forward-justified rather than leftover debris: ADR-019 Design Decision 6 is what put two of the tenant's three existing cloud-only accounts at Global Administrator tier, `admin@brindeck.com` and the break-glass emergency access account (the third, the original Microsoft 365 signup account, keeps Global Administrator for the separate subscription-ownership reason Lab 01 recorded); all three, for their own reasons, were equally off-limits as a collision target, which is why a disposable cloud-only object had to exist at all. Lab 03 needs a safe, unprivileged cloud-only object to contrast against a synchronized one, and this account, having already served its purpose here, is the only alternative to reusing one of the tenant's three Global Administrator-tier accounts for that comparison. The second failure mode held in reserve during planning, stopping the ADSync service or severing `SYNC01`'s outbound connectivity, was never needed: the collision above produced substantially more diagnostic material than a loud failure would have.
 
 ### Step Ten: Validate the environment is otherwise unchanged, and record the finished state
 
@@ -589,6 +641,14 @@ Getting `New-AzureADSSOAuthenticationContext` to actually render a sign-in windo
 ### `Standard-User-Environment`'s Control Panel Restriction Redirected Zone Validation to the Registry
 
 Step Eight-B's plan assumed the usual GUI confirmation of a Site to Zone Assignment List entry, `Internet Options > Security > Local intranet > Sites > Advanced` on WIN11-CLIENT01. `Standard-User-Environment`, applied to `testuser01` from enterprise Lab 05, restricts that account's Control Panel access, closing off that path entirely, `inetcpl.cpl` simply would not open. The two settings were confirmed instead directly against the registry locations the underlying ADMX policies actually write to (`HKCU\...\ZoneMap\Domains\microsoftazuread-sso.com\autologon` and `HKCU\...\Zones\1`, value `2103`), both readable non-elevated as `testuser01` himself since they land under `HKEY_CURRENT_USER`. If anything, this produced more precise evidence than the GUI check would have, an exact registry value rather than a visual read of whether a listbox entry is greyed out.
+
+### `Connect-Entra` Would Not Authenticate Until Security Defaults' Device Code Block Was Worked Around
+
+Installing `Microsoft.Entra` failed first, on a module clobber conflict with an already-installed `Microsoft.Entra.CertificateBasedAuthentication 1.3.0`, both real v1.0 releases rather than the beta-versus-stable conflict Microsoft's own documentation frames this error around; `Install-Module Microsoft.Entra -Scope CurrentUser -AllowClobber -Force` resolved it. `Connect-Entra` then crashed outright immediately after its WAM broker warning, "process exited with code 2," a broker window-handle failure common to embedded or remoted terminal sessions. Falling back to `-UseDeviceCode` traded that crash for a different failure: "Your sign-in was successful but you don't have permission to access this resource," which is Security Defaults blocking the device code flow outright, exactly as ADR-019 Design Decision 6 anticipates for this tenant's administrative model. `Set-MgGraphOption -DisableLoginByWAM $true` was set and the interactive flow retried, and it succeeded, but the tool's own printed output states this setting is a no-op with the default Microsoft-owned client ID, so what actually changed between the crash and the successful retry was not conclusively identified. It is recorded honestly as an unresolved detail rather than credited to a fix that cannot be confirmed to have taken effect.
+
+### `Get-EntraDirSyncFeature`'s Accepted Feature Name Does Not Match Microsoft's Own Documentation
+
+`Get-EntraDirSyncFeature -Feature DuplicateUPNResiliency`, the name Microsoft's conceptual documentation uses for this feature, failed with "Invalid value for parameter." The cmdlet's actual accepted value, found only by searching past the conceptual article to the cmdlet reference itself, is `QuarantineUponUpnConflict`. This is a genuine naming drift between the retired MSOnline module's documentation generation and the current `Microsoft.Entra.DirectoryManagement` module, not a misconfiguration in this environment, and it cost real time before the mismatch was recognized as the actual problem.
 
 ## Security Considerations
 
