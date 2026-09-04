@@ -6,7 +6,7 @@ A documentation-first homelab portfolio spanning Linux infrastructure, Windows e
 
 **Core stack:** Ubuntu Server, Docker, NGINX Proxy Manager, Prometheus, Grafana, Tailscale, Windows Server 2022, Active Directory, AD-integrated DNS, Group Policy, PowerShell (RSAT), SSSD and Kerberos, Wazuh SIEM, Microsoft Entra ID.
 
-**Current status:** The Linux Infrastructure, Enterprise Infrastructure, and Infrastructure Automation and Scripting tracks are all complete. The automation track closed with Lab 05 (Scheduled Health Reporting), leaving a thirteen-script PowerShell library against the live `corp.home.arpa` domain and a Task Scheduler job that reports the environment's health unattended. Cloud and Hybrid Identity is the current track, established by [ADR-019](docs/architecture/decisions/019-establish-cloud-and-hybrid-identity-track.md). Lab 01 (Tenant Foundation and Custom Domain) is complete: a Microsoft Entra tenant exists with `brindeck.com` verified as its primary domain, a cloud-only Global Administrator, and a tested emergency access account. Lab 02 (Hybrid Identity with Entra Connect) is in progress: `SYNC01` is built and joined to the domain, Entra Connect Sync is installed and synchronizing an organizational-unit-scoped population into the tenant, and a synchronized user has signed in to a cloud service with their on-premises password. Seamless single sign-on, the synchronization cycle and failure observations, and the closing validation that the rest of the environment is unchanged remain.
+**Current status:** The Linux Infrastructure, Enterprise Infrastructure, and Infrastructure Automation and Scripting tracks are all complete. The automation track closed with Lab 05 (Scheduled Health Reporting), leaving a thirteen-script PowerShell library against the live `corp.home.arpa` domain and a Task Scheduler job that reports the environment's health unattended. Cloud and Hybrid Identity is the current track, established by [ADR-019](docs/architecture/decisions/019-establish-cloud-and-hybrid-identity-track.md). Lab 01 (Tenant Foundation and Custom Domain) is complete: a Microsoft Entra tenant exists with `brindeck.com` verified as its primary domain, a cloud-only Global Administrator, and a tested emergency access account. Lab 02 (Hybrid Identity with Entra Connect) is complete: `SYNC01` is built and joined to the domain, Entra Connect Sync is installed and synchronizing an organizational-unit-scoped population into the tenant, a synchronized user has signed in to a cloud service with their on-premises password, seamless single sign-on is validated from WIN11-CLIENT01, and the synchronization cycle and a deliberately induced failure are documented as observed rather than as described.
 
 New here? Skim the [Current Environment](#current-environment) for what is running, or the [architecture decision records](docs/architecture/decisions/) for the reasoning behind it.
 
@@ -24,7 +24,7 @@ The project is organized into five tracks:
 - **Cloud and Hybrid Identity** - Entra ID, Microsoft Entra Connect, and hybrid identity architecture *(in progress)*
 - **Network Infrastructure** - Perimeter firewall, VLAN segmentation, access control policy, and network-layer security *(planned)*
 
-The Linux, enterprise infrastructure, and infrastructure automation and scripting tracks are completed and fully documented. The automation track ran to five labs: Lab 01 (User Lifecycle Automation), Lab 02 (Group and OU Administration), Lab 03 (Static Analysis and Unit Testing), Lab 04 (Group Policy Reporting and Audit), and Lab 05 (Scheduled Health Reporting), which closed the track per [ADR-018](docs/architecture/decisions/018-retire-cross-platform-validation-lab.md). Cloud and Hybrid Identity is underway, established by [ADR-019](docs/architecture/decisions/019-establish-cloud-and-hybrid-identity-track.md), which defines its scope, design decisions, and boundaries. Its first lab is complete and its second is in progress. Network Infrastructure remains planned and will follow, as documented in [ADR-014](docs/architecture/decisions/014-establish-long-term-infrastructure-expansion-roadmap.md).
+The Linux, enterprise infrastructure, and infrastructure automation and scripting tracks are completed and fully documented. The automation track ran to five labs: Lab 01 (User Lifecycle Automation), Lab 02 (Group and OU Administration), Lab 03 (Static Analysis and Unit Testing), Lab 04 (Group Policy Reporting and Audit), and Lab 05 (Scheduled Health Reporting), which closed the track per [ADR-018](docs/architecture/decisions/018-retire-cross-platform-validation-lab.md). Cloud and Hybrid Identity is underway, established by [ADR-019](docs/architecture/decisions/019-establish-cloud-and-hybrid-identity-track.md), which defines its scope, design decisions, and boundaries. Its first two labs are complete. Network Infrastructure remains planned and will follow, as documented in [ADR-014](docs/architecture/decisions/014-establish-long-term-infrastructure-expansion-roadmap.md).
 
 ---
 
@@ -101,9 +101,12 @@ The Windows 11 workstation serves as the primary management endpoint and virtual
 - Microsoft Entra ID Free for the identity foundation, under a Microsoft 365 Business Basic trial
 - `SYNC01`, a Windows Server 2022 member server joined to `corp.home.arpa` at `192.168.1.30`, running Microsoft Entra Connect Sync v2.6.84.0 installed with Custom settings, authenticating to the directory as `svc-entraconnect` in a purpose-built `OU=Service Accounts`
 - `brindeck.com` added to Active Directory as an alternative user principal name suffix and applied to the users in `OU=User Accounts`, since `home.arpa` is reserved by RFC 8375 and cannot be verified in a tenant; `OU=IT` deliberately keeps the on-premises suffix
-- one-way synchronization scoped to `OU=User Accounts` and `OU=Groups`, with `ms-DS-ConsistencyGuid` as the source anchor: the tenant now holds nine users and five groups, and `labadmin` and the cloud-only administrative accounts remain outside the synchronized population by design
+- one-way synchronization scoped to `OU=User Accounts` and `OU=Groups`, with `ms-DS-ConsistencyGuid` as the source anchor: the tenant now holds ten users, five groups, and one enterprise application registered by Entra Connect Sync's own installation, and `labadmin` and the cloud-only administrative accounts remain outside the synchronized population by design
 - password hash synchronization confirmed working end to end, with a synchronized user signing in to a Microsoft cloud service as `testuser01@brindeck.com` using their existing on-premises password
-- seamless single sign-on, the observed synchronization cycle, and a deliberately induced synchronization failure are outstanding, along with the closing validation that the rest of the environment is unchanged
+- seamless single sign-on enabled and validated from WIN11-CLIENT01: a password-free sign-in to `myapps.microsoft.com`, confirmed independently by a Kerberos service ticket for the autologon endpoint rather than inferred from the smooth sign-in alone
+- `AZUREADSSOACC` held in `OU=Protected Objects`, a new organizational unit with inheritance disabled and Full control reduced to Domain Admins, Enterprise Admins, Administrators, and SYSTEM, with the account's Kerberos key rolled and its encryption type set explicitly to AES
+- the synchronization scheduler observed rather than assumed: `SyncCycleEnabled` was found `False` since installation, corrected, and confirmed by three unattended Delta cycles landing roughly thirty minutes apart
+- a deliberately induced user principal name collision quarantined by Duplicate Attribute Resiliency and diagnosed from the tenant's provisioning error record, the synchronization client reporting a clean export throughout
 
 ---
 
@@ -236,7 +239,7 @@ Planned labs, prerequisites, licensing constraints, and success criteria are doc
 | Phase | Status | Description |
 |---|---|---|
 | [01 - Tenant Foundation and Custom Domain](docs/cloud-and-hybrid-identity/01-tenant-foundation-and-custom-domain.md) | Complete | Microsoft Entra tenant creation, custom domain verification through DNS, a cloud-only Global Administrator and emergency access account, and multifactor authentication on administrative sign-in |
-| [02 - Hybrid Identity with Entra Connect](docs/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect.md) | In progress | `SYNC01` build and domain join, a routable user principal name suffix in Active Directory, Entra Connect Sync with organizational unit scoped synchronization and password hash synchronization, seamless single sign-on, and observed synchronization cycle and failure behavior |
+| [02 - Hybrid Identity with Entra Connect](docs/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect.md) | Complete | `SYNC01` build and domain join, a routable user principal name suffix in Active Directory, Entra Connect Sync with organizational unit scoped synchronization and password hash synchronization, seamless single sign-on, and observed synchronization cycle and failure behavior |
 
 Remaining lab documents are added here as each is implemented.
 
@@ -436,10 +439,19 @@ Completed:
 - first synchronization cycle completed cleanly across all six connector operations; the tenant went from three users and one group to nine users and five groups, all synchronized objects carrying `@brindeck.com` and `On-premises sync: Yes`
 - password hash synchronization proven by a live sign-in as `testuser01@brindeck.com` using an existing on-premises password
 - `IT-Admins` observed synchronizing with a partially invisible membership, the predicted consequence of organizational-unit filtering rather than a defect
+- seamless single sign-on enabled and validated from WIN11-CLIENT01 by a password-free sign-in to `myapps.microsoft.com`, confirmed independently by a `klist` service ticket for `HTTP/autologon.microsoftazuread-sso.com` issued with AES-256
+- `AZUREADSSOACC` moved into a new, delegation-restricted `OU=Protected Objects`, its delegation state confirmed clean from every angle available and its Kerberos key rolled with the encryption type set explicitly to AES128 and AES256
+- `Seamless-SSO-Zone-Configuration` created and linked to `OU=User Accounts`, its effective values confirmed from the registry after `Standard-User-Environment`'s Control Panel restriction closed off the usual GUI check
+- `SyncCycleEnabled` found `False` since installation, meaning nothing had synchronized unattended in the first week; corrected, then proven by three consecutive Delta cycles landing roughly thirty minutes apart with nothing forced
+- a deliberate user principal name collision quarantined by Duplicate Attribute Resiliency, visible only in the tenant's provisioning error record while the synchronization client reported a successful export, after a first attempt reproduced UPN soft match instead
+- DC01, WIN11-CLIENT01, Ubuntu Server, and all four Wazuh agents confirmed unchanged by the lab, with the automation library's health report clean and its full thirteen-script Pester suite passing 174 of 174
 
-In progress:
+Carrying forward:
 
-- Lab 02 Steps Eight through Ten: seamless single sign-on configuration and validation, observation of the synchronization cycle followed by a deliberately induced failure, and confirmation that DC01, WIN11-CLIENT01, and Ubuntu Server still behave as the earlier tracks documented
+- the Active Directory Recycle Bin, recommended by the Entra Connect installer but forest-wide and irreversible once enabled, left to the Enterprise Infrastructure track rather than applied mid-lab
+- security defaults found to enforce multifactor authentication tenant-wide rather than for administrators only, to be scoped properly in Lab 05
+- `AZUREADSSOACC`'s Kerberos key rollover, recommended at least every thirty days with nothing in the product doing it automatically, a candidate for the Microsoft Graph PowerShell automation in Lab 06
+- two defects in the automation library, recorded in [that track's README](docs/automation-and-scripting/README.md): a stale Wazuh default agent list that leaves the scheduled health report never checking `SYNC01`, and a Portainer documentation mismatch
 
 ---
 

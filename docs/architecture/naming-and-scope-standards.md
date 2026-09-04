@@ -144,6 +144,26 @@ Container names should remain readable and operationally descriptive.
 
 ---
 
+## Organizational Unit Organization
+
+Organizational units are organized by operational role by default. An OU groups objects by what they are and what they are for, and its name says so.
+
+Examples:
+
+```text
+OU=IT
+OU=User Accounts
+OU=Workstations
+OU=Groups
+OU=Service Accounts
+```
+
+Protection level is a deliberate exception to that default, taken only where an object's exposure rather than its function determines where it belongs. `OU=Protected Objects`, added in Lab 02 of the Cloud and Hybrid Identity track, is the first of these. It holds `AZUREADSSOACC`, the computer account seamless single sign-on shares a Kerberos decryption key with, which Microsoft's guidance says only Domain Admins should be able to manage and which should be safe from accidental deletion. An OU sized for ordinary domain-joined machines does not provide that, so the OU was created directly under the domain root with inheritance disabled and Full control reduced to Domain Admins, Enterprise Admins, Administrators, and SYSTEM. The `redircmp` redirect was left untouched; new computer objects still land in `OU=Workstations`.
+
+An OU created on that basis is named for what it protects, not with a tier or sensitivity label. The exception is not a licence to organize by sensitivity generally: an object belongs in a protection-level OU only when the role-based OU it would otherwise sit in cannot give it the administrative boundary it needs.
+
+---
+
 ## Service Account Naming
 
 Accounts that exist for a service or an integration rather than for a person are prefixed `svc-` and named for what they serve, not for the product version or the lab that created them.

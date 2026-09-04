@@ -389,6 +389,7 @@ Long-term snapshot accumulation is avoided to reduce:
 - Microsoft Entra Connect Sync v2.6.84.0, installed in Lab 02 Step Five using Custom settings
 - hybrid identity synchronization between `corp.home.arpa` and `brindeck.onmicrosoft.com`, scoped to `OU=User Accounts` and `OU=Groups`, using password hash synchronization with `ms-DS-ConsistencyGuid` as the source anchor
 - AD DS connector account `svc-entraconnect`, a plain user object in `OU=Service Accounts` granted basic read, `Replicate Directory Changes`, `Replicate Directory Changes All`, and read/write on `ms-DS-ConsistencyGuid`
+- seamless single sign-on, enabled during installation and maintained from this host: `Update-AzureADSSOForest` rolls the `AZUREADSSOACC` Kerberos decryption key, which Microsoft recommends at least every thirty days
 
 ### Current and Planned Usage
 
@@ -438,7 +439,7 @@ This architecture supports:
 
 ## Directory Additions from the Cloud and Hybrid Identity Track
 
-The enterprise infrastructure track left `corp.home.arpa` with four organizational units and a single user principal name suffix. Lab 02 of the Cloud and Hybrid Identity track added to both, without changing the domain name, the Kerberos realm, `sAMAccountName` values, DNS, or Group Policy scoping.
+The enterprise infrastructure track left `corp.home.arpa` with four organizational units, three Group Policy objects, and a single user principal name suffix. Lab 02 of the Cloud and Hybrid Identity track added to all three, without changing the domain name, the Kerberos realm, `sAMAccountName` values, DNS, or the existing Group Policy scoping.
 
 Alternative user principal name suffix:
 
@@ -449,13 +450,24 @@ brindeck.com     (alternative, added in Lab 02)
 
 `brindeck.com` was added to the forest as an alternative suffix and applied to the users in `OU=User Accounts`, five at the time it was added. It exists because `home.arpa` is reserved by RFC 8375 and can never be verified in a Microsoft Entra tenant, so an account whose sign-in name ends in `corp.home.arpa` cannot synchronize with a matching user principal name. Accounts in `OU=IT` were deliberately left on the on-premises suffix, since that OU is outside the synchronization scope.
 
-Organizational unit added:
+Organizational units added:
 
 ```text
 OU=Service Accounts
+OU=Protected Objects
 ```
 
 `OU=Service Accounts` holds `svc-entraconnect`, the AD DS connector account Entra Connect Sync authenticates with. It was created deliberately rather than letting the installer place the account wherever `redirusr` points, which is `OU=User Accounts` and therefore inside the synchronization scope. The OU itself is out of scope, so nothing in it reaches the tenant.
+
+`OU=Protected Objects` holds `AZUREADSSOACC`, the computer account seamless single sign-on shares a Kerberos decryption key with. It was created directly under the domain root with inheritance disabled and Full control reduced to Domain Admins, Enterprise Admins, Administrators, and SYSTEM, because `redircmp` had placed the account in `OU=Workstations`, whose default administrative permissions are sized for ordinary domain-joined machines rather than for an account Microsoft's guidance says only Domain Admins should be able to manage. The `redircmp` redirect itself was left untouched: new computer objects still land in `OU=Workstations`.
+
+Group Policy object added:
+
+```text
+Seamless-SSO-Zone-Configuration   (linked to OU=User Accounts)
+```
+
+It is user-scoped, with its computer configuration half disabled, and it places `https://autologon.microsoftazuread-sso.com` in the Local intranet zone so that browsers will send Kerberos tickets to the endpoint. The existing Group Policy scoping is unchanged by it.
 
 ---
 

@@ -52,7 +52,7 @@ Windows 11 Workstation
     │       ├── Active Directory Domain Services
     │       ├── AD-Integrated DNS
     │       ├── Domain: corp.home.arpa
-    │       ├── Group Policy: three custom GPOs deployed and validated
+    │       ├── Group Policy: four custom GPOs deployed and validated
     │       └── Wazuh Agent: enrolled and Active (Windows Security event forwarding)
     │
     ├── WIN11-CLIENT01 (192.168.1.20)
@@ -182,10 +182,17 @@ corp.home.arpa [domain]
 │
 ├── User Accounts [OU]
 │   ├── Standard-User-Environment GPO (user-scoped: Control Panel, Run, display, LAN restrictions)
+│   ├── Seamless-SSO-Zone-Configuration GPO (user-scoped: autologon endpoint in Local intranet
+│   │   zone, status bar script updates; computer configuration disabled)
 │   └── testuser01
 │
 ├── Service Accounts [OU]
 │   └── svc-entraconnect (Entra Connect Sync AD DS connector account; no GPO linked)
+│
+├── Protected Objects [OU]
+│   ├── Inheritance disabled; Full control reduced to Domain Admins, Enterprise Admins,
+│   │   Administrators, and SYSTEM; no GPO linked
+│   └── AZUREADSSOACC (seamless SSO computer account; Kerberos key shared with Microsoft Entra ID)
 │
 └── Workstations [OU]
     ├── Workstation-Security-Baseline GPO (computer-scoped: inactivity limit, firewall, audit)
@@ -245,10 +252,10 @@ Management tools in use:
 | Docker internal | No backend service exposes ports directly. All access through NPM or direct IP where applicable. |
 | VM networking | DC01, WIN11-CLIENT01, and SYNC01 operate on bridged networking with direct LAN presence. Enterprise VMs are LAN participants alongside the Ubuntu Server host. |
 | AD domain scope | Active Directory domain (`corp.home.arpa`) spans both enterprise VMs and the Ubuntu Server host. DC01 is the authoritative DNS server for the domain. WIN11-CLIENT01 uses DC01 exclusively for DNS (IPv4 only; IPv6 disabled on Ethernet0). Ubuntu Server uses DC01 as its primary DNS server via Netplan. `SYNC01` is a member server in the same domain and uses DC01 for DNS. Since Lab 02 of the Cloud and Hybrid Identity track, `corp.home.arpa` also carries `brindeck.com` as an alternative user principal name suffix; the domain name, the Kerberos realm, and `sAMAccountName` values are unchanged by it. |
-| Group Policy scope | Computer policy scoped to `OU=Workstations`; user policy scoped independently to `OU=User Accounts` and `OU=IT`. Security group filtering on `Workstation-Security-Baseline` restricts application to `Lab-Workstations` members. |
+| Group Policy scope | Computer policy scoped to `OU=Workstations`; user policy scoped independently to `OU=User Accounts` and `OU=IT`. Security group filtering on `Workstation-Security-Baseline` restricts application to `Lab-Workstations` members. Since Lab 02 of the Cloud and Hybrid Identity track, `OU=User Accounts` also carries `Seamless-SSO-Zone-Configuration`, user-scoped with its computer configuration half disabled. `OU=Service Accounts` and `OU=Protected Objects` have no GPO linked. |
 | Wazuh agent scope | All four systems (DC01, WIN11-CLIENT01, SYNC01, Ubuntu Server) enrolled as Wazuh agents reporting to wazuh-manager on Ubuntu Server at `192.168.1.226:1514`. |
 | Remote access | Tailscale provides encrypted remote access without exposing SSH publicly. |
-| Cloud identity boundary | A Microsoft Entra tenant (`brindeck.onmicrosoft.com`, primary domain `brindeck.com`) holds a synchronized projection of `corp.home.arpa` alongside its cloud-only administrative accounts. Since Lab 02 of the Cloud and Hybrid Identity track, Entra Connect Sync on `SYNC01` replicates `OU=User Accounts` and `OU=Groups` outbound to the tenant, with password hashes, so a synchronized user authenticates in the cloud against their on-premises password. Synchronization is one-way: Active Directory remains authoritative, nothing writes back, and `OU=IT` stays outside the scope, so `labadmin` and the tenant's administrative accounts exist in one directory only. |
+| Cloud identity boundary | A Microsoft Entra tenant (`brindeck.onmicrosoft.com`, primary domain `brindeck.com`) holds a synchronized projection of `corp.home.arpa` alongside its cloud-only administrative accounts. Since Lab 02 of the Cloud and Hybrid Identity track, Entra Connect Sync on `SYNC01` replicates `OU=User Accounts` and `OU=Groups` outbound to the tenant, with password hashes, so a synchronized user authenticates in the cloud against their on-premises password. Synchronization is one-way: Active Directory remains authoritative, nothing writes back, and `OU=IT` stays outside the scope, so `labadmin` and the tenant's administrative accounts exist in one directory only. Seamless single sign-on adds a Kerberos path from a domain-joined client to the tenant, brokered by the `AZUREADSSOACC` computer account in `OU=Protected Objects`, which exposes nothing inbound. |
 
 ---
 
@@ -266,9 +273,9 @@ It did add two management-plane paths that did not exist before, both from WIN11
 
 Extension of the on-premises AD environment into Microsoft Entra ID through Entra Connect Sync, scoped by [ADR-019](decisions/019-establish-cloud-and-hybrid-identity-track.md). The tenant now exists: Lab 01 created `brindeck.onmicrosoft.com` with `brindeck.com` verified as its primary domain and an administrative model that depends on nothing on-premises, and Lab 02 built the boundary between the two. This is the first track to place part of the environment's own identity plane on the public internet: the tenant's administration portals cannot be published through NGINX Proxy Manager or confined to Tailscale the way every existing service is. External consoles are not themselves new, since Tailscale and the domain registrar both have one, but neither holds the directory.
 
-Three on-premises changes were made, all in Lab 02. A third virtual machine, `SYNC01`, running Windows Server 2022 and joined to `corp.home.arpa`, hosts Entra Connect Sync, since the synchronization engine requires a server operating system and ADR-019 deliberately keeps it off DC01. And a routable user principal name suffix, `brindeck.com`, was added alongside the existing `corp.home.arpa` suffix and applied to the users in scope, because `home.arpa` is reserved by RFC 8375 and cannot be verified in a tenant. Neither changed the domain name, the Kerberos realm, `sAMAccountName` values, DNS, or Group Policy scoping. A fifth organizational unit came with them: `OU=Service Accounts`, created to hold `svc-entraconnect`, the AD DS connector account, outside the synchronization scope.
+Four on-premises changes were made, all in Lab 02. A third virtual machine, `SYNC01`, running Windows Server 2022 and joined to `corp.home.arpa`, hosts Entra Connect Sync, since the synchronization engine requires a server operating system and ADR-019 deliberately keeps it off DC01. A routable user principal name suffix, `brindeck.com`, was added alongside the existing `corp.home.arpa` suffix and applied to the users in scope, because `home.arpa` is reserved by RFC 8375 and cannot be verified in a tenant. Two organizational units came with them, taking the domain from four to six: `OU=Service Accounts`, created to hold `svc-entraconnect`, the AD DS connector account, outside the synchronization scope, and `OU=Protected Objects`, created with inheritance disabled and Full control reduced to Domain Admins, Enterprise Admins, Administrators, and SYSTEM to hold `AZUREADSSOACC`, the computer account seamless single sign-on shares a Kerberos key with. And a fourth Group Policy object, `Seamless-SSO-Zone-Configuration`, was linked to `OU=User Accounts` to place the autologon endpoint in the Local intranet zone. None of it changed the domain name, the Kerberos realm, `sAMAccountName` values, DNS, or the existing Group Policy scoping.
 
-Lab 02 is in progress. Steps One through Seven are complete, leaving synchronization operational and password hash synchronization proven. Seamless single sign-on, the observed synchronization cycle and its deliberately induced failure, and the closing validation that the rest of the environment is unchanged are outstanding.
+Lab 02 is complete. Synchronization is operational, and both password hash synchronization and seamless single sign-on are proven from a client rather than asserted. The synchronization scheduler was found disabled since installation and corrected, a deliberately induced user principal name collision was quarantined and diagnosed, and DC01, WIN11-CLIENT01, and Ubuntu Server were confirmed to behave exactly as the earlier tracks documented.
 
 Connectivity is outbound only. Password hash synchronization is the chosen authentication method precisely because it requires no publicly reachable on-premises endpoint, so `SYNC01` reaches Microsoft Entra ID outbound and nothing new is exposed inbound.
 

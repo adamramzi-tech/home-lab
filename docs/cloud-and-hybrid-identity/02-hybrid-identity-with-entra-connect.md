@@ -2,23 +2,19 @@
 
 ## Status
 
-Steps One through Eight are complete.
+All ten steps are complete: implemented, run against the live environment, and documented in past tense below. `SYNC01` hosted Entra Connect Sync (version 2.6.84.0, `ms-DS-ConsistencyGuid` as the source anchor), scoped to `User Accounts` and `Groups` with `IT` deliberately excluded. `brindeck.com` became the routable UPN suffix in Active Directory, and `New-LabUser.ps1` derives it automatically for accounts created in a synchronized OU, under the full thirteen-script Pester suite (174 tests). Password hash synchronization and seamless single sign-on both validated end to end: `testuser01@brindeck.com` authenticated to a cloud service with his on-premises password, and later signed in to `myapps.microsoft.com` with no password prompt at all, Kerberos ticket confirmed by `klist`. The finished state holds 9 users and 4 groups on-premises across the organizational units now in use, two of which, `Service Accounts` and `Protected Objects`, exist only because of this lab, and 10 users, 5 groups, and 1 application in the tenant.
 
-Lab 01 left a tenant with a verified primary custom domain and an administrative model that does not depend on Active Directory. `SYNC01` now exists: it was built to the allocation in Design Decisions, joined to `corp.home.arpa`, confirmed in `OU=Workstations`, and enrolled as a Wazuh agent alongside the other three hosts. The pre-synchronization baseline is recorded on both sides: 6 users and 4 groups on-premises, 3 users and 1 group in the tenant. `brindeck.com` is now an alternative UPN suffix in Active Directory, applied to all five users in `OU=User Accounts` (`IT` deliberately untouched), and `New-LabUser.ps1` derives that suffix from the target OU rather than hardcoding the on-premises domain, passing PSScriptAnalyzer and the full thirteen-script Pester suite (174 tests) and proven live against both a synchronized and a non-synchronized OU.
-
-Entra Connect Sync (version 2.6.84.0) is installed on `SYNC01` using Custom settings, connecting to `corp.home.arpa` as `svc-entraconnect`, a dedicated account in a new `OU=Service Accounts`, and to the tenant as `admin@brindeck.com`. Synchronization is scoped to `User Accounts` and `Groups`, `ms-DS-ConsistencyGuid` was confirmed as the source anchor, and the first synchronization cycle completed cleanly. The tenant now holds nine users and five groups: the five baseline accounts plus `tsync01`, all carrying `@brindeck.com` user principal names and `On-premises sync: Yes`, while `tnosync01`, `labadmin`, and the three pre-existing cloud-only administrative accounts remain correctly outside the synchronized population. `IT-Admins` synchronized as a group with a partially invisible membership, exactly as Design Decisions predicted. A sign-in as `testuser01@brindeck.com` using his existing on-premises password succeeded, confirming password hash synchronization works.
-
-Step Eight-A hardened `AZUREADSSOACC`: it now lives in a new, delegation-restricted `OU=Protected Objects` rather than `OU=Workstations`, its own ACL and Kerberos delegation were confirmed clean against `SYNC01` as a control, and its Kerberos encryption type was rolled and set explicitly to AES128/AES256 rather than left unset. Step Eight-B configured and linked `Seamless-SSO-Zone-Configuration` to `OU=User Accounts` and validated it end to end from WIN11-CLIENT01: `testuser01@brindeck.com` signed in at `myapps.microsoft.com` with no password prompt, and `klist` confirmed the Kerberos ticket behind it, issued with the same AES encryption type Step Eight-A rolled onto `AZUREADSSOACC`. Steps Nine and Ten remain not yet started.
+Step Nine found a real defect rather than a clean scheduler: `SyncCycleEnabled` had been `False` since installation, so every change synchronized through Step Eight reached the tenant only by a manually forced cycle, never the scheduler doing its own job. Fixed, and Step Ten confirmed it held: the scheduler ran three consecutive unattended Delta cycles roughly thirty minutes apart with nobody forcing anything. Step Nine's deliberate collision also changed target mid-step, from an existing account to a disposable cloud-only fixture, once every existing cloud-only account turned out to be Global Administrator-tier. Full detail on both, and on the smaller findings along the way, is in Troubleshooting and Adjustments below.
 
 ---
 
 ## Overview
 
-This lab will connect the two directories. It is the point at which `corp.home.arpa` stops being the only place an identity in this environment exists.
+This lab connected the two directories. It was the point at which `corp.home.arpa` stopped being the only place an identity in this environment exists.
 
-Lab 01 built a destination and proved nothing crossed into it. The tenant holds three cloud-only administrative accounts and no ordinary users. On-premises, Active Directory holds every user, group, and computer the enterprise and automation tracks created, and it authenticates all three systems in the environment. The two have no relationship. This lab creates one, in a single direction: Active Directory remains authoritative, and a scoped subset of it is projected into Microsoft Entra ID by a synchronization engine running on a new member server.
+Lab 01 built a destination and proved nothing crossed into it. The tenant held three cloud-only administrative accounts and no ordinary users. On-premises, Active Directory held every user, group, and computer the enterprise and automation tracks created, and it authenticated all three systems in the environment. The two had no relationship. This lab created one, in a single direction: Active Directory remains authoritative, and a scoped subset of it is projected into Microsoft Entra ID by a synchronization engine running on a new member server.
 
-Four things will exist at the end of it that do not exist now:
+Four things existed at the end of it that had not existed before:
 
 - `SYNC01`, a Windows Server 2022 member server joined to `corp.home.arpa`, running Microsoft Entra Connect Sync
 - a routable user principal name suffix, `@brindeck.com`, added alongside `corp.home.arpa` and applied to the users selected for synchronization
@@ -31,7 +27,7 @@ The last of those is the reason this lab is worth more than its configuration st
 
 ## Objectives
 
-The primary goals of this lab are to:
+The primary goals of this lab were to:
 
 - build `SYNC01` as a dedicated domain-joined member server, keeping the synchronization engine off DC01 per [ADR-019](../architecture/decisions/019-establish-cloud-and-hybrid-identity-track.md)
 - add `brindeck.com` as an alternative user principal name suffix in Active Directory and retarget the users selected for synchronization, before any synchronization runs
@@ -42,13 +38,15 @@ The primary goals of this lab are to:
 - document the synchronization cycle as observed, not as described, including the difference between the directory cycle and password hash synchronization
 - induce at least one synchronization failure deliberately, document how it presented, and record the diagnosis
 
+Every objective was met. Two went differently than planned. The synchronization-cycle objective turned into more than documentation: the scheduler check in Step Nine found `SyncCycleEnabled: False`, meaning every change synchronized through Step Eight had reached the tenant only through a manually forced cycle or the initial installation sync, never through the scheduler doing its own job, a genuine defect rather than a behavior to narrate. And the deliberate-failure objective changed its collision target mid-step, from an existing account to a disposable cloud-only user created for the purpose, once every existing cloud-only account turned out to be Global Administrator-tier and off-limits; only one of the two failure modes prepared at planning time was needed, the other held in reserve throughout.
+
 ---
 
 ## Project Context
 
-[ADR-019](../architecture/decisions/019-establish-cloud-and-hybrid-identity-track.md) established this track and settled its architecture. This lab implements the parts of that decision that touch the on-premises environment, and it is the first work in the entire repository to modify `corp.home.arpa` since the enterprise infrastructure track closed.
+[ADR-019](../architecture/decisions/019-establish-cloud-and-hybrid-identity-track.md) established this track and settled its architecture. This lab implemented the parts of that decision that touch the on-premises environment, and it is the first work in the entire repository to modify `corp.home.arpa` since the enterprise infrastructure track closed.
 
-That is worth stating plainly, because Lab 01 could afford to be careless in a way this lab cannot. Lab 01 touched nothing on-premises; its worst outcome was a misconfigured tenant that could be deleted and rebuilt. This lab adds a user principal name suffix to a production domain, changes the sign-in names of real accounts, installs a service that writes back to Active Directory, and creates a computer account that holds a Kerberos key trusted by Microsoft. None of that is destructive, and none of it changes the domain name, the Kerberos realm, `sAMAccountName` values, DNS, or Group Policy scoping. But it is the first lab in this track where a mistake lands on the systems the Linux, enterprise, and automation tracks documented.
+That is worth stating plainly, because Lab 01 could afford to be careless in a way this lab could not. Lab 01 touched nothing on-premises; its worst outcome was a misconfigured tenant that could be deleted and rebuilt. This lab added a user principal name suffix to a production domain, changed the sign-in names of real accounts, installed a service that writes back to Active Directory, and created a computer account that holds a Kerberos key trusted by Microsoft. None of that was destructive, and none of it changed the domain name, the Kerberos realm, `sAMAccountName` values, DNS, or Group Policy scoping. But it is the first lab in this track where a mistake lands on the systems the Linux, enterprise, and automation tracks documented.
 
 The environment it modifies is the one those tracks built. DC01 holds `corp.home.arpa` with four organizational units: `User Accounts`, `IT`, `Workstations`, and `Groups`. WIN11-CLIENT01 is domain-joined and carries the thirteen-script PowerShell library. Ubuntu Server authenticates domain users through SSSD and Kerberos. Wazuh collects authentication events from all three. Nothing in that arrangement changes here, and the validation for this lab includes confirming that it did not.
 
@@ -58,17 +56,17 @@ The environment it modifies is the one those tracks built. DC01 holds `corp.home
 
 ### SYNC01 is a dedicated member server, sized to Microsoft's documented floor
 
-**Decision:** A new virtual machine, `SYNC01`, running Windows Server 2022 and joined to `corp.home.arpa`, will host Entra Connect Sync. It will be allocated 2 vCPU, 8 GB of memory, and 80 GB of thin-provisioned storage.
+**Decision:** A new virtual machine, `SYNC01`, running Windows Server 2022 and joined to `corp.home.arpa`, hosted Entra Connect Sync. It was allocated 2 vCPU, 8 GB of memory, and 80 GB of thin-provisioned storage.
 
-ADR-019 settled that the synchronization engine does not go on DC01, and that reasoning is not relitigated here. What this lab has to settle is what the machine actually needs. Microsoft's prerequisites are unambiguous about the operating system: Entra Connect "must be installed on a domain-joined server," the server "must have a full GUI installed," and "installing Microsoft Entra Connect on Windows Server Core isn't supported," which rules out both WIN11-CLIENT01 and a Core deployment. Windows Server 2025 and 2022 are the recommended versions; 2022 is chosen to match DC01 rather than for any capability reason.
+ADR-019 settled that the synchronization engine does not go on DC01, and that reasoning is not relitigated here. What this lab had to settle was what the machine actually needed. Microsoft's prerequisites are unambiguous about the operating system: Entra Connect "must be installed on a domain-joined server," the server "must have a full GUI installed," and "installing Microsoft Entra Connect on Windows Server Core isn't supported," which rules out both WIN11-CLIENT01 and a Core deployment. Windows Server 2025 and 2022 are the recommended versions; 2022 was chosen to match DC01 rather than for any capability reason.
 
-Sizing is where the documentation is less helpful than it looks. Microsoft's hardware table has no tier below "fewer than 10,000 objects," and that tier asks for a 1.6 GHz CPU, 6 GB of memory, and 70 GB of disk. This environment has perhaps thirty objects in scope, so the floor is set by the software rather than the workload: Entra Connect installs SQL Server 2019 Express LocalDB by default, which "has a 10-GB size limit that enables you to manage approximately 100,000 objects," far beyond anything this directory will hold, so no separate SQL Server is required.
+Sizing is where the documentation is less helpful than it looks. Microsoft's hardware table has no tier below "fewer than 10,000 objects," and that tier asks for a 1.6 GHz CPU, 6 GB of memory, and 70 GB of disk. This environment has perhaps thirty objects in scope, so the floor is set by the software rather than the workload: Entra Connect installs SQL Server 2019 Express LocalDB by default, which "has a 10-GB size limit that enables you to manage approximately 100,000 objects," far beyond anything this directory would ever hold, so no separate SQL Server was required.
 
-The allocation above rounds Microsoft's disk floor up to 80 GB to match the storage convention DC01 already uses, which costs nothing because the disk is thin provisioned and the real consumption is the operating system, a pagefile, and a database holding roughly thirty objects. The memory is rounded up for a different and more deliberate reason. Committed memory is not reclaimed lazily the way thin-provisioned disk is, so the extra 2 GB is a real allocation rather than a ceiling, and it is there because Step Nine deliberately breaks and restarts the synchronization service and provokes failures on this host. A server that will be reconfigured repeatedly is the wrong place to sit exactly on a vendor minimum. Against the host's 32 GB, with DC01 at 4 GB and WIN11-CLIENT01 at 8 GB, this brings committed memory to 20 GB and leaves the workstation the headroom the enterprise resource plan calls for. That plan's virtual machine inventory is updated by this lab rather than by a later one.
+The allocation above rounds Microsoft's disk floor up to 80 GB to match the storage convention DC01 already uses, which costs nothing because the disk is thin provisioned and the real consumption is the operating system, a pagefile, and a database holding roughly thirty objects. The memory is rounded up for a different and more deliberate reason. Committed memory is not reclaimed lazily the way thin-provisioned disk is, so the extra 2 GB was a real allocation rather than a ceiling, and it was there because Step Nine was expected to break and restart the synchronization service and provoke failures on this host. A server that would be reconfigured repeatedly is the wrong place to sit exactly on a vendor minimum. In the event, Step Nine induced its failure through a user principal name collision and never needed the service stopped at all, so the headroom went unused rather than unjustified. Against the host's 32 GB, with DC01 at 4 GB and WIN11-CLIENT01 at 8 GB, this brings committed memory to 20 GB and leaves the workstation the headroom the enterprise resource plan calls for. That plan's virtual machine inventory is updated by this lab rather than by a later one.
 
 ### Custom installation, not Express
 
-**Decision:** Entra Connect will be installed using Custom settings rather than Express settings.
+**Decision:** Entra Connect was installed using Custom settings rather than Express settings.
 
 ADR-019 requires synchronization to be scoped by organizational unit, and Express does not offer that choice during installation. Express synchronizes "all eligible objects in all domains and all OUs." There is a documented way around it, unselecting the option to start synchronization on the final page and then rerunning the wizard to change the organizational units before enabling the schedule, but that path configures the thing correctly on the second attempt rather than the first, and it means the wizard's own summary screen describes a scope that was never intended.
 
@@ -76,7 +74,7 @@ Custom settings also surface decisions this lab wants visible rather than assume
 
 ### Synchronization scope is `User Accounts` and `Groups`, and `IT` is deliberately excluded
 
-**Decision:** Only the `User Accounts` and `Groups` organizational units will synchronize. `IT` and `Workstations` will remain on-premises.
+**Decision:** Only the `User Accounts` and `Groups` organizational units synchronized. `IT` and `Workstations` remained on-premises.
 
 ADR-019 requires a scoped synchronization and gives the reason: the tenant should not become an unfiltered mirror of every object the environment has ever held, and filtering behavior should be observable rather than assumed. This is the specific scope that satisfies it.
 
@@ -86,15 +84,15 @@ ADR-019 requires a scoped synchronization and gives the reason: the tenant shoul
 
 `Workstations` is excluded because device objects belong to Lab 05, which takes up device join and enrollment deliberately, and because syncing computer objects here would add a population this lab has no validation planned for.
 
-This scope creates two consequences worth predicting before they are observed.
+This scope created two consequences worth predicting before they were observed.
 
-The first is a group whose membership is partly out of scope. `IT-Admins` is a group in `Groups`, so the group object will synchronize, but its members live in `IT`, which will not. The expected result is a synchronized group whose on-premises membership is partly invisible in the tenant. That is a real property of organizational-unit filtering rather than a defect, and it is better predicted and then checked than discovered later.
+The first is a group whose membership is partly out of scope. `IT-Admins` is a group in `Groups`, so the group object would synchronize, but its members lived in `IT`, which would not. The expected result was a synchronized group whose on-premises membership is partly invisible in the tenant. That is a real property of organizational-unit filtering rather than a defect, and it was better predicted and then checked than discovered later.
 
-The second is specific to this environment and easy to miss. Microsoft's documentation places the Active Directory connector account "in the forest root domain in the Users container," but the enterprise infrastructure track ran `redirusr` to redirect `CN=Users` to `OU=User Accounts`, which is inside the synchronization scope chosen above. If the installer creates its connector account in the redirected location, the account that performs synchronization would itself be synchronized into the tenant. Custom settings offers a choice here that Express does not, between creating a new connector account and specifying an existing one, so the resolution is to determine where a created account actually lands before enabling the schedule, and to place the account outside the synchronized scope deliberately if it does not go somewhere suitable on its own. Both consequences are called out in Validation as things to confirm rather than assume.
+The second is specific to this environment and easy to miss. Microsoft's documentation places the Active Directory connector account "in the forest root domain in the Users container," but the enterprise infrastructure track ran `redirusr` to redirect `CN=Users` to `OU=User Accounts`, which is inside the synchronization scope chosen above. If the installer placed its connector account in the redirected location, the account performing synchronization would itself be synchronized into the tenant. Custom settings offers a choice here that Express does not, between creating a new connector account and specifying an existing one, and that choice is what resolved it. Rather than let the installer create an account and then check where it had landed, Step Five created `OU=Service Accounts` outside the synchronization scope, provisioned `svc-entraconnect` into it, and supplied that account to the wizard using **Use existing account**, so the risk was sidestepped rather than discovered. Both consequences were carried into Validation as things to confirm rather than assume.
 
 ### The routable suffix is applied before the first synchronization, not after
 
-**Decision:** `brindeck.com` will be added as an alternative user principal name suffix in Active Directory and applied to every user in the synchronized scope before Entra Connect is installed.
+**Decision:** `brindeck.com` was added as an alternative user principal name suffix in Active Directory and applied to every user in the synchronized scope before Entra Connect was installed.
 
 The order matters more than it appears to, and the reason is the failure mode ADR-019 identified: a non-routable user principal name does not produce a synchronization error. Microsoft documents the actual behavior plainly, that "any UPN that contains a nonroutable domain, such as `.local` (example: billa@contoso.local), is synchronized to an `.onmicrosoft.com` domain (example: billa@contoso.onmicrosoft.com)." Nothing fails. The objects arrive, the wizard reports success, and every synchronized user has a sign-in name that does not match their on-premises identity.
 
@@ -102,15 +100,15 @@ Doing the suffix work first means the first synchronization this environment eve
 
 ### `New-LabUser.ps1` is updated in this lab, under the existing standard
 
-**Decision:** `New-LabUser.ps1` will be modified to emit the routable suffix for accounts created in synchronized organizational units, and it will pass PSScriptAnalyzer and its Pester suite before this lab closes.
+**Decision:** `New-LabUser.ps1` was modified to emit the routable suffix for accounts created in synchronized organizational units, and it passed PSScriptAnalyzer and its Pester suite before this lab closed.
 
 ADR-019 assigns this change to Lab 02 and explains why it cannot wait: the script constructs each account's user principal name from the domain name directly, so every account it creates would carry the non-routable suffix and land in the tenant under the `onmicrosoft.com` name. The provisioning path that the entire automation track was built around would quietly reintroduce, on every new hire, the exact condition the suffix work exists to prevent.
 
-The change is narrow. The script currently derives the name as `"$SamAccountName@corp.home.arpa"`, hardcoded, while its `-TargetOU` parameter already defaults to `OU=User Accounts,DC=corp,DC=home,DC=arpa`. The suffix therefore has to become a function of the target organizational unit rather than a constant. Accounts created in a synchronized organizational unit receive `@brindeck.com`; accounts created outside one keep `@corp.home.arpa`. Per [ADR-016](../architecture/decisions/016-run-automation-scripts-from-domain-joined-client.md) it continues to run from WIN11-CLIENT01, and per ADR-017 the new branching logic is covered by tests rather than asserted to work.
+The change was narrow. The script derived the name as `"$SamAccountName@corp.home.arpa"`, hardcoded, while its `-TargetOU` parameter already defaulted to `OU=User Accounts,DC=corp,DC=home,DC=arpa`. The suffix therefore became a function of the target organizational unit rather than a constant. Accounts created in a synchronized organizational unit receive `@brindeck.com`; accounts created outside one keep `@corp.home.arpa`. Per [ADR-016](../architecture/decisions/016-run-automation-scripts-from-domain-joined-client.md) it continues to run from WIN11-CLIENT01, and per ADR-017 the new branching logic is covered by tests rather than asserted to work.
 
 ### The installation runs as the cloud-only Global Administrator, so that Connect Health is enabled
 
-**Decision:** Entra Connect will be configured using `admin@brindeck.com`, the cloud-only Global Administrator created in Lab 01, rather than a dedicated Hybrid Identity Administrator.
+**Decision:** Entra Connect was configured using `admin@brindeck.com`, the cloud-only Global Administrator created in Lab 01, rather than a dedicated Hybrid Identity Administrator.
 
 This trades least privilege for a diagnostic surface, and the trade is deliberate. Microsoft's prerequisites accept either role, and Hybrid Identity Administrator is the narrower of the two, so on privilege grounds alone it would be the better choice. But the documentation also states that "if you plan to use Microsoft Entra Connect Health for syncing, you need to use a Global Administrator account to install Microsoft Entra Connect Sync. If you use a Hybrid Identity Administrator account, the agent is installed but in a disabled state."
 
@@ -120,7 +118,7 @@ Two things bound the cost. The credentials are used during installation only; th
 
 ### Seamless single sign-on is enabled, with its recurring maintenance cost recorded rather than discovered
 
-**Decision:** Seamless single sign-on will be enabled during installation and validated from WIN11-CLIENT01, and the Group Policy and key rollover work it requires will be treated as part of the lab rather than as follow-up.
+**Decision:** Seamless single sign-on was enabled during installation and validated from WIN11-CLIENT01, and the Group Policy and key rollover work it required was treated as part of the lab rather than as follow-up.
 
 Seamless SSO is in ADR-019's scope for this lab and it pairs with password hash synchronization, which the documentation confirms directly. What is easy to miss is that enabling the checkbox is not the whole job. Browsers "don't send Kerberos tickets to a cloud endpoint, like to the Microsoft Entra URL, unless you explicitly add the URL to the browser's intranet zone," so `https://autologon.microsoftazuread-sso.com` has to reach clients through Group Policy, in the Local intranet zone specifically. Microsoft's troubleshooting guidance is blunt about the near miss: putting that URL in Trusted Sites instead "blocks users from signing in."
 
@@ -130,21 +128,19 @@ The part worth recording before it becomes a surprise is the standing cost. Seam
 
 ### Entra Connect is installed at or above the version Microsoft's September 2026 deadline requires
 
-**Decision:** The installation will use the current Entra Connect Sync release, obtained from the Microsoft Entra admin center, and the version installed will be recorded in Validation.
+**Decision:** The installation used the current Entra Connect Sync release, obtained from the Microsoft Entra admin center, and the version installed was recorded in Validation.
 
-This is ordinarily too mundane to be a design decision, and it is one here only because of timing. Microsoft has set a hard cutoff: "all synchronization services in Microsoft Entra Connect Sync will stop working on September 30, 2026 if you're not on at least version 2.5.79.0," and "if you're unable to upgrade before the deadline, all synchronization services will fail until you upgrade to the latest version." This lab is being planned in August 2026, roughly five weeks ahead of that date. A deployment built now on a stale installer would break within the month, during Lab 03 or Lab 04, for reasons that would have nothing to do with the work being done at the time.
+This is ordinarily too mundane to be a design decision, and it is one here only because of timing. Microsoft has set a hard cutoff: "all synchronization services in Microsoft Entra Connect Sync will stop working on September 30, 2026 if you're not on at least version 2.5.79.0," and "if you're unable to upgrade before the deadline, all synchronization services will fail until you upgrade to the latest version." This lab was planned in August 2026, roughly five weeks ahead of that date. A deployment built then on a stale installer would have broken within the month, during Lab 03 or Lab 04, for reasons that would have had nothing to do with the work being done at the time.
 
 The current release as of this writing is 2.6.84.0, published 7 July 2026. The installer is no longer distributed generally: the documentation notes that "the Microsoft Entra Connect Sync .msi installation file is exclusively available on Microsoft Entra Admin Center." Beyond the September deadline, Microsoft retires each 2.x version twelve months after a newer one ships, so version currency is a standing maintenance obligation for this environment rather than a one-time installation detail.
 
----
-
 ### `AZUREADSSOACC` moves into a new, delegation-restricted OU, breaking from operational-role naming
 
-**Decision:** `AZUREADSSOACC` moves out of `OU=Workstations`, where it landed under Lab 03's `redircmp` redirect, into a new organizational unit created directly under the domain root, `OU=Protected Objects`, restricted so that only Domain Admins, Enterprise Admins, Administrators, and SYSTEM can manage it. The `redircmp` redirect itself is untouched: new computer objects still land in `OU=Workstations` by default. This is a one-time relocation of a single existing object, not a change to where computers land.
+**Decision:** `AZUREADSSOACC` moved out of `OU=Workstations`, where it had landed under Lab 03's `redircmp` redirect, into a new organizational unit created directly under the domain root, `OU=Protected Objects`, restricted so that only Domain Admins, Enterprise Admins, Administrators, and SYSTEM can manage it. The `redircmp` redirect itself was left untouched: new computer objects still land in `OU=Workstations` by default. This was a one-time relocation of a single existing object, not a change to where computers land.
 
 The reasoning is narrower than an earlier draft of this decision stated. `OU=Workstations` does not put `Workstation-Security-Baseline` on this account regardless of which OU it sits in, that GPO is scoped by security filtering to the `Lab-Workstations` group, and `AZUREADSSOACC` was never a member. The actual problem is `OU=Workstations`' default administrative permissions: it is an ordinary operational OU, hardened for nothing beyond what a workstation needs, and Microsoft's guidance for this specific account is that only Domain Admins should be able to manage it and that it should be safe from accidental deletion. An OU sized for ordinary domain-joined machines does not provide that.
 
-This is also the first OU in the repository organized by protection level rather than by operational role. [naming-and-scope-standards.md](../architecture/naming-and-scope-standards.md)'s Service Account Naming section documents the precedent this departs from: every existing OU, `IT`, `User Accounts`, `Workstations`, `Groups`, `Service Accounts`, groups objects by what they are, not by how sensitive they are. [Lab 03](../enterprise-infrastructure/03-active-directory-lab.md)'s `redircmp` decision set `OU=Workstations` as the redirected computer default without anticipating that anything would need relocating out of it afterward, so neither document currently accounts for `OU=Protected Objects`. Nothing about that is a defect in either document, it just means this decision is the one place the structural change is recorded, and a future OU built for the same reason should be named the same way this one was, for what it protects, not with a tier label.
+This is also the first OU in the repository organized by protection level rather than by operational role. [naming-and-scope-standards.md](../architecture/naming-and-scope-standards.md)'s Service Account Naming section documents the precedent this departs from: every existing OU, `IT`, `User Accounts`, `Workstations`, `Groups`, `Service Accounts`, groups objects by what they are, not by how sensitive they are. [Lab 03](../enterprise-infrastructure/03-active-directory-lab.md)'s `redircmp` decision set `OU=Workstations` as the redirected computer default without anticipating that anything would need relocating out of it afterward, so neither document accounted for `OU=Protected Objects` when this decision was taken. [naming-and-scope-standards.md](../architecture/naming-and-scope-standards.md) gained an Organizational Unit Organization section at close-out recording the convention this established: organization by operational role by default, with protection level as a deliberate exception, and a future OU built for the same reason named the same way this one was, for what it protects, not with a tier label.
 
 ---
 
@@ -165,7 +161,7 @@ This is also the first OU in the repository organized by protection level rather
 
 ## Architecture or Topology
 
-Lab 01 built the right-hand side of a boundary and nothing crossed it. This lab creates the crossing, in one direction only.
+Lab 01 built the right-hand side of a boundary and nothing crossed it. This lab created the crossing, in one direction only.
 
 ```text
 On-premises (corp.home.arpa)                    Microsoft Entra (brindeck.com)
@@ -185,7 +181,7 @@ UBUNTU-SERVER  ──── SSSD / Kerberos to DC01 only, unchanged
 
 Connectivity is outbound only. Password hash synchronization was chosen in ADR-019 precisely because it requires no publicly reachable on-premises endpoint, so `SYNC01` reaches Microsoft and nothing new is exposed inbound.
 
-Two different clocks govern what arrives and when, and conflating them is a common source of confusion this lab intends to document rather than inherit:
+Two different clocks govern what arrives and when, and conflating them was a common source of confusion this lab documented rather than inherited:
 
 ```text
 Directory synchronization cycle          Password hash synchronization
@@ -219,23 +215,47 @@ A password changed on-premises is expected in the cloud within minutes. A newly 
 
 The virtual machine was created at `D:\VMware\Virtual Machines\SYNC01` to the allocation from Design Decisions: 2 vCPU, 8 GB memory, an 80 GB thin-provisioned disk, and a Bridged (Automatic) network adapter with Replicate physical network connection state enabled. This went straight onto the bridged adapter rather than staging through NAT the way DC01 and WIN11-CLIENT01 originally did; that staged approach was a first-deployment risk reduction in Lab 01 of the enterprise track, and it had no reason to repeat here since the bridged LAN was already proven and Entra Connect needs both LAN and internet reachability from the start.
 
-<img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/01-sync01-vm-creation-summary.jpg" alt="01-sync01-vm-creation-summary" width="700">
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/01-sync01-vm-creation-summary.jpg" alt="01-sync01-vm-creation-summary" width="700">
+</p>
+
+<p align="center">
+  <em>The New Virtual Machine Wizard summary for SYNC01: an 80 GB disk, 8192 MB of memory, 2 CPU cores, and a Bridged (Automatic) network adapter.</em>
+</p>
 
 Windows Server 2022 Standard Evaluation (Desktop Experience) was installed from the same ISO recorded in the enterprise infrastructure track's prerequisites, VMware Tools 13.1.0.0 was installed, and Windows Update was run to a current baseline, including the August 2026 cumulative update (KB5120242) and its corresponding .NET Framework updates, ending at OS build 10.0.20348.5499. The hostname was set to `SYNC01`, and the adapter was configured with the static address `192.168.1.30 / 255.255.255.0`, gateway `192.168.1.1`, and DC01 (`192.168.1.10`) as the preferred DNS server, continuing the `.10` / `.20` / `.226` pattern the enterprise track already established.
 
 The first domain-join attempt failed even with that configuration correct; the diagnosis and fix are recorded in Troubleshooting and Adjustments. Once resolved, `SYNC01` joined `corp.home.arpa` using an Enterprise Admin credential, and the computer account was confirmed in `OU=Workstations` per the existing `redircmp` redirect:
 
-<img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/05-sync01-computer-account-ou-workstations.jpg" alt="05-sync01-computer-account-ou-workstations" width="700">
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/05-sync01-computer-account-ou-workstations.jpg" alt="05-sync01-computer-account-ou-workstations" width="700">
+</p>
+
+<p align="center">
+  <em>`Get-ADComputer` confirming SYNC01's computer account at `CN=SYNC01,OU=Workstations,DC=corp,DC=home,DC=arpa`, where the existing `redircmp` redirect places it.</em>
+</p>
 
 A pre-installation snapshot, `SYNC01 - Domain Joined, Pre-Entra-Connect`, was taken immediately afterward as the rollback point for the Entra Connect installation in Step Five.
 
 The Wazuh agent (`v4.14.5`) was installed and enrolled against the existing manager at `192.168.1.226`, so the environment's newest system is monitored on the same terms as the other three rather than becoming the one host nothing watches:
 
-<img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/06-wazuh-four-agents-active.jpg" alt="06-wazuh-four-agents-active" width="700">
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/06-wazuh-four-agents-active.jpg" alt="06-wazuh-four-agents-active" width="700">
+</p>
+
+<p align="center">
+  <em>The Wazuh dashboard after enrollment: four agents active, DC01, WIN11-CLIENT01, UBUNTU-SERVER, and SYNC01 at `192.168.1.30`, all on v4.14.5 with none disconnected or pending.</em>
+</p>
 
 The time zone was also set to Eastern Time to match DC01 and WIN11-CLIENT01, rather than left on the installer's default. This matters more here than it would on an ordinary member server: Kerberos authentication depends on clock skew between `SYNC01` and DC01 staying within tolerance, and a mismatched time zone display, even with the underlying UTC time correct, is the kind of thing worth eliminating as a variable before it complicates diagnosing something else later in this lab. `Get-TimeZone` confirmed Eastern Standard Time, and `w32tm /query /status` confirmed `SYNC01` was already synced to DC01 as its time source; `w32tm /resync` was run to force an immediate sync and validate it rather than waiting on the next poll interval:
 
-<img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/07-sync01-timezone-ntp-resync.jpg" alt="07-sync01-timezone-ntp-resync" width="700">
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/07-sync01-timezone-ntp-resync.jpg" alt="07-sync01-timezone-ntp-resync" width="700">
+</p>
+
+<p align="center">
+  <em>`Get-TimeZone` confirming Eastern Standard Time and `w32tm /query /status` confirming DC01 as the time source, followed by a forced `w32tm /resync`.</em>
+</p>
 
 ### Step Two: Recorded the pre-synchronization baseline
 
@@ -252,7 +272,13 @@ All six users still carried `@corp.home.arpa` user principal names, confirming t
 
 On the cloud side, the tenant (`brindeck.onmicrosoft.com`, tenant ID `dc2a02ec-636d-4df3-9af2-2908706aed4b`) held 3 users, 1 group, 0 devices, and 0 apps, consistent with Lab 01's account that only cloud-only administrative accounts exist there:
 
-<img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/08-tenant-baseline-pre-sync.jpg" alt="08-tenant-baseline-pre-sync" width="500">
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/08-tenant-baseline-pre-sync.jpg" alt="08-tenant-baseline-pre-sync" width="500">
+</p>
+
+<p align="center">
+  <em>The tenant's pre-synchronization baseline: 3 users, 1 group, 0 devices, and 0 apps, all cloud-only from Lab 01.</em>
+</p>
 
 This is the "before" every later step in this lab is measured against: 6 users and 4 groups on-premises, none of it in the tenant's reach yet, and a tenant whose 3 users and 1 group should remain untouched by anything arriving from `User Accounts` or `Groups`, since neither the routable suffix nor Entra Connect exist yet.
 
@@ -260,7 +286,13 @@ This is the "before" every later step in this lab is measured against: 6 users a
 
 `brindeck.com` was added as an alternative UPN suffix in Active Directory Domains and Trusts:
 
-<img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/09-upn-suffix-added-brindeck-com.jpg" alt="09-upn-suffix-added-brindeck-com" width="500">
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/09-upn-suffix-added-brindeck-com.jpg" alt="09-upn-suffix-added-brindeck-com" width="500">
+</p>
+
+<p align="center">
+  <em>`brindeck.com` added as an alternative UPN suffix in Active Directory Domains and Trusts, alongside the domain's own `corp.home.arpa`.</em>
+</p>
 
 `Get-ADDomain` confirmed `corp.home.arpa`, its distinguished name, and every account's `sAMAccountName` were untouched. Adding a suffix only makes it available; it does not retarget any account by itself, and it has nothing to do with Entra Connect, which was not installed at any point during this step.
 
@@ -291,15 +323,27 @@ Extending `New-LabUser.Tests.ps1` meant more than adding cases. The existing tes
 
 Live proof against both branches followed the same query-back discipline as every other script in this library, once into the default OU and once into a non-synchronized one:
 
-<img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/10-tsync01-provisioned-brindeck-com.jpg" alt="10-tsync01-provisioned-brindeck-com" width="700">
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/10-tsync01-provisioned-brindeck-com.jpg" alt="10-tsync01-provisioned-brindeck-com" width="700">
+</p>
 
-<img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/11-tnosync01-provisioned-corp-home-arpa.jpg" alt="11-tnosync01-provisioned-corp-home-arpa" width="700">
+<p align="center">
+  <em>`New-LabUser.ps1` provisioning `tsync01` into its default target, the synchronized `OU=User Accounts`, with the query-back confirming `tsync01@brindeck.com`.</em>
+</p>
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/11-tnosync01-provisioned-corp-home-arpa.jpg" alt="11-tnosync01-provisioned-corp-home-arpa" width="700">
+</p>
+
+<p align="center">
+  <em>The same script run with `-TargetOU` pointed at `OU=IT`, provisioning `tnosync01` and confirming it kept `tnosync01@corp.home.arpa`.</em>
+</p>
 
 `tsync01`'s first provisioning attempt (not shown above) used a password Active Directory's complexity policy rejected. `New-ADUser` had already created the account object, disabled and passwordless, before failing on the password step, since object creation and password assignment are not atomic; clearing a failed attempt off the screen does not undo it in Active Directory. The stray object was removed with `Remove-ADUser` and the run repeated cleanly.
 
-Doing this before the first synchronization means the first objects to cross the boundary will include one created by the automation library, the deliverable ADR-019 actually asks for.
+Doing this before the first synchronization meant the first objects to cross the boundary would include one created by the automation library, the deliverable ADR-019 actually asked for.
 
-### Step Five: Install Entra Connect Sync with Custom settings
+### Step Five: Installed Entra Connect Sync with Custom settings
 
 Before touching `SYNC01`, `OU=Service Accounts` was created and a plain user object, `svc-entraconnect`, was provisioned into it with a non-expiring password, sidestepping the risk Design Decisions raised rather than discovering it. Letting the wizard auto-create the AD DS connector account would have placed it wherever `redirusr`'s redirected default new-user location points, which is `OU=User Accounts`, inside the synchronization scope. Reusing `IT` was considered and rejected: that OU is deliberately framed as the privileged, cloud-invisible boundary for `labadmin`, and this account, unprivileged and needing only read and replication rights, has no reason to sit inside it.
 
@@ -309,11 +353,21 @@ On **Uniquely identifying your users**, **Let Azure manage the source anchor** w
 
 Configuration completed successfully and confirmed the source anchor choice explicitly: "Microsoft Entra ID is configured to use AD attribute mS-DS-ConsistencyGuid as the source anchor attribute."
 
-<img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/12-source-anchor-ms-ds-consistencyguid-confirmed.jpg" alt="12-source-anchor-ms-ds-consistencyguid-confirmed" width="700">
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/12-source-anchor-ms-ds-consistencyguid-confirmed.jpg" alt="12-source-anchor-ms-ds-consistencyguid-confirmed" width="700">
+</p>
 
-Two other notices appeared on that screen. A TPM recommendation for `SYNC01` doesn't apply, this VM has no hardware TPM passed through from the host. A recommendation to enable the Active Directory Recycle Bin on `corp.home.arpa` does apply but is out of scope here, that is a forest-wide, irreversible-once-enabled setting belonging to the Enterprise Infrastructure track rather than this one, and it carries forward as a note rather than being acted on mid-lab.
+<p align="center">
+  <em>The Entra Connect Sync Configuration complete screen, confirming `mS-DS-ConsistencyGuid` as the source anchor attribute, alongside four notices: the Active Directory Recycle Bin recommendation, synchronization being currently disabled, the TPM recommendation, and the seamless SSO Group Policy pointer.</em>
+</p>
 
-### Step Six: Verify scope, then run the first synchronization
+Five notices appeared on that screen in total, and they are worth taking one at a time rather than summarizing, because one of them mattered considerably more than it looked at the time.
+
+Three were recommendations. A TPM recommendation for `SYNC01` doesn't apply, this VM has no hardware TPM passed through from the host. A recommendation to enable the Active Directory Recycle Bin on `corp.home.arpa` does apply but is out of scope here, that is a forest-wide, irreversible-once-enabled setting belonging to the Enterprise Infrastructure track rather than this one, and it carries forward as a note rather than being acted on mid-lab. The third pointed at configuring seamless single sign-on through Group Policy, which Step Eight-B went on to do.
+
+The fourth was the source anchor confirmation quoted above. The fifth read: "Synchronization is currently disabled. Your Active Directory forest(s) will not be synchronized with Azure until synchronization is enabled." That is the installer announcing exactly what leaving "Start the synchronization process when configuration completes" unchecked had left behind. Unchecking it was the right call, and this lab would make it again: Step Six had to verify the organizational unit filter against the live connector before any object crossed the boundary, and starting synchronization from the wizard's final page would have committed the scope before it was confirmed. What the lab did not do was pair that deliberate pause with the step that ends it. Forcing a cycle by hand in Step Six satisfied the immediate need and left `SyncCycleEnabled` exactly where the wizard had put it, and the scheduler stayed off for a week. Step Nine is where that surfaced.
+
+### Step Six: Verified scope, then ran the first synchronization
 
 `RSAT-AD-Tools` was installed on `SYNC01` so that `ADSyncConfig.psm1`, which depends on the AD DS PowerShell module, could run. `svc-entraconnect` was granted the permissions Custom installation does not configure automatically the way Express does: basic read, password hash synchronization (`Replicate Directory Changes` and `Replicate Directory Changes All`), and read/write on `ms-DS-ConsistencyGuid`, via `Set-ADSyncBasicReadPermissions`, `Set-ADSyncPasswordHashSyncPermissions`, and `Set-ADSyncMsDsConsistencyGuidPermissions` against `corp.home.arpa`.
 
@@ -321,27 +375,51 @@ Verifying the OU filter through Synchronization Service Manager's Container Pick
 
 With the scope confirmed, `Start-ADSyncSyncCycle -PolicyType Initial` was run and watched in the Operations tab. All six connector operations reported `success`, with one exception worth explaining rather than treating as a defect: the Microsoft Entra ID connector's Full Import reported `completed-no-objects`. The tenant already held four objects at that point, three cloud-only administrative accounts and one cloud-only group from Lab 01, but none of them had ever been touched by directory synchronization or carried anything an AD DS connector could match against, so this was the correct result rather than a gap. ADR-019's boundary held even at the level of what the connector considered worth importing.
 
-<img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/15-first-sync-operations-six-runs-success.jpg" alt="15-first-sync-operations-six-runs-success" width="700">
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/15-first-sync-operations-six-runs-success.jpg" alt="15-first-sync-operations-six-runs-success" width="700">
+</p>
 
-### Step Seven: Validate the synchronized population
+<p align="center">
+  <em>The first synchronization cycle in the Operations tab: six connector operations, five reporting `success` and the Microsoft Entra ID connector's Full Import reporting `completed-no-objects`.</em>
+</p>
+
+### Step Seven: Validated the synchronized population
 
 The tenant went from three users and one group to nine users and five groups. All five baseline accounts (`testuser01`, `jdoe`, `jsmith`, `mjohnson`, `akim`) appeared with `On-premises sync: Yes` and `@brindeck.com` user principal names matching their on-premises identities, alongside `tsync01`, the account `New-LabUser.ps1` provisioned live during Step Four's proof. `tnosync01` and `labadmin`, both in `IT`, did not appear at all, and the three pre-existing cloud-only administrative accounts correctly showed `On-premises sync: No`.
 
-<img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/16-tenant-users-post-sync.jpg" alt="16-tenant-users-post-sync" width="700">
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/16-tenant-users-post-sync.jpg" alt="16-tenant-users-post-sync" width="700">
+</p>
+
+<p align="center">
+  <em>The tenant after the first cycle: 9 users, with the six synchronized accounts showing `On-premises sync: Yes` and the three cloud-only administrative accounts showing `No`.</em>
+</p>
 
 All four groups from `Groups` appeared with `Source: Windows Server AD`, alongside the pre-existing cloud-only `All Company` group. `IT-Admins` confirmed the specific consequence Design Decisions predicted: on-premises the group has four members, `labadmin` plus `jsmith`, `mjohnson`, and `akim`, but the tenant shows only the latter three.
 
-<img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/17-it-admins-cloud-members-three.jpg" alt="17-it-admins-cloud-members-three" width="700">
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/17-it-admins-cloud-members-three.jpg" alt="17-it-admins-cloud-members-three" width="700">
+</p>
+
+<p align="center">
+  <em>`IT-Admins` in the tenant with three members, Alex Kim, John Smith, and Mary Johnson. Its fourth on-premises member, `labadmin`, sits in `OU=IT` and never crossed the boundary.</em>
+</p>
 
 `labadmin`'s own membership in a synchronized group is invisible in the tenant precisely because `labadmin` never crossed the boundary itself, a real property of organizational-unit filtering rather than a defect.
 
 The sign-in test confirmed the premise the whole track rests on: `testuser01` signed in to `myaccount.microsoft.com` as `testuser01@brindeck.com` using his existing on-premises password and authenticated successfully.
 
-<img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/18-testuser01-signed-in-myaccount.jpg" alt="18-testuser01-signed-in-myaccount" width="700">
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/18-testuser01-signed-in-myaccount.jpg" alt="18-testuser01-signed-in-myaccount" width="700">
+</p>
+
+<p align="center">
+  <em>`testuser01` signed in to `myaccount.microsoft.com` as `testuser01@brindeck.com` using his existing on-premises password.</em>
+</p>
 
 Signing in also surfaced an unplanned but genuine finding: Entra ID required immediate Microsoft Authenticator registration before completing the sign-in, even though this is an entirely ordinary user with no administrative role. Lab 01's licensing note describes Security Defaults covering "administrative multifactor authentication," but Security Defaults does not actually support scoping MFA to administrators only, it applies tenant-wide or not at all. This lab did not set out to configure MFA for the general population, that is Lab 05's job, but Security Defaults enforcing it as a side effect is worth recording as an early, unplanned appearance of that later lab's territory.
 
-### Step Eight: Configure and validate seamless single sign-on
+### Step Eight: Configured and validated seamless single sign-on
 
 Split into two phases across separate sessions. Confirming and protecting `AZUREADSSOACC`, the first half of this step, grew from a formality into real diagnostic work at every layer it touched: the OU it needed, the ACL that OU actually had versus what disabling inheritance was expected to produce, whether the account's own permissions matched an ordinary computer object, and what its Kerberos encryption type actually meant. None of that belonged compressed under the same heading as the Group Policy object and the sign-in validation, so Step Eight-A covers the account hardening in full and Step Eight-B, below, covers the GPO and the validation from WIN11-CLIENT01.
 
@@ -352,9 +430,15 @@ New-ADOrganizationalUnit -Name "Protected Objects" -Path "DC=corp,DC=home,DC=arp
 Get-ADComputer -Identity AZUREADSSOACC | Move-ADObject -TargetPath "OU=Protected Objects,DC=corp,DC=home,DC=arpa"
 ```
 
-Getting the OU's ACL down to only Domain Admins, Enterprise Admins, Administrators, and SYSTEM took two corrected passes rather than one; the full sequence, including what went wrong on the first attempt, is recorded in Troubleshooting and Adjustments. The clean end state, inheritance disabled and every remaining entry explicit:
+Getting Full control on the OU down to only Domain Admins, Enterprise Admins, Administrators, and SYSTEM took two corrected passes rather than one; the full sequence, including what went wrong on the first attempt, is recorded in Troubleshooting and Adjustments. The clean end state, inheritance disabled and every remaining entry explicit:
 
-<img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/19-protected-objects-ou-final-acl.jpg" alt="19-protected-objects-ou-final-acl" width="700">
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/19-protected-objects-ou-final-acl.jpg" alt="19-protected-objects-ou-final-acl" width="700">
+</p>
+
+<p align="center">
+  <em>Advanced Security Settings for `OU=Protected Objects` after the ACL work: inheritance disabled and every entry explicit, with Full control held by Domain Admins, Enterprise Admins, Administrators, and SYSTEM, alongside the accidental-deletion Deny on Everyone and the special read entries for ENTERPRISE DOMAIN CONTROLLERS and Authenticated Users.</em>
+</p>
 
 With the OU settled, the account's own ACL was checked directly, since Microsoft's guidance and the OU work above both address where the object sits, not what its own permissions are. `AZUREADSSOACC` carries no `BUILTIN\Account Operators` entry at all. Checked against `SYNC01`, an ordinarily domain-joined computer object, as a control: `SYNC01` does carry `Allow BUILTIN\Account Operators FULL CONTROL`, fully inherited, matching what the `computer` object class's schema-defined default security descriptor grants. `AZUREADSSOACC` does not have that entry, and replication metadata confirms the object's security descriptor (`nTSecurityDescriptor`, version 2) was last written at `8/26/2026 7:29:48 PM`, the same timestamp as `whenCreated` to the second, meaning the ACL has been this way since Step Five's provisioning and nothing done in this OU and ACL work changed it. That is an observed difference between this one object and one control in this environment, not a general claim about how Entra Connect provisions every account; no broader mechanism is asserted here.
 
@@ -378,7 +462,13 @@ Set-ADComputer -Identity AZUREADSSOACC -KerberosEncryptionType "AES128,AES256"
 
 `Update-AzureADSSOForest` found and updated the account at its new location under `OU=Protected Objects`, confirming the OU move hadn't confused it. `Get-ADComputer AZUREADSSOACC -Properties msDS-SupportedEncryptionTypes, PasswordLastSet` afterward showed `24` (`AES128 | AES256`) and a `PasswordLastSet` timestamp matching the rollover:
 
-<img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/20-azureadssoacc-key-rollover-aes-encryption-confirmed.jpg" alt="20-azureadssoacc-key-rollover-aes-encryption-confirmed" width="700">
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/20-azureadssoacc-key-rollover-aes-encryption-confirmed.jpg" alt="20-azureadssoacc-key-rollover-aes-encryption-confirmed" width="700">
+</p>
+
+<p align="center">
+  <em>`Update-AzureADSSOForest` locating `AZUREADSSOACC` at `CN=AZUREADSSOACC,OU=Protected Objects,DC=corp,DC=home,DC=arpa` and updating it, followed by `msDS-SupportedEncryptionTypes` reading `24` (AES128 | AES256) with a `PasswordLastSet` matching the rollover.</em>
+</p>
 
 Establishing the authentication context for the rollover fought through some real browser-configuration friction on `SYNC01`, recorded as one line in Troubleshooting and Adjustments.
 
@@ -389,13 +479,25 @@ Establishing the authentication context for the rollover fought through some rea
 </p>
 
 <p align="center">
+  <em>The Site to Zone Assignment List entry mapping `https://autologon.microsoftazuread-sso.com` to zone value `1`, Local intranet.</em>
+</p>
+
+<p align="center">
   <img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/22-seamless-sso-status-bar-script-enabled.jpg" alt="22-seamless-sso-status-bar-script-enabled" width="700">
+</p>
+
+<p align="center">
+  <em>`Allow updates to status bar via script` enabled under the Intranet Zone folder of the Internet Control Panel Security Page.</em>
 </p>
 
 Since the GPO carries only User Configuration settings, its Computer Configuration half was disabled (`GPO Status: Computer configuration settings disabled`), matching the split `Standard-User-Environment` and `IT-Admin-Environment` already use in this environment rather than leaving an unused half active on it:
 
 <p align="center">
   <img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/23-seamless-sso-gpo-linked-user-accounts.jpg" alt="23-seamless-sso-gpo-linked-user-accounts" width="700">
+</p>
+
+<p align="center">
+  <em>`Seamless-SSO-Zone-Configuration` linked to `OU=User Accounts` alongside `Standard-User-Environment`, both links enabled and both GPOs carrying computer configuration settings disabled.</em>
 </p>
 
 Validation ran from WIN11-CLIENT01, logged on as `testuser01` in an ordinary, non-elevated command prompt; `gpresult /r` reports on whoever is actually logged on to the current session and needs no elevation to do so, unlike the automation track's `Get-GPResultantSetOfPolicy -User` cmdlet, which targets an arbitrary named account and does require it:
@@ -445,6 +547,10 @@ With the policy confirmed applied and its effective values confirmed correct, `k
   <img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/24-testuser01-seamless-signin-myapps.jpg" alt="24-testuser01-seamless-signin-myapps" width="700">
 </p>
 
+<p align="center">
+  <em>`testuser01@brindeck.com` landing on the My Apps dashboard, reached with no password prompt at all.</em>
+</p>
+
 `klist`, run immediately after, showed a second cached ticket beyond the expected `krbtgt` TGT: a service ticket for `HTTP/autologon.microsoftazuread-sso.com`, confirming the Kerberos negotiate against the intranet-zoned endpoint actually happened rather than inferring it from the smooth sign-in alone:
 
 ```
@@ -462,7 +568,7 @@ That ticket's encryption type, AES-256-CTS-HMAC-SHA1-96, is the same type Step E
 
 The plan's caution about a silent, indistinguishable failure mode did not end up applying: the result was unambiguous, both in the smooth sign-in itself and in the independent `klist` confirmation of the ticket exchange behind it, so there was no negative result requiring the honest-reporting caveat the plan anticipated.
 
-### Step Nine: Observe the cycle, then break it on purpose
+### Step Nine: Observed the cycle, then broke it on purpose
 
 **Confirmed Duplicate Attribute Resiliency was actually enabled before inducing anything.** If it were off, an incoming UPN collision fails the whole object instead of quarantining one attribute, and the rest of this step would need a different design entirely. `Connect-Entra` was used for this and for every diagnostic step below rather than the Graph SDK cmdlets ADR-019 names elsewhere: `Connect-Entra` is a published alias for `Connect-MgGraph` in the `Microsoft.Entra.Authentication` module, the same Graph plumbing with friendlier cmdlet names layered on top, so it is not a deviation from the Graph-first design, only a more readable surface for interactive, one-off diagnosis. The deprecated `Get-MsolDirSyncProvisioningError`, from the retired MSOnline module, was deliberately not used. Getting `Connect-Entra` to authenticate at all fought through real tooling friction, recorded in Troubleshooting and Adjustments. Once connected:
 
@@ -476,12 +582,20 @@ returned `True`:
   <img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/25-dar-quarantineuponupnconflict-enabled.jpg" alt="25-dar-quarantineuponupnconflict-enabled" width="700">
 </p>
 
+<p align="center">
+  <em>`Get-EntraDirSyncFeature` returning `True` for `QuarantineUponUpnConflict`, the cmdlet's actual accepted name for Duplicate Attribute Resiliency.</em>
+</p>
+
 This is the actual accepted feature name; Microsoft's own conceptual documentation calls the same feature `DuplicateUPNResiliency`, which the cmdlet rejects outright, a genuine naming drift also recorded in Troubleshooting and Adjustments. With confirmation in hand, the narrative below is the one the plan anticipated, not the alternate one a disabled feature would have forced.
 
-**Letting the scheduler run unattended surfaced a real defect: it had never run since installation.** `Get-ADSyncScheduler` showed `SyncCycleEnabled: False`. Synchronization Service Manager's Operations tab confirmed how long that had been true: the most recent recorded activity was a `Full Import` from the day Entra Connect was installed, and the next entry after it was the one just forced manually, a full week later, with nothing in between.
+**Letting the scheduler run unattended surfaced a real defect: it had never run since installation.** `Get-ADSyncScheduler` showed `SyncCycleEnabled: False`. Synchronization Service Manager's Operations tab confirmed how long that had been true: the last recorded activity was the pair of Exports that closed the installation's own forced cycle on the day Entra Connect was installed, and the next entry after it was the one just forced manually, a full week later, with nothing in between. The state itself was not new information and only its duration was, because the installer had already reported it on the Configuration complete screen in Step Five, in the same list as the TPM and Recycle Bin recommendations, where it went unread.
 
 <p align="center">
   <img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/26-adsync-scheduler-week-long-gap.jpg" alt="26-adsync-scheduler-week-long-gap" width="700">
+</p>
+
+<p align="center">
+  <em>The Operations tab showing the gap: the installation's own cycle on 8/26/2026 and the manually forced cycle on 9/2/2026, a full week later, with nothing in between.</em>
 </p>
 
 Every change synchronized in this lab up through Step Eight had reached the tenant only because it happened to be pulled in by a manually forced cycle or the installation's own initial sync, never by the scheduler doing its job unattended. `Set-ADSyncScheduler -SyncCycleEnabled $true` corrected it, and a forced `Start-ADSyncSyncCycle -PolicyType Delta` afterward confirmed a live cycle: `SyncCycleInProgress: True` and a `NextSyncCycleStartTimeInUTC` refreshed to thirty minutes out, matching `AllowedSyncCycleInterval`. This is now a standing fact worth carrying into Step Ten's finished-state validation, not only a Step Nine finding.
@@ -494,7 +608,11 @@ Every change synchronized in this lab up through Step Eight had reached the tena
   <img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/27-duptest01-soft-match-absorbed-on-premises-properties.jpg" alt="27-duptest01-soft-match-absorbed-on-premises-properties" width="700">
 </p>
 
-Its group membership had also picked up `Domain-Users-Standard`, sourced from Windows Server AD according to the Groups tab, on an object that should have had no on-premises source at all: it had been absorbed rather than flagged. This is UPN soft match doing exactly what it is designed to do: it has been on by default for tenants created after August 2016, and a cloud-only object with no immutable ID set is precisely the case it is built to reconcile as the same identity rather than treat as a conflict. It is a genuinely different mechanism from Duplicate Attribute Resiliency, and this is the near miss that clarified the distinction rather than a wasted attempt.
+<p align="center">
+  <em>The cloud-only `duptest01` after the sync, absorbed rather than flagged: `On-premises sync enabled: Yes`, a real on-premises distinguished name, a populated immutable ID, and no provisioning errors recorded.</em>
+</p>
+
+Its group membership had also picked up `Domain-Users-Standard`, sourced from Windows Server AD according to the Groups tab, on an object that should have had no on-premises source at all: it had been absorbed rather than flagged. This is UPN soft match doing exactly what it is designed to do: it has been on by default for organizations that began synchronizing on or after 30 March 2016, and a cloud-only object with no immutable ID set is precisely the case it is built to reconcile as the same identity rather than treat as a conflict. It is a genuinely different mechanism from Duplicate Attribute Resiliency, and this is the near miss that clarified the distinction rather than a wasted attempt.
 
 **The second attempt was blocked one layer lower, by Active Directory itself.** With the on-premises `duptest01` now the object actually holding that UPN, a second on-premises account, `duptest02`, was set to the same value directly:
 
@@ -516,21 +634,92 @@ Active Directory enforces UPN uniqueness across the whole forest for its own obj
   <img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/28-dar-quarantine-propertyconflict-detail.jpg" alt="28-dar-quarantine-propertyconflict-detail" width="700">
 </p>
 
+<p align="center">
+  <em>`duptest02`'s on-premises provisioning error record in the tenant: a single `PropertyConflict` on `UserPrincipalName` for the rejected value `duptest03@brindeck.com`.</em>
+</p>
+
 This is worth being precise about rather than overclaiming: Duplicate Attribute Resiliency actually has two distinct presentations, a new object provisioned with a placeholder UPN in the `<prefix>+<4digits>@<tenant>.onmicrosoft.com` format, and an update conflict on an already-synced object, which rejects the incoming value, keeps the last known good UPN, and logs the rejection exactly as shown above. What this collision produced is the second variant; the general documentation's placeholder-format case never came up, because `duptest02` was already a synced object by the time the conflicting UPN reached it, not a new one arriving for the first time. The evidence above, a `PropertyConflict` category against `UserPrincipalName`, was judged sufficient on its own for what this step needed to demonstrate: that Duplicate Attribute Resiliency quarantines silently, without failing the export or logging anything the sync client itself would surface. Querying the same record with `Get-EntraUser` returned a `403 Forbidden`, a scopes gap in that particular `Connect-Entra` session rather than a dead end worth chasing further, since the portal had already answered the question.
 
 **Recovery corrected the UPN immediately; the logged conflict record cleared on its own delayed schedule.** Reverting `duptest02`'s on-premises UPN and forcing a delta sync fixed the attribute in the tenant right away, confirmed on the next check. The provisioning error record itself did not clear in that same check, consistent with the plan's warning that a background task in Entra de-quarantines resolved conflicts hourly rather than immediately on the next sync, and an unclearing record at that point was not a sign recovery had failed. It cleared roughly twenty-six minutes later, faster than the full hour the plan anticipated, worth recording as a real data point: the hourly sweep evidently is not anchored to the moment the conflict was created. `BlockSoftMatch` itself was reverted as part of the same cleanup, `Set-EntraDirSyncFeature -Features 'BlockSoftMatch' -Enable $false` confirmed back to `False`: it is a tenant-wide setting Microsoft treats as a temporary measure, not a lab artifact, and leaving it on would have changed how every future object in the tenant reconciles, well past what this step needed to demonstrate.
 
 **Cleanup left one deliberate fixture behind rather than a clean slate.** Both on-premises test objects, `duptest01` and `duptest02`, were deleted outright with `Remove-ADUser` rather than `Remove-LabUser.ps1`, which is built only to disable and offboard an account, not remove the AD object itself, making it the wrong tool for scaffolding meant to disappear entirely; using `Remove-ADUser` directly instead is the same approach Step Four's stray-object cleanup already established. A final forced export confirmed two deletes and one update with no errors. The one surviving object, the cloud-only `duptest03`, was kept rather than deleted, and renamed to `cloudonly-demo01@brindeck.com` with the display name `Cloud-Only Demo Account (Lab 03 fixture)`. The disposition is forward-justified rather than leftover debris: ADR-019 Design Decision 6 is what put two of the tenant's three existing cloud-only accounts at Global Administrator tier, `admin@brindeck.com` and the break-glass emergency access account (the third, the original Microsoft 365 signup account, keeps Global Administrator for the separate subscription-ownership reason Lab 01 recorded); all three, for their own reasons, were equally off-limits as a collision target, which is why a disposable cloud-only object had to exist at all. Lab 03 needs a safe, unprivileged cloud-only object to contrast against a synchronized one, and this account, having already served its purpose here, is the only alternative to reusing one of the tenant's three Global Administrator-tier accounts for that comparison. The second failure mode held in reserve during planning, stopping the ADSync service or severing `SYNC01`'s outbound connectivity, was never needed: the collision above produced substantially more diagnostic material than a loud failure would have.
 
-### Step Ten: Validate the environment is otherwise unchanged, and record the finished state
+### Step Ten: Validated the environment was otherwise unchanged, and recorded the finished state
 
-Confirm that DC01, WIN11-CLIENT01, and Ubuntu Server still behave as the earlier tracks documented: domain authentication, Group Policy application, SSSD and Kerberos on Ubuntu Server, the Wazuh agents, and a run of the automation library's health report. Record the Entra Connect version installed, the source anchor chosen, the synchronized object counts on both sides, and the scheduler configuration.
+DC01, WIN11-CLIENT01, Ubuntu Server, and the Wazuh agents were confirmed still behaving as the earlier tracks documented, and a run of the automation library's health report and Pester suite closed out the automation side, all described in Validation below. The scheduler finding from Step Nine got its actual proof here rather than a restated assertion: three consecutive Delta cycles landed on their own, roughly thirty minutes apart, with nobody running `Start-ADSyncSyncCycle` at any point in between.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/29-adsync-scheduler-unattended-cycles-operations-tab.jpg" alt="29-adsync-scheduler-unattended-cycles-operations-tab" width="700">
+</p>
+
+<p align="center">
+  <em>Synchronization Service Manager's Operations tab on SYNC01, showing three Delta cycles roughly thirty minutes apart with no forced cycle in between, the scheduler genuinely running unattended after Step Nine's fix.</em>
+</p>
 
 ---
 
 ## Validation
 
-*Recorded during implementation, against observed results.*
+**DC01, WIN11-CLIENT01, and Ubuntu Server behaved exactly as the earlier tracks documented, with nothing this lab touched degrading anything nearby.** `Test-ComputerSecureChannel -Verbose` from WIN11-CLIENT01 reported `True` and confirmed the secure channel to `corp.home.arpa` in good condition. `gpresult /r`, run as `labadmin` after a forced `gpupdate`, showed `IT-Admin-Environment` applying cleanly from DC01 with nothing filtered, correct for an account in `OU=IT` rather than `OU=User Accounts`. On Ubuntu Server, `sssd` was active and had been running continuously for over a week, and `kinit testuser01@CORP.HOME.ARPA` issued a fresh TGT without incident. The Wazuh dashboard showed all four agents, DC01, WIN11-CLIENT01, SYNC01, and UBUNTU-SERVER, `Active`, none disconnected or pending.
+
+**The automation library's health report returned `Healthy` on every check, but one of those checks had never actually been able to see `SYNC01`.** `Invoke-LabHealthReport.ps1`, run clean from `C:\Scripts` on WIN11-CLIENT01, returned `ADServiceHealth`, `WazuhAgentStatus`, and `DockerServiceStatus` all `Healthy`, `Overall: Healthy`.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/31-health-report-finished-state-healthy.jpg" alt="31-health-report-finished-state-healthy" width="700">
+</p>
+
+<p align="center">
+  <em>The finished-state health report: all three checks and the overall status Healthy.</em>
+</p>
+
+Two things carry forward from this lab instead of being fixed in it, and they are not the same weight. `Get-LabWazuhAgentStatus.ps1`'s default `-AgentName` list, `DC01`, `WIN11-CLIENT01`, and `UBUNTU-SERVER`, dates from Automation Lab 05, written before `SYNC01` existed, so the scheduled `WazuhAgentStatus` check has never asked about `SYNC01` at all, and this lab is what made `SYNC01` a host worth asking about. The daily health report has been reporting `Healthy` the entire time without checking the one machine the tenant's entire synchronization now depends on, which is the same shape as the defect [Linux Lab 06](../linux-infrastructure/06-monitoring-stack-lab.md) was revised for: Node Exporter reported a successful Prometheus scrape while it had no access at all to the host's filesystem, disk, or kernel metrics, a green result covering a real gap in what was being watched rather than a false green result. Called directly with the list overridden, `Get-LabWazuhAgentStatus -AgentName DC01,WIN11-CLIENT01,UBUNTU-SERVER,SYNC01` returned all four `active`, so `SYNC01`'s Wazuh enrollment itself is fine; what carries forward is that the scheduled report cannot see that on its own, and it will keep reporting `Healthy` over that blind spot until the default agent list is fixed. Of the two, this is the one with live consequences. Second, and minor by comparison: `Get-LabDockerServiceStatus.ps1`'s own documentation describes authenticating "with the Portainer admin account," but the account that actually authenticates is a personal, non-`admin`-named account; a 422 from Portainer's `POST /api/auth` is what that platform returns for an unrecognized login, not a malformed request, and it briefly read as a credential problem for that reason. Nothing depends on that mismatch the way the health report depends on its agent list, so it carries forward as a documentation correction rather than a live gap.
+
+`Invoke-Pester -Path C:\Scripts -Output Detailed`, the full thirteen-script suite, passed all 174 tests, 0 failed, 0 skipped, matching Step Four's count exactly with no drift since. The repository READMEs already carry 174, propagated when Steps One through Seven were reflected across the repo; the 172 figures that remain are historical statements about the close of Automation Lab 05 rather than stale ones.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/33-pester-174-tests-passed.jpg" alt="33-pester-174-tests-passed" width="700">
+</p>
+
+<p align="center">
+  <em>The full thirteen-script Pester suite: 174 tests passed, 0 failed.</em>
+</p>
+
+**Entra Connect's version and source anchor were unchanged since Step Five, reconfirmed here as part of the finished state, and the scheduler was checked before anything else was touched, deliberately, so that "still `True`" would not be taken on faith the way it was before Step Nine caught it.** `SYNC01` continued running Entra Connect Sync 2.6.84.0 against `ms-DS-ConsistencyGuid` as the source anchor. `Get-ADSyncScheduler`, run before any command capable of forcing a cycle, showed `SyncCycleEnabled: True`, `AllowedSyncCycleInterval: 00:30:00`, `NextSyncCyclePolicyType: Delta`, `StagingModeEnabled: False`, and `SchedulerSuspended: False`. That confirmed the setting; it did not by itself confirm the scheduler was doing anything. What did was watching the Operations tab afterward, shown in Step Ten above: three Delta cycles landed roughly thirty minutes apart with nobody forcing any of them, the actual unattended behavior Step Nine's fix was supposed to produce.
+
+**Object counts reconciled cleanly against the Step Two baseline on both sides, once the lab's own known provisioning and Step Nine's cleanup were accounted for.** On-premises, queried from WIN11-CLIENT01:
+
+| Organizational Unit | Users | Groups |
+|---|---|---|
+| `User Accounts` | 6 — `testuser01`, Jane Doe, John Smith, Mary Johnson, Alex Kim, `tsync01` | 0 |
+| `IT` | 2 — `labadmin`, `tnosync01` | 0 |
+| `Workstations` | 0 | 0 |
+| `Groups` | 0 | 4 — `IT-Admins`, `Domain-Users-Standard`, `Lab-Workstations`, `Linux-Admins`, unchanged |
+| `Service Accounts` | 1 — `svc-entraconnect` | 0 |
+| `Protected Objects` | 0 | 0 |
+
+`Service Accounts` and `Protected Objects` did not exist at Step Two's baseline; both were created during this lab, in Steps Five and Eight-A. Against the original four organizational units Step Two tabulated, the net change is exactly +2 users, 5 in `User Accounts` and 1 in `IT` becoming 6 and 2, with `Groups` unchanged at 4. That is precisely `tsync01` and `tnosync01`, Step Four's two live-proof accounts, and nothing else: Step Nine's `duptest01` and `duptest02`, created and later removed with `Remove-ADUser`, net to zero, confirming their cleanup left no residue.
+
+The tenant, read from the Entra admin center Overview page, held 10 users, 5 groups, 1 application, and 0 devices.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/30-tenant-overview-finished-state-counts.jpg" alt="30-tenant-overview-finished-state-counts" width="500">
+</p>
+
+<p align="center">
+  <em>The tenant's finished-state counts: 10 users, 5 groups, 1 application, 0 devices.</em>
+</p>
+
+That reconciles exactly. Step Seven's first-synchronization state was 9 users and 5 groups, the Step Two baseline's 3 users and 1 group plus the six on-premises objects and four groups the first cycle brought in. Step Nine's net effect on the tenant was supposed to be +1 user, `cloudonly-demo01`, kept as a deliberate fixture, with `duptest01` and `duptest02` fully gone on both sides and no group changes. 9 + 1 = 10 users, 5 groups unchanged, matching the portal exactly.
+
+The application was the one figure Step Two's baseline did not anticipate at all, 0 apps. It is `ConnectSyncProvisioning_SYNC01_998d03adde72`, an enterprise application created 8/26/2026, the same day Step Five installed Entra Connect Sync on `SYNC01`, not an artifact of anything done in Step Nine or Ten. Entra Connect Sync's Custom installation registers this application in the tenant itself, for its own provisioning use; it was never a manual step in this lab's plan, and confirming it accounted for the count was worth doing directly rather than assuming. Its full name, trailing identifier included, appears here as a deliberate call rather than a redaction miss. The track's policy masks directory object IDs; this is an application display name, and the tenant it belongs to is already published in full under the same policy, because anyone holding `brindeck.com` can resolve the tenant ID from Microsoft's unauthenticated discovery endpoint. The trailing hex gives up nothing the verified domain does not.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/32-connectsyncprovisioning-enterprise-application.jpg" alt="32-connectsyncprovisioning-enterprise-application" width="700">
+</p>
+
+<p align="center">
+  <em>The tenant's one Enterprise Application, ConnectSyncProvisioning_SYNC01_998d03adde72, registered automatically by Entra Connect Sync's own installation on 8/26/2026.</em>
+</p>
 
 ---
 
@@ -540,11 +729,23 @@ Confirm that DC01, WIN11-CLIENT01, and Ubuntu Server still behave as the earlier
 
 During Step One, the first attempt to join `SYNC01` to `corp.home.arpa` failed with "An Active Directory Domain Controller (AD DC) for the domain 'corp.home.arpa' could not be contacted," even though the IPv4 address, subnet, gateway, and preferred DNS server (`192.168.1.10`) were all configured correctly.
 
-<img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/02-sync01-domain-join-dc-unreachable.jpg" alt="02-sync01-domain-join-dc-unreachable" width="700">
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/02-sync01-domain-join-dc-unreachable.jpg" alt="02-sync01-domain-join-dc-unreachable" width="700">
+</p>
+
+<p align="center">
+  <em>The first domain join attempt failing with "An Active Directory Domain Controller (AD DC) for the domain 'corp.home.arpa' could not be contacted," with the computer name and domain both entered correctly.</em>
+</p>
 
 `ipconfig /all` showed why: alongside the intended IPv4 DNS server, the Ethernet0 adapter also had IPv6 autoconfiguration active, with its own IPv6 addresses and an IPv6 DNS server entry. The mixed IPv4/IPv6 configuration was enough to prevent domain-controller discovery from completing over the intended path.
 
-<img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/03-sync01-ipconfig-ipv6-interference.jpg" alt="03-sync01-ipconfig-ipv6-interference" width="700">
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/03-sync01-ipconfig-ipv6-interference.jpg" alt="03-sync01-ipconfig-ipv6-interference" width="700">
+</p>
+
+<p align="center">
+  <em>`ipconfig /all` on SYNC01 showing IPv6 autoconfiguration active on Ethernet0, with its own IPv6 addresses and an IPv6 DNS server entry listed above the intended `192.168.1.10`.</em>
+</p>
 
 This is not evidence that IPv6 is broadly incompatible with Active Directory, and it is not a general recommendation to disable it. It is what was actually observed on this host, in this configuration, at this point in setup: a targeted workaround for interference that was diagnosed directly, not an assumption applied on principle. The IPv6 binding was disabled on the Ethernet0 adapter, the DNS cache was flushed and re-registered, and domain-controller discovery was verified directly before retrying the join:
 
@@ -558,11 +759,15 @@ nltest /dsgetdc:corp.home.arpa
 
 `Get-DnsClientServerAddress` confirmed the IPv4 DNS server was `192.168.1.10` with no IPv6 server configured, and `nltest /dsgetdc:corp.home.arpa` located `\\DC01.corp.home.arpa` at `192.168.1.10` successfully:
 
-<img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/04-sync01-ipv6-disabled-dsgetdc-success.jpg" alt="04-sync01-ipv6-disabled-dsgetdc-success" width="700">
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/04-sync01-ipv6-disabled-dsgetdc-success.jpg" alt="04-sync01-ipv6-disabled-dsgetdc-success" width="700">
+</p>
+
+<p align="center">
+  <em>IPv6 disabled on Ethernet0 and DNS re-registered: `Get-DnsClientServerAddress` shows only the IPv4 server `192.168.1.10`, and `nltest /dsgetdc:corp.home.arpa` locates DC01 successfully.</em>
+</p>
 
 The domain join was retried immediately afterward and completed without further issue.
-
----
 
 ### Ubuntu Server's DNS Override From Lab 06 Had Never Actually Taken Effect
 
@@ -599,19 +804,31 @@ This is the same category of failure [Lab 04](../enterprise-infrastructure/04-do
 
 Confirming the OU filter for Step Six's scope verification meant opening the `corp.home.arpa` connector's properties in Synchronization Service Manager and selecting **Containers...** on the **Configure Directory Partitions** page. That failed immediately with a .NET resource-loading error: "An error was encountered while selecting containers: Could not find any resources appropriate for the specified culture or the neutral culture... 'Microsoft.DirectoryServices.MetadirectoryServices.UI.ContainerPicker.ContainerPickerControl.resources' was correctly embedded or linked into assembly 'ContainerPicker'..."
 
-<img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/13-container-picker-culture-error.jpg" alt="13-container-picker-culture-error" width="700">
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/13-container-picker-culture-error.jpg" alt="13-container-picker-culture-error" width="700">
+</p>
+
+<p align="center">
+  <em>Synchronization Service Manager failing to open the Container Picker with a .NET culture resource error, the `DC=corp,DC=home,DC=arpa` directory partition listed correctly behind it.</em>
+</p>
 
 This is a confirmed defect in this specific build rather than anything wrong with the environment. Microsoft's own community forum has a thread on exactly this version and error, a missing localized resource for the Container Picker control, confirmed by Microsoft support, with directory connectivity itself unaffected; the wizard can enumerate OUs correctly elsewhere, only this one dialog in Sync Service Manager is broken. Their recommended workaround is the supported path this lab already relies on for OU filtering: the installer wizard's own **Domain and OU filtering** page rather than Sync Service Manager's picker.
 
 Relaunching the Entra Connect wizard, selecting **Customize synchronization options** from **Additional Tasks**, and returning to **Domain and OU filtering** confirmed the scope correctly: `User Accounts` and `Groups` checked, everything else including the new `Service Accounts` OU unchecked, with no changes made and the wizard exited without reaching **Configure**.
 
-<img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/14-domain-ou-filtering-user-accounts-groups.jpg" alt="14-domain-ou-filtering-user-accounts-groups" width="700">
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/02-hybrid-identity-with-entra-connect/14-domain-ou-filtering-user-accounts-groups.jpg" alt="14-domain-ou-filtering-user-accounts-groups" width="700">
+</p>
+
+<p align="center">
+  <em>The installer wizard's own Domain and OU filtering page confirming the scope: `Groups` and `User Accounts` checked, everything else including the new `Service Accounts` OU unchecked.</em>
+</p>
 
 Since the OU filter had already been set correctly through the installer wizard during Custom setup, not through Sync Service Manager, this defect never called the actual configuration into question, only the one tool available to view it after the fact.
 
 ### The Protected Objects OU's ACL Needed Two Corrected Passes, Not the One From the Security Tab
 
-Getting `OU=Protected Objects` down to Domain Admins, Enterprise Admins, Administrators, and SYSTEM only did not work on the first attempt, and the reason changed twice before it was actually right.
+Getting Full control on `OU=Protected Objects` down to Domain Admins, Enterprise Admins, Administrators, and SYSTEM only did not work on the first attempt, and the reason changed twice before it was actually right.
 
 Right after creation, before any change, the OU's own `dsacls` showed the ordinary default for a brand-new OU under this domain: `Domain Admins` (added at creation via `New-ADOrganizationalUnit`, not inherited), plus `Enterprise Admins`, `Administrators`, `Pre-Windows 2000 Compatible Access`, `Key Admins`, and `Enterprise Key Admins`, all tagged `<Inherited from parent>`, and, notably, `BUILTIN\Account Operators` (create/delete child on `computer`, `user`, `group`, `inetOrgPerson`) and `BUILTIN\Print Operators` (create/delete child, scoped to `printQueue` only) present with no inheritance tag at all:
 
@@ -650,9 +867,11 @@ Installing `Microsoft.Entra` failed first, on a module clobber conflict with an 
 
 `Get-EntraDirSyncFeature -Feature DuplicateUPNResiliency`, the name Microsoft's conceptual documentation uses for this feature, failed with "Invalid value for parameter." The cmdlet's actual accepted value, found only by searching past the conceptual article to the cmdlet reference itself, is `QuarantineUponUpnConflict`. This is a genuine naming drift between the retired MSOnline module's documentation generation and the current `Microsoft.Entra.DirectoryManagement` module, not a misconfiguration in this environment, and it cost real time before the mismatch was recognized as the actual problem.
 
+---
+
 ## Security Considerations
 
-This lab introduces the environment's first path from the local network to a cloud directory, and most of what follows is a consequence of that.
+This lab introduced the environment's first path from the local network to a cloud directory, and most of what follows is a consequence of that.
 
 The synchronization account is the most consequential new credential in the environment. Entra Connect creates an Active Directory connector account for reading the directory, and password hash synchronization requires it to hold Replicate Directory Changes and Replicate Directory Changes All. Those rights are what allow it to request password hashes from a domain controller over the standard replication protocol. An account with directory replication rights is a high-value target by definition, and it lives on `SYNC01` rather than on the domain controller, which is precisely why ADR-019 put the synchronization engine on a host whose compromise does not begin at the identity foundation.
 
@@ -670,13 +889,29 @@ Identifier handling follows the policy the [track README](README.md) sets. On-pr
 
 ## Outcome
 
-*Recorded at completion.*
+This lab connected the two directories that had no relationship until it did: `corp.home.arpa` on-premises, which remains authoritative, and the Microsoft Entra tenant it now projects a scoped subset of itself into. `SYNC01` was built as a dedicated Windows Server 2022 member server, joined to `corp.home.arpa` and hosting Entra Connect Sync 2.6.84.0 against `ms-DS-ConsistencyGuid` as the source anchor, installed Custom and scoped to `User Accounts` and `Groups`, with `IT` and `Workstations` deliberately excluded. `brindeck.com` was added as a routable user principal name suffix before the first synchronization ran, and `New-LabUser.ps1` was updated to derive it automatically for accounts created in a synchronized organizational unit, under PSScriptAnalyzer and its Pester suite.
+
+Password hash synchronization and seamless single sign-on were both validated end to end: `testuser01@brindeck.com` authenticated to a cloud service with his on-premises password, and later signed in to `myapps.microsoft.com` with no password prompt at all, a Kerberos ticket confirmed by `klist`. `AZUREADSSOACC` was relocated into a new, delegation-restricted `OU=Protected Objects` once its original OU's default administrative permissions, rather than its Group Policy scoping, were identified as the actual exposure.
+
+Step Nine turned two of the lab's planned objectives into genuine findings rather than narrated behavior. The scheduler check found `SyncCycleEnabled: False` since installation, meaning every change synchronized through Step Eight had reached the tenant only by a manually forced cycle or the initial install sync; fixed, and Step Ten confirmed the fix held by watching three unattended Delta cycles land on their own roughly thirty minutes apart, nobody forcing anything. The deliberate failure changed its collision target mid-step, from an existing account to a disposable cloud-only fixture, once every existing cloud-only account turned out to be Global Administrator-tier, and the first attempt at it reproduced UPN soft match rather than Duplicate Attribute Resiliency, a near miss that clarified the distinction between the two mechanisms before the actual quarantine was produced and diagnosed.
+
+Step Ten confirmed the rest of the environment held. DC01, WIN11-CLIENT01, and Ubuntu Server behaved exactly as the earlier tracks documented: secure channel, Group Policy application, SSSD and Kerberos, and all four Wazuh agents `Active`. The automation library's health report ran clean, and the full thirteen-script, 174-test Pester suite passed with no drift since Step Four. Finished-state object counts reconciled exactly against the Step Two baseline on both sides: nine users and four groups on-premises, two new organizational units among them, and ten users, five groups, and one application in the tenant.
+
+Two real gaps in the automation library surfaced along the way and carry forward rather than being fixed here: a stale Wazuh default agent list that leaves the scheduled health report never actually checking `SYNC01`, and a Portainer documentation mismatch describing an account that is not the one that authenticates. Every objective set out for this lab was met.
 
 ---
 
 ## Lessons Learned
 
-*Recorded at completion.*
+A deliberate temporary state needs the step that ends it planned at the moment it is created. Leaving "Start the synchronization process when configuration completes" unchecked in Step Five was correct, because Step Six had to confirm the organizational unit filter against the live connector before any object crossed the boundary. What was missing was not the judgment but the follow-through: nothing re-enabled the scheduler once the scope was confirmed, so a pause meant to last one step lasted a week. The installer reported the consequence plainly, "Synchronization is currently disabled," and it reported it on a screen headed Configuration complete, in a list with four other bullets, three of which were recommendations to decline. It was read past. The tool did its part and no louder warning was available to it, so the habit worth taking from this is treating a completion screen as a status report rather than a dismissal prompt.
+
+A week of manually forced cycles then kept the environment working, which is what made the assumption comfortable: every change through Step Eight reached the tenant, so nothing observable contradicted a running scheduler. A scheduler's configuration and its behavior are also not the same claim, and only one of them is verifiable by reading a property. `Get-ADSyncScheduler` reporting `SyncCycleEnabled: True` looks identical whether the scheduler is genuinely running or whether every change reaching the tenant is being pulled in by hand; nothing about the setting itself distinguishes the two. Step Nine caught it by reading the Operations tab's history rather than the scheduler's current setting, and Step Ten went further and waited for cycles to land unattended rather than trusting the corrected setting on its own; a configuration flag confirms nothing that an actual observed interval does not.
+
+A default parameter list is a snapshot of the environment on the day it was written, and it goes stale silently as the environment grows around it. `Get-LabWazuhAgentStatus.ps1`'s `-AgentName` default dates from Automation Lab 05, before `SYNC01` existed, so the scheduled health report has been returning `Healthy` this whole time without `SYNC01` ever being asked about at all, not because it was checked and found fine but because it was never in the list to begin with. That is the same shape of defect [Linux Lab 06](../linux-infrastructure/06-monitoring-stack-lab.md) was revised for, a monitoring check whose green result covers a real gap in what it was actually watching rather than reflecting anything checked and confirmed. A tool that reports `Healthy` against a fixed list is only as current as the day that list was written, and a passing run says nothing about what the list never included.
+
+Not every workaround that resolves a failure earns a mechanism to credit. `Connect-Entra` crashed immediately after its WAM broker warning; falling back to `-UseDeviceCode` traded that for a different, Security Defaults-driven failure instead, and setting `Set-MgGraphOption -DisableLoginByWAM $true` before retrying the interactive flow finally worked, but the tool's own printed output states that setting is a no-op with the default Microsoft-owned client ID. Something changed between the crash and the successful retry; what specifically did was never conclusively identified. Recording that honestly as unresolved, rather than writing it up as though `-DisableLoginByWAM` had fixed it, was the more accurate account even though it was less satisfying, and crediting an unverified fix would have been the actual mistake.
+
+Duplicate Attribute Resiliency and UPN soft match are different mechanisms that can produce a similar-looking outcome from the outside, and the first deliberate collision attempt reproduced the wrong one. Syncing an on-premises `duptest01` against a bare cloud-only `duptest01` with no immutable ID did not quarantine anything; it absorbed the cloud-only object outright, exactly what soft match, on by default for any organization that began synchronizing on or after 30 March 2016, is designed to do for an object in that state. Only turning soft match off, by enabling `BlockSoftMatch`, and retargeting a fresh cloud-only stub with no immutable ID produced the actual quarantine this step needed to demonstrate. The near miss was what made the distinction concrete rather than academic: two failure modes that can look alike from the tenant's UI had entirely different causes and entirely different fixes, and only one of them was what this lab set out to document.
 
 ---
 
@@ -705,7 +940,7 @@ Identifier handling follows the policy the [track README](README.md) sets. On-pr
 - [Seamless SSO: FAQ](https://learn.microsoft.com/en-us/entra/identity/hybrid/connect/how-to-connect-sso-faq) - the recommendation to roll the Kerberos decryption key at least every thirty days, and the `Update-AzureADSSOForest` procedure
 - [Troubleshoot seamless SSO](https://learn.microsoft.com/en-us/entra/identity/hybrid/connect/tshoot-connect-sso) - that placing the sign-on URL in Trusted Sites rather than Local intranet blocks sign-in
 - [Troubleshoot errors during synchronization](https://learn.microsoft.com/en-us/entra/identity/hybrid/connect/tshoot-connect-sync-errors) - the documented error classes, including duplicate attribute and data mismatch conditions
-- [Duplicate attribute resiliency](https://learn.microsoft.com/en-us/entra/identity/hybrid/connect/how-to-connect-syncservice-duplicate-attribute-resiliency) - what quarantining an attribute means, and that the export succeeds so the sync client logs no error and does not retry, which is the behavior the induced failure in Step Nine is chosen to expose
+- [Duplicate attribute resiliency](https://learn.microsoft.com/en-us/entra/identity/hybrid/connect/how-to-connect-syncservice-duplicate-attribute-resiliency) - what quarantining an attribute means, and that the export succeeds so the sync client logs no error and does not retry, which is the behavior the induced failure in Step Nine was chosen to expose
 - [Microsoft Entra Connect Health for sync](https://learn.microsoft.com/en-us/entra/identity/hybrid/connect/how-to-connect-health-sync) - the synchronization error report, its thirty-minute refresh, and the alerting the Global Administrator installation decision buys
 - [Synchronization Service Manager: Operations tab](https://learn.microsoft.com/en-us/entra/identity/hybrid/connect/how-to-connect-sync-service-manager-ui-operations) - reading run status, and the distinction between `success` and a run that completed with errors
 - [How to manage Kerberos KDC usage of RC4 for service account ticket issuance: Changes related to CVE-2026-20833](https://support.microsoft.com/en-us/topic/how-to-manage-kerberos-kdc-usage-of-rc4-for-service-account-ticket-issuance-changes-related-to-cve-2026-20833-1ebcda33-720a-4da8-93c1-b0496e1910dc) - what an unset `msDS-SupportedEncryptionTypes` actually falls back to (`DefaultDomainSupportedEncTypes`), and that a patched DC's default for that value changed to `0x18` (AES-SHA1 only) starting 14 April 2026, with enforcement mandatory from July 2026
