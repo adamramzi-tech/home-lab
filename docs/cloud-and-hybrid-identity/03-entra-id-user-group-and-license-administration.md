@@ -2,9 +2,9 @@
 
 ## Status
 
-Planning and research phase. Nothing in this document has been implemented.
+Step One is complete: the pre-lab baseline is recorded, and nothing else in this lab has been touched yet. Steps Two through Twelve are not started, and the Business Premium trial does not exist yet, so none of its thirty-day window has been consumed.
 
-The plan below is written against the environment as Labs 01 and 02 left it, and against Microsoft Learn as consulted during planning. Both are cited where they matter, and both are to be re-verified during implementation rather than trusted from here: the tenant because portal behavior and licensing terms change, and Microsoft Learn because this track has already found one of its own summaries narrower than the product it described.
+The tenant matched the expected baseline in every dimension: Microsoft Entra plan Entra Free, 10 users, 5 groups, 1 application, 0 devices, and a Microsoft 365 Business Basic (no Teams) trial with 1 of 25 licenses assigned, expiring 2026-09-22. Six users and four groups trace to Windows Server AD; the remaining four users and one group are cloud-only. The `AZUREADSSOACC` computer account's Kerberos key was last set 2026-08-31, five days before this baseline, comfortably inside the thirty-day rollover recommendation Lab 02 carried forward.
 
 One decision is taken by this lab that the track had scheduled for later. The Microsoft 365 Business Basic trial question the track README deferred to Lab 04 is resolved here, and it is resolved by trialling rather than buying: a Microsoft 365 Business Premium thirty-day trial is started from inside the existing tenant, bringing Microsoft Entra ID P1 with it. Design Decisions below records why trialling is the right call for this environment rather than a compromise, what it does and does not authorize, and what the thirty-day window does to the shape of the lab.
 
@@ -237,17 +237,61 @@ Step Eleven is the only content step that does not depend on the trial at all. W
 
 So Steps Two through Ten must complete while the trial is active, and Steps Eleven and Twelve can follow at any point.
 
-### Step One: Record the pre-lab baseline
+### Step One: Recorded the pre-lab baseline
 
-Capture the tenant exactly as Lab 02 left it, before anything is started or changed, so that every later count in this lab reconciles against a recorded starting point rather than against Lab 02's prose.
+Captured the tenant exactly as Lab 02 left it, before starting or changing anything, so that every later count in this lab reconciles against a recorded starting point rather than against Lab 02's prose.
 
-From the Entra admin center Overview and the Microsoft 365 admin center Billing pages, record: the tenant's Microsoft Entra plan, the active subscriptions with their license counts, assignment state and recurring billing status, and the user, group, application, and device counts. From the Users and Groups blades, record every object with its `Source` value, which is the field that distinguishes `Windows Server AD` from cloud-only and is the field this entire lab turns on.
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/03-entra-id-user-group-and-license-administration/01-billing-your-products-pre-lab.jpg" alt="01-billing-your-products-pre-lab" width="700">
+</p>
 
-The expected baseline, to be confirmed rather than assumed: 10 users, 5 groups, 1 application, 0 devices; Microsoft Entra plan Entra Free; one Microsoft 365 Business Basic (no Teams) trial with one assigned seat and recurring billing already off.
+<p align="center">
+  <em>Microsoft 365 admin center, Billing, Your products: Microsoft 365 Business Basic (no Teams) at 1 of 25 licenses assigned and 24 available, expiring 9/22/2026, and Microsoft Entra ID Free carried as a separate paid line with no assignable license count.</em>
+</p>
 
-Read the `AZUREADSSOACC` computer account's state in Active Directory in the same sitting and record how long it has been since Lab 02 rolled its Kerberos key. It is the oldest perishable item the environment carries and it costs one query to check, so it is read at the start rather than discovered at the end. What to do about it is Step Twelve's decision; knowing where it stands is Step One's job.
+The Billing, Your products page showed two active subscriptions rather than one. Microsoft 365 Business Basic (no Teams) carried 1 assigned license against a purchased quantity of 25, 24 available, with a stated renewal or expiration date of 9/22/2026, matching the lapse date the track README already carried; the 25-license purchase quantity itself was not previously recorded, only the single assigned seat. Microsoft Entra ID Free appeared alongside it as its own line, billed at 1 unit with assigned and available licenses both reported "Not available," which is the portal's way of showing a tenant's free-tier plan rather than an assignable product. Recurring billing itself is not a column on this view; the Basic trial's recurring billing being off is carried forward from Lab 02 and the track README, and Step Three re-confirms it directly on the subscription's own page when it closes out the Basic trial's state.
 
-Note here that the on-premises user count will not return to this baseline. Step Nine creates a throwaway synchronized account and deletes it permanently, and in a forest with no Active Directory Recycle Bin that deletion cannot be undone. Step Twelve reconciles against this baseline plus that one deliberate, irreversible removal.
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/03-entra-id-user-group-and-license-administration/02-entra-tenant-overview-pre-lab.jpg" alt="02-entra-tenant-overview-pre-lab" width="700">
+</p>
+
+<p align="center">
+  <em>Entra admin center Overview for Brindeck: Microsoft Entra plan Entra Free, 10 users, 5 groups, 1 application, and 0 devices.</em>
+</p>
+
+The Entra admin center Overview page confirmed the tenant's Microsoft Entra plan as Microsoft Entra ID Free, with object counts of 10 users, 5 groups, 1 application, and 0 devices, exactly the expected baseline.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/03-entra-id-user-group-and-license-administration/03-users-list-source-pre-lab.jpg" alt="03-users-list-source-pre-lab" width="700">
+</p>
+
+<p align="center">
+  <em>All 10 users in the Entra admin center, with the On-premises sync column (the current portal's label for the field the track README calls Source) visible for each.</em>
+</p>
+
+The Users blade broke those 10 down by source: six synchronized from Windows Server AD (Alex Kim, Jane Doe, John Smith, Mary Johnson, Test Sync, and testuser01) and four cloud-only (Adam Ramzi, the signup account retained as Global Administrator since Lab 01; Cloud Administrator, `admin@brindeck.com`; the Emergency Access Account; and the Cloud-Only Demo Account, Lab 02's `cloudonly-demo01@brindeck.com` fixture). The portal's current column is labeled "On-premises sync" (Yes or No) rather than a literal `Source` field, but it is the same distinguishing property.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/03-entra-id-user-group-and-license-administration/04-groups-list-source-pre-lab.jpg" alt="04-groups-list-source-pre-lab" width="700">
+</p>
+
+<p align="center">
+  <em>All 5 groups in the Entra admin center, with type, membership type, and Source columns visible for each.</em>
+</p>
+
+The Groups blade confirmed the matching 4-and-1 split: `Domain-Users-Standard`, `IT-Admins`, `Lab-Workstations`, and `Linux-Admins` sourced from Windows Server AD, and `All Company` sourced from Cloud, a Microsoft 365 group with assigned membership and the address `allcompany@brindeck.onmicrosoft.com`.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/03-entra-id-user-group-and-license-administration/05-azureadssoacc-passwordlastset.jpg" alt="05-azureadssoacc-passwordlastset" width="700">
+</p>
+
+<p align="center">
+  <em>`Get-ADComputer -Identity AZUREADSSOACC -Properties PasswordLastSet,whenChanged` against `corp.home.arpa`: PasswordLastSet 8/31/2026 8:07:44 PM, in `OU=Protected Objects`.</em>
+</p>
+
+`Get-ADComputer -Identity AZUREADSSOACC -Properties PasswordLastSet,whenChanged` returned a `PasswordLastSet` of 2026-08-31 8:07:44 PM, five days before this baseline was taken on 2026-09-05. That is comfortably inside the thirty-day window Microsoft recommends for rolling the seamless single sign-on Kerberos decryption key, so nothing about the account's current state forces a decision today. Step Twelve still owns whether to roll it or record the deliberate choice not to; this reading only establishes where the clock actually stands.
+
+The baseline matched what was expected in every dimension the plan named. It will not hold for the rest of the lab, though: Step Nine's throwaway synchronized account and its permanent deletion, in a forest with no Active Directory Recycle Bin, mean the on-premises user count will not return to this number, and Step Twelve reconciles against this baseline plus that one deliberate, irreversible removal rather than against a straight rollback.
 
 ### Step Two: Start the Microsoft 365 Business Premium trial
 
@@ -398,7 +442,7 @@ Confirm that a lab conducted almost entirely in two web portals left the on-prem
 
 **Automation library.** `Invoke-Pester -Path C:\Scripts -Output Detailed`, expected at 174 tests, 0 failed, unchanged since no script is touched by this lab.
 
-**The `AZUREADSSOACC` key.** Step One already read the account's state and recorded how long it had been since Lab 02's roll. Lab 02 rolled the key on 2026-09-01, during its Step Eight-A, and Microsoft's Seamless SSO FAQ recommendation of at least every thirty days puts that threshold at 2026-10-01; a roll performed in this lab falls well short of that date, so it demonstrates the procedure rather than tests the recommendation the threshold represents. Re-read the account's state now, so the elapsed time spans the lab rather than sitting at its start, then take the decision and record it either way: roll the key with `Update-AzureADSSOForest` on `SYNC01`, observing the two documented traps and expecting the authentication context to fight the same browser configuration Lab 02 recorded, or record the deliberate decision not to roll it and the reasoning. Whichever happens, state the conclusion research pointed to and the lab confirmed: whether thirty days is an expiry or a recommendation, and therefore whether this is an operational deadline the environment has to meet or a hygiene interval it should aim at, while 2026-10-01 remains the date a later lab actually gets to watch the interval elapse and settle the question empirically. That closes the Lab 02 carry-forward item rather than restating it, and it tells Lab 06 whether it is automating a deadline or a good habit.
+**The `AZUREADSSOACC` key.** Step One already read the account's state and recorded how long it had been since Lab 02's roll. Lab 02 rolled the key on 2026-08-31, during its Step Eight-A — the same timestamp Step One read directly from `PasswordLastSet` — and Microsoft's Seamless SSO FAQ recommendation of at least every thirty days puts that threshold at 2026-09-30. (WIN11-CLIENT01 displays `PasswordLastSet` in its local Eastern time zone; the same moment in UTC is 2026-09-01 00:07, which is why the interval also reads as 2026-09-01 to 2026-10-01 on a UTC clock — one rollover, two clocks, not a discrepancy.) A roll performed in this lab falls well short of either date, so it demonstrates the procedure rather than tests the recommendation the threshold represents. Re-read the account's state now, so the elapsed time spans the lab rather than sitting at its start, then take the decision and record it either way: roll the key with `Update-AzureADSSOForest` on `SYNC01`, observing the two documented traps and expecting the authentication context to fight the same browser configuration Lab 02 recorded, or record the deliberate decision not to roll it and the reasoning. Whichever happens, state the conclusion research pointed to and the lab confirmed: whether thirty days is an expiry or a recommendation, and therefore whether this is an operational deadline the environment has to meet or a hygiene interval it should aim at, while 2026-09-30 (2026-10-01 in UTC) remains the date a later lab actually gets to watch the interval elapse and settle the question empirically. That closes the Lab 02 carry-forward item rather than restating it, and it tells Lab 06 whether it is automating a deadline or a good habit.
 
 **Finished state.** Reconcile both directories object by object against the Step One baseline, accounting for every difference. Three categories of change are expected and must each be accounted for rather than netted away: the cloud-only groups created in Step Six and the role-assignable group created in Step Seven, which persist; the `department` values populated on the synchronized users in Step Six, which are the only attribute change this lab makes on-premises; and `deltest01`, created and permanently destroyed in Step Nine, which nets to zero on both sides but leaves the on-premises user count one short of where a naive reading of Step One would put it, because the Recycle Bin is off and nothing about it can be recovered. Record the finished licensing state: which subscriptions are active, their billing state, the trial's expiry date, how many licenses are assigned and to whom, and by which model each was assigned. Record the Business Basic trial as resolved, lapsing 2026-09-22, so the track's dated item closes here.
 
