@@ -2,11 +2,11 @@
 
 ## Status
 
-Step One is complete: the pre-lab baseline is recorded, and nothing else in this lab has been touched yet. Steps Two through Twelve are not started, and the Business Premium trial does not exist yet, so none of its thirty-day window has been consumed.
+In progress: Steps One through Four are complete. Steps Five through Twelve are not started.
 
 The tenant matched the expected baseline in every dimension: Microsoft Entra plan Entra Free, 10 users, 5 groups, 1 application, 0 devices, and a Microsoft 365 Business Basic (no Teams) trial with 1 of 25 licenses assigned, expiring 2026-09-22. Six users and four groups trace to Windows Server AD; the remaining four users and one group are cloud-only. The `AZUREADSSOACC` computer account's Kerberos key was last set 2026-08-31, five days before this baseline, comfortably inside the thirty-day rollover recommendation Lab 02 carried forward.
 
-One decision is taken by this lab that the track had scheduled for later. The Microsoft 365 Business Basic trial question the track README deferred to Lab 04 is resolved here, and it is resolved by trialling rather than buying: a Microsoft 365 Business Premium thirty-day trial is started from inside the existing tenant, bringing Microsoft Entra ID P1 with it. Design Decisions below records why trialling is the right call for this environment rather than a compromise, what it does and does not authorize, and what the thirty-day window does to the shape of the lab.
+One decision is taken by this lab that the track had scheduled for later. The Microsoft 365 Business Basic trial question the track README deferred to Lab 04 is resolved here, and it is resolved by trialling rather than buying: a Microsoft 365 Business Premium thirty-day trial was started from inside the existing tenant, bringing Microsoft Entra ID P1 with it. It was accepted without a second-trial refusal, landed on the with-Teams line, and now shows recurring billing off, expiring 2026-10-05. The tenant's Microsoft Entra plan reports Entra ID Premium P1, security defaults remains enabled, and no conditional access policy exists, so the thirty-day clock is running with the lab's scope guard intact. Microsoft Entra ID P1, Exchange Online Plan 1, and Microsoft Intune Plan 1 are all confirmed present on the trial SKU by name, the last two via Microsoft Graph PowerShell rather than either admin center's UI, which does not expose them pre-assignment; see Troubleshooting and Adjustments. Design Decisions below records why trialling is the right call for this environment rather than a compromise, what it does and does not authorize, and what the thirty-day window does to the shape of the lab.
 
 ---
 
@@ -227,7 +227,7 @@ Introduced by this lab:
 
 ---
 
-## Implementation Plan
+## Implementation
 
 Twelve steps, ordered by what depends on the trial.
 
@@ -293,37 +293,69 @@ The Groups blade confirmed the matching 4-and-1 split: `Domain-Users-Standard`, 
 
 The baseline matched what was expected in every dimension the plan named. It will not hold for the rest of the lab, though: Step Nine's throwaway synchronized account and its permanent deletion, in a forest with no Active Directory Recycle Bin, mean the on-premises user count will not return to this number, and Step Twelve reconciles against this baseline plus that one deliberate, irreversible removal rather than against a straight rollback.
 
-### Step Two: Start the Microsoft 365 Business Premium trial
+### Step Two: Started the Microsoft 365 Business Premium trial
 
-From the Microsoft 365 admin center, Billing, Add more products, start a Microsoft 365 Business Premium trial in the existing tenant.
+From the Microsoft 365 admin center, Billing, Add more products, a Microsoft 365 Business Premium trial was started in the existing tenant. The tenant accepted it without objection, which settles the question this step existed to answer: a tenant that has already consumed a Microsoft 365 Business Basic trial is not blocked from starting a Microsoft 365 Business Premium trial in the same organization. No refusal was encountered, so the free-tier fallback named above did not fire.
 
-Record the trial terms as the portal states them: the license count granted, the trial length, the end date, and what the portal says happens at that date. Trial subscriptions are documented as including 25 free licenses for the trial period, and this is the first place to check that against what the tenant actually received.
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/03-entra-id-user-group-and-license-administration/06-business-premium-subscription-details.jpg" alt="06-business-premium-subscription-details" width="700">
+</p>
 
-Record the eligibility outcome as a finding in its own right. Whether a tenant that has already consumed a Business Basic trial can start a Business Premium trial is not documented anywhere found during planning. Trial eligibility is generally per product rather than per tenant, which suggests it should work, but that is an inference and this track prefers observing to inferring.
+<p align="center">
+  <em>Microsoft 365 admin center, the new Business Premium trial's subscription page: 25 trial licenses with 0 assigned, subscription status Active, unit price Free trial, purchase channel Commercial direct.</em>
+</p>
 
-If it is refused, capture the exact refusal and its wording, then fall back rather than escalate. The fallback is to run this lab on Microsoft Entra ID Free and document precisely where the licensing wall sits: attempt the dynamic membership group and the role-assignable group, capture what the portal says when it declines, and record the refusal as an observed tier boundary rather than a cited one. That is a worse lab than the trial version on two objectives and a better one on a third, since a licensing boundary that has been hit is more useful evidence than a licensing boundary that has been read about. Dynamic group membership and group-based licensing then move to Lab 05, which needs P1 for conditional access regardless and can absorb them.
+The trial included 25 licenses, matching what Microsoft's own trial documentation states and confirmed directly on the subscription page: 0 of 25 assigned.
 
-If the fallback fires it also changes the track README, and moving the work without moving its description would leave the two disagreeing. Two rows change: this lab's Focus Area row drops dynamic group membership and license assignment models, and Lab 05's picks them up alongside its existing conditional access, self-service password reset, and device management scope. The Licensing section changes with them, since it currently describes a Business Premium trial the tenant would not hold. That propagation is part of the fallback rather than a follow-up to it.
+Which line it landed on is settled from the Plans and pricing view rather than inferred from the subscription's name. That view lists Business Premium as four separate rows, split by the same two axes Design Decisions named: with Teams or without, and Copilot or not. Only one of the four carries a You own this tag, and it is the plain "Microsoft 365 Business Premium (Trial)" row, not "Microsoft 365 Business Premium (no Teams) (Trial)." That places this trial on the with-Teams line, at Design Decisions' recorded $22.00 per user per month on annual commitment rather than the $18.79 no-Teams price.
 
-Naming the fallback here is deliberate. A refusal at the start of a lab should not turn into a spending decision taken under time pressure, and the free-tier path costs nothing but scope.
+The end date is not a single reading. The subscription page's own Expiration date field reads October 5, 2026, and the Your products listing's Renewal or expiration date column agrees at 10/5/2026. But the same subscription page's Recurring billing field reads "Expires on October 6, 2026," one day later than both of those. All three are recorded here rather than silently reconciled into one, since the plan already flagged the provisional 2026-10-06 as something to verify rather than assume, and what was found is the portal disagreeing with itself about which of two adjacent dates is correct, not a single authoritative one.
 
-### Step Three: Disable recurring billing, and close out the Business Basic trial's state
+### Step Three: Disabled recurring billing, and reconfirmed the Business Basic trial's state
 
-Turn off recurring billing on the new Business Premium trial in the same sitting, before doing anything else with it.
+Recurring billing on the new Business Premium trial was turned off in the same sitting as Step Two, using the Edit renewal control on the subscription's own page, before anything else was done with the trial. The subscription page shown above reflects the result: "Your free trial will expire on 10/5/2026 and your service will end. To buy a paid subscription when this trial ends, turn on recurring billing," and "This subscription will be canceled when it expires on October 5, 2026 at which point users will lose access to the service." That matches Microsoft's documented behavior for a trial with recurring billing off: it lapses at the end of its period with no charge rather than converting to a paid subscription. Doing this on day one rather than at day twenty-nine removes the conversion failure mode entirely rather than depending on remembering it later.
 
-A trial converts to a paid subscription at the end of its period unless recurring billing is off; with it off, the trial expires at the end of the period with no charge. Doing this on day one rather than at day twenty-nine removes the failure mode entirely rather than depending on remembering.
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/03-entra-id-user-group-and-license-administration/07-billing-your-products-post-trial.jpg" alt="07-billing-your-products-post-trial" width="700">
+</p>
 
-Then confirm and record the Business Basic trial's state on the same Billing pages: recurring billing off, expiring 2026-09-22 rather than converting. That closes the dated item the track README carried, and Step Twelve records the resolved state as part of the finished record so the date leaves the track's open items rather than sitting on the list unexplained.
+<p align="center">
+  <em>Billing, Your products after Steps Two and Three: Business Basic (no Teams) at 1 of 25 assigned, 24 available, expiring 9/22/2026; Business Premium (new) at 0 of 25 assigned, expiring 10/5/2026 with recurring billing off; Microsoft Entra ID Free unchanged alongside both.</em>
+</p>
 
-The Basic trial's one assigned seat sits on the signup account, and Step Five leaves that account as it is, so it holds no license under the Business Premium trial and loses its only license the moment the Basic trial lapses. Global Administrator does not require a license, so the account's directory and portal access are unaffected; what the lapse actually affects is the Exchange Online service the Basic seat provisioned. Microsoft's own guidance is explicit that users have to be moved or reassigned to the new subscription before the old trial expires, or the data on it is deleted. 2026-09-22 falls around day seventeen of the Business Premium trial's thirty-day window, close to when Microsoft's own trial-expiry notices for that trial begin, and where this tenant's billing notification mail actually lands is worth confirming rather than assuming; Step Twelve records what was actually observed.
+The Business Basic trial's state was reconfirmed on the same page: Active, 1 of 25 licenses assigned and 24 available, with a renewal or expiration date of 9/22/2026 rather than a converted paid price, consistent with recurring billing having already been disabled on it, as the track has carried forward since before this lab. The new Business Premium trial appears alongside it as Active, 0 of 25 assigned, expiring 10/5/2026, and Microsoft Entra ID Free continues to sit alongside both as the tenant's non-assignable base plan.
 
-Finish by capturing the Your products page showing both subscriptions and their billing state together, which is the artifact that proves the tenant's billing posture rather than asserting it.
+The Basic trial's one assigned seat sits on the signup account, and Step Five leaves that account as it is, so it holds no license under the Business Premium trial and loses its only license the moment the Basic trial lapses on 2026-09-22. Global Administrator does not require a license, so the account's directory and portal access are unaffected; what the lapse affects is the Exchange Online service the Basic seat provisioned. 2026-09-22 falls around day seventeen of the Business Premium trial's thirty-day window, close to when Microsoft's own trial-expiry notices for that trial begin; where this tenant's billing notification mail actually lands is left for Step Twelve to confirm rather than assumed here.
 
-### Step Four: Verify what the trial actually granted
+### Step Four: Verified what the trial actually granted
 
-Establish, from the tenant, what the trial produced, and compare it against what Microsoft documents Business Premium to contain.
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/03-entra-id-user-group-and-license-administration/08-entra-overview-post-trial.jpg" alt="08-entra-overview-post-trial" width="700">
+</p>
 
-Read the tenant's Microsoft Entra plan from the Entra admin center Overview and confirm it now reports a premium plan rather than Entra Free. Read the subscription's included service plans from the Microsoft 365 admin center, and check for the ones the remaining labs depend on by name: Microsoft Entra ID P1, Exchange Online Plan 1, and Microsoft Intune Plan 1. Confirm that security defaults is still enabled and that no conditional access policy exists, which is the check that this lab's scope guard held.
+<p align="center">
+  <em>Entra admin center Overview for Brindeck after Steps Two and Three: Microsoft Entra plan now reads Entra ID Premium P1, still 10 users, 5 groups, 0 devices, 1 application.</em>
+</p>
+
+The Entra admin center Overview confirmed the tenant's Microsoft Entra plan as Entra ID Premium P1, no longer Entra Free, with License usage separately recording the entitlement by name and count: Entra ID (Entra ID P1) at 25, matching the 25 trial licenses Step Two recorded. Licensed features showed the P1 boundary moving with it rather than staying theoretical: Advanced Group Access Management, which is what dynamic membership groups and role-assignable groups both depend on, now reads Yes, while the Microsoft Entra ID P2 features sitting right next to it on the same list, Identity Protection, Privileged Identity Management, Access Reviews, and Entitlement management, correctly still read as unavailable and tagged "Available in Microsoft Entra ID P2." The trial granted P1, not P2, and the tenant's own features list says so rather than the tier name being taken on trust.
+
+The scope guard held. Conditional Access > Policies showed the empty getting-started view rather than any created policy, which is what the portal shows when a tenant has none. Security defaults' own settings panel read "Enabled," with "Your organization is currently using security defaults" confirming it in the portal's own words. Acquiring Microsoft Entra ID P1 made conditional access available without turning it on, exactly as Design Decisions specified, and nothing about starting or configuring this trial touched the setting that has enforced multifactor authentication tenant-wide since Lab 01.
+
+Exchange Online Plan 1 and Microsoft Intune Plan 1 were not visible in either admin center, but the Microsoft Graph PowerShell SDK, already scoped into this track by ADR-019, reads the SKU directly rather than through either portal's UI. From WIN11-CLIENT01:
+
+```powershell
+Connect-MgGraph -Scopes "Organization.Read.All"
+$skus = Get-MgSubscribedSku
+$skus | Select-Object SkuPartNumber, ConsumedUnits, @{N='Enabled';E={$_.PrepaidUnits.Enabled}}
+```
+
+returned `SPB` as the Business Premium trial's SKU part number, at 25 enabled seats and 0 consumed, alongside `Microsoft_365_Business_Basic_(no Teams)` at 25 enabled and 1 consumed. Reading that SKU's own service plan list,
+
+```powershell
+($skus | Where-Object SkuPartNumber -eq "SPB").ServicePlans | Sort-Object ServicePlanName | Format-Table ServicePlanName, ProvisioningStatus -AutoSize
+```
+
+returned 62 service plans, all `Success` except `INTUNE_O365` at `PendingActivation`. Cross-referenced against Microsoft's own product names and service plan identifiers reference rather than assumed from the internal names' resemblance to their friendly ones, `AAD_PREMIUM` is Microsoft Entra ID P1, `EXCHANGE_S_STANDARD` is Exchange Online (Plan 1), and `INTUNE_A` is Microsoft Intune Plan 1, all three `Success`. The SKU also carries `INTUNE_SMBIZ` (Microsoft Intune, a second and distinct Intune plan bundled alongside Plan 1) and `INTUNE_O365` (Mobile Device Management for Office 365, a narrower predecessor capability), neither of which the plan asked for. What the portal's UI would not show before assignment, Graph read directly from the SKU, and all three named service plans this lab and the next two depend on are confirmed present and provisioned, not deferred to Step Five.
 
 This step is deliberately separate from Step Two. Starting a trial and what the trial gave you are two facts, and this track has already recorded one case, in Lab 01's description of security defaults, where the second was assumed from the first and turned out narrower than the product. What is recorded here becomes the licensing baseline Labs 04, 05, and 06 build on, along with the date it expires.
 
@@ -467,7 +499,7 @@ Planned validation, to be replaced with observed results as the lab is implement
 
 ## Troubleshooting and Adjustments
 
-To be written during implementation.
+- **The planned pre-assignment service plan check does not exist in either admin center's UI.** Step Four's plan called for reading Business Premium's included service plans by name, Microsoft Entra ID P1, Exchange Online Plan 1, and Microsoft Intune Plan 1, from the Microsoft 365 admin center before any license was assigned. Neither the Your products subscription page nor the dedicated Billing, Licenses page exposes that breakdown; both stop at license counts (0 of 25 assigned) with no Apps or service-plan tab reachable from either. Microsoft Entra ID P1 was confirmed independently from the Entra admin center's own Overview, License usage, and Licensed features pages, none of which required a license to be held by a user first, but Exchange Online Plan 1 and Microsoft Intune Plan 1 have no Entra-side equivalent. Microsoft Graph PowerShell's `Get-MgSubscribedSku`, run from WIN11-CLIENT01, reads a SKU's service plan list directly regardless of assignment state, and confirmed both by name (`EXCHANGE_S_STANDARD` and `INTUNE_A`, cross-referenced against Microsoft's service plan identifier reference rather than assumed from the internal names) alongside `AAD_PREMIUM`. The adjustment is the tool, not the timing: what neither portal's UI shows pre-assignment, Graph shows directly, so this stayed inside Step Four rather than moving to Step Five.
 
 ---
 
