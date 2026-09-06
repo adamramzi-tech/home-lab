@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress: Steps One through Five are complete. Steps Six through Twelve are not started.
+In progress: Steps One through Six are complete. Steps Seven through Twelve are not started.
 
 The tenant matched the expected baseline in every dimension: Microsoft Entra plan Entra Free, 10 users, 5 groups, 1 application, 0 devices, and a Microsoft 365 Business Basic (no Teams) trial with 1 of 25 licenses assigned, expiring 2026-09-22. Six users and four groups trace to Windows Server AD; the remaining four users and one group are cloud-only. The `AZUREADSSOACC` computer account's Kerberos key was last set 2026-08-31, five days before this baseline, comfortably inside the thirty-day rollover recommendation Lab 02 carried forward.
 
@@ -391,33 +391,85 @@ One cosmetic note from the same dialog: testuser01's row read "Microsoft 365 Bus
 
 Security defaults' effect on these five accounts at first cloud sign-in was not re-tested here. Lab 02 Step Seven already established that a synchronized user is forced into Authenticator registration at first cloud sign-in regardless of role, because the setting is tenant-wide rather than scoped to administrators, and nothing about assigning a license changes that mechanism. It applies to each of these five the first time any of them signs in to a cloud service.
 
-### Step Six: Catalogue the tenant's groups, and build a dynamic membership group
+### Step Six: Catalogued the tenant's groups, and built a dynamic membership group
 
-Inventory every group in the tenant by type, membership type, source, and where it can be administered, create the environment's first cloud-only groups, and then build its first dynamic membership group.
+Inventoried every group in the tenant by type, membership type, and source; created the environment's first two cloud-only groups; and built its first dynamic membership group, keyed to an attribute populated on-premises for the purpose. This is also the first step in the lab that changes Active Directory: `department` was set on all six synchronized user accounts, and one of those values changed again mid-step for the round-trip demonstration, both recorded below for Step Twelve's reconciliation.
 
-For `All Company`, establish four things rather than treating it as an unexplained object: where it came from, since it predates all synchronization and was present in Lab 02's baseline; its group type; what governs its membership, since a group of that name in a Microsoft 365 tenant is typically maintained automatically rather than by hand; and whether the synchronized users have been added to it.
+`All Company` predates all synchronization, as Lab 02's baseline recorded, and this step established the three things Design Decisions asked for beyond that: it is a Microsoft 365 group with Assigned membership, sourced from Cloud; its description reads "This is the default group for everyone in the network," but nothing about the object enforces that automatically, membership here is static and administrator-maintained like any other assigned group; and none of the six synchronized users are currently members. Its one direct member, as of this lab, is Adam Ramzi, the cloud-only Global Administrator from Lab 01. Whether that creation was tenant provisioning or a manual action was checked against Audit logs and could not be settled: retention in this tenant reaches back only to 2026-08-31, eight days short of the group's 2026-08-23 creation, so the creation event itself has already rolled off. The mechanism stays unresolved, not from an unasked question but from evidence that no longer exists to answer it.
 
-Create two cloud-only groups, an assigned security group and a Microsoft 365 group. Both are necessarily cloud-only, which is the point. Compare their administrative surface against the four synchronized groups from `OU=Groups`, where membership, name, and description are all managed on-premises only. Record `IT-Admins` specifically, as Lab 02 flagged it: four members on-premises, three in the tenant, because `labadmin` sits in the excluded `OU=IT`, and the tenant gives no indication that the membership it shows is partial.
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/03-entra-id-user-group-and-license-administration/11-all-company-members-single-user.jpg" alt="11-all-company-members-single-user" width="700">
+</p>
 
-**Six-A: give the synchronized users an attribute to key a rule to.** This domain has none. Automation Lab 02 recorded that `Department`, `Title`, and `Manager` are all unpopulated here, and `New-LabUser.ps1` sets none of them, so a rule written against any of them today would match nothing.
+<p align="center">
+  <em>All Company's Members page: 1 group member found, Adam Ramzi, its only current member, in a group whose description reads "the default group for everyone in the network."</em>
+</p>
 
-`department` is the intended choice, with `title` as the fallback if the tenant proves otherwise, and three things are confirmed before the rule is written rather than assumed:
+Two cloud-only groups were created to compare against that baseline: `Finance`, an assigned security group, and `Company Announcements`, an assigned Microsoft 365 group. Creating the Microsoft 365 group surfaced a field the security group flow never asked for, a group email address, auto-derived from the name (`CompanyAnnouncements@brindeck.onmicrosoft.com`), a real difference in what each group type's creation flow collects rather than only in what the finished object carries.
 
-- That it can be set. Populate `department` on the users in `OU=User Accounts` from WIN11-CLIENT01, either through Active Directory Users and Computers' Organization tab or with `Set-ADUser -Department`, giving at least two distinct values so a rule has something to discriminate on. Record which users got which value.
-- That Entra Connect carries it without help. `department` should be in the default synchronized attribute set, meaning no custom synchronization rule and no schema change are needed. Confirm it against Microsoft's synchronized-attributes reference, then confirm it in the tenant by watching the values arrive on the Delta cycle and reading them back on the user objects.
-- That a dynamic membership rule can reference it once it lands, as `user.department`, and that it appears in the rule builder rather than requiring the text box.
+Comparing administrative surface against the four synchronized groups from `OU=Groups` confirmed Design Decisions' claim precisely, and on more than membership alone. `IT-Admins`' Properties page showed Group name, Group description, and Membership type all grayed out with placeholder-only text, gated by a "Some groups can't be managed in the Azure portal" banner; the same three fields on `Finance`'s Properties page were live and editable, with green checkmarks confirming valid input. Membership carries the identical restriction: `IT-Admins`' Members page repeats the same banner. `IT-Admins` itself showed exactly the count Lab 02 flagged: three members in the tenant (Alex Kim, John Smith, Mary Johnson) against four on-premises, since `labadmin` sits in the excluded `OU=IT`, with nothing in the portal indicating the list is partial.
 
-If any of the three fails, `title` is the fallback and the failure is the finding.
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/03-entra-id-user-group-and-license-administration/12-it-admins-properties-locked.jpg" alt="12-it-admins-properties-locked" width="700">
+</p>
 
-**Six-B: build the rule and watch it evaluate.** Write the rule against the populated attribute, confirm how many users it matches, then demonstrate it working across the boundary: change one user's `department` in Active Directory, wait for the Delta cycle, and watch Microsoft Entra ID add or remove that user from a group nobody touched. Record how long it took, end to end, from the on-premises change to the membership change.
+<p align="center">
+  <em>IT-Admins' Properties page: Group name, Group description, and Membership type all grayed out with placeholder text only, under the "Some groups can't be managed in the Azure portal" banner. Finance's equivalent page, by contrast, showed all three fields live and editable.</em>
+</p>
 
-That is the whole point of the step. Setting an attribute on a domain controller and having a cloud group's membership change as a consequence is the synchronize-then-evaluate behavior made concrete, and it exercises the same half-hourly Delta cycle Lab 02 Step Nine had to repair before it ran unattended.
+Mail-enabled security groups and distribution lists were named as this lab's boundary here, per Design Decisions: Microsoft restricts their administration to the Exchange or Microsoft 365 admin center rather than Entra, and Lab 04 owns them.
 
-Record the constraints that come with the feature: membership cannot be edited by hand, a rule cannot mix users and devices, a device rule cannot reference the device owner's attributes, and the license requirement is stated per unique member rather than per assigned license. Then address the security consideration Microsoft raises specifically for this configuration: check the write permissions on `department` in Active Directory and record the finding, because a group populated by an attribute users can edit themselves is a group users can add themselves to, and Lab 05 will be tempted to target conditional access at exactly this kind of group.
+**Six-A: populated `department` and confirmed it could carry a rule.** `department` was set on all six synchronized accounts from WIN11-CLIENT01 with `Set-ADUser`, starting from confirmed-blank across the board: `akim`, `jdoe`, `testuser01`, and `tsync01` to `IT`; `jsmith` and `mjohnson` to `Sales`.
 
-Record the script gap without acting on it. `New-LabUser.ps1` sets no organizational attributes, so every account it creates from now on lands outside this rule until it is changed. That is a Lab 06 candidate under the ADR-017 standard, alongside the `Get-LabWazuhAgentStatus.ps1` agent list and the `AZUREADSSOACC` key roll, and not something to reopen a Pester suite for inside a portal lab.
+Whether Entra Connect carries the attribute without a custom rule was confirmed two ways rather than assumed. Against Microsoft's synchronized-attributes reference, `department` is listed under the Exchange Online, SharePoint Online, and Teams attribute groups, not only the bare-minimum set that would have required extra configuration. And empirically: `Get-ADSyncScheduler` confirmed `SyncCycleEnabled: True` before anything was forced, `Start-ADSyncSyncCycle -PolicyType Delta` was run, and `Get-MgUser` read the values back from the tenant afterward, matching the on-premises values exactly with no custom rule involved.
 
-Name mail-enabled security groups and distribution lists here as the group types this lab does not manage, with the reason, and hand them to Lab 04.
+Whether the rule builder could reference the attribute as `user.department` was confirmed directly: in the dynamic membership rule builder's Property picker, `department` appears as a selectable item, alphabetically between `country` and `facsimileTelephoneNumber`, rather than requiring the raw rule-syntax text box. All three checks passed; `title` was not needed as a fallback.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/03-entra-id-user-group-and-license-administration/13-dynamic-rule-department-property-picker.jpg" alt="13-dynamic-rule-department-property-picker" width="700">
+</p>
+
+<p align="center">
+  <em>The dynamic membership rule builder's Property picker, department typed and highlighted in the searchable list, sitting alphabetically between country and facsimileTelephoneNumber.</em>
+</p>
+
+**Six-B: built the rule, watched it evaluate, and timed the round trip.** `IT-Department`, a Security group with Dynamic User membership, was created with the rule `(user.department -eq "IT")`. Its Members page initially showed zero, which was not a rule defect: the built-in Validate Rules tool, which evaluates the rule live against named users rather than waiting on background processing, confirmed the logic was correct immediately. Alex Kim, Jane Doe, and testuser01 validated `In group`; John Smith and Mary Johnson validated `Not in group`. That check covered five of the six synchronized users; `tsync01`, also set to `department: IT` in Six-A, was not one of the named users run through the tool. The group's own Overview page caught up shortly after: created at 3:34 PM, membership materialized by 3:36 PM, roughly two minutes for the initial evaluation once the group existed.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/03-entra-id-user-group-and-license-administration/14-dynamic-rule-validate-results.jpg" alt="14-dynamic-rule-validate-results" width="700">
+</p>
+
+<p align="center">
+  <em>Validate Rules against five of the tenant's six synchronized users: Alex Kim, Jane Doe, and testuser01 shown In group; John Smith and Mary Johnson shown Not in group, confirming the rule's logic before the group's own membership had finished materializing. tsync01, also set to department IT, was not included in this check.</em>
+</p>
+
+The round trip was timed rather than described. `Set-ADUser -Identity jsmith -Department "IT"` landed on-premises at 3:40:25 PM, confirmed with `Get-Date` immediately before and after, and a Delta cycle was forced right afterward.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/03-entra-id-user-group-and-license-administration/15-jsmith-department-change-onpremises-timestamp.jpg" alt="15-jsmith-department-change-onpremises-timestamp" width="700">
+</p>
+
+<p align="center">
+  <em>Get-Date, Set-ADUser -Identity jsmith -Department "IT", and Get-Date again: both timestamps read Sunday, September 6, 2026 3:40:25 PM.</em>
+</p>
+
+`IT-Department`'s Overview page showed the fifth member, John Smith, with a "Last membership change" of 3:45 PM. The portal only gives minute-level precision, so the interval from the on-premises write to the cloud group gaining a member nobody touched directly comes out to a range rather than a single figure: somewhere between 4 minutes 35 seconds and 5 minutes 34 seconds.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/03-entra-id-user-group-and-license-administration/16-it-department-round-trip-membership-change.jpg" alt="16-it-department-round-trip-membership-change" width="700">
+</p>
+
+<p align="center">
+  <em>IT-Department's Overview after the round trip: Total direct members 5, Dynamic rules processing status Succeeded, Last membership change 9/6/2026, 3:45 PM.</em>
+</p>
+
+The feature's documented constraints are recorded from Microsoft's own reference rather than exercised directly against this environment: membership cannot be edited by hand; a rule cannot mix users and devices in the same group; a device membership rule can reference only device attributes, never the device owner's; and the Microsoft Entra ID P1 license requirement is counted per unique user across all of a tenant's dynamic groups, not per assigned license, so a user needs no license assigned to be a member, but the tenant needs at least as many P1 licenses as it has unique dynamic-group members.
+
+The security consideration Design Decisions attached to this step was checked directly rather than left as a footnote, and the finding runs opposite to what Microsoft's general warning would suggest on its own. `dsacls` against a synchronized user object showed `NT AUTHORITY\SELF` granted `WRITE PROPERTY` on exactly four property sets: Personal Information, Phone and Mail Options (empty on this schema version), Web Information, and the inherited Private Information. `department` belongs to none of them; it is a member of the Public-Information property set, and the only ACE naming Public Information in the object's ACL grants `READ PROPERTY` to `Authenticated Users`, not `SELF`, with no write grant on it at all. In this environment, on this default Windows Server 2022 schema, a synchronized user cannot set their own `department` value and add themselves to `IT-Department`. The risk Microsoft's guidance describes is real for Active Directory generally; it simply is not realized here, because nothing has delegated Public-Information write to SELF.
+
+The script gap Design Decisions already named stands unresolved by design: `New-LabUser.ps1` still sets no organizational attributes, so any account it creates from here forward starts outside `IT-Department` regardless of role, a Lab 06 candidate under the ADR-017 standard rather than something to reopen here.
+
+**Active Directory changes this step made**, carried forward for Step Twelve's reconciliation: `department` was set on all six synchronized users, with final values `akim`, `jdoe`, `testuser01`, and `tsync01` at `IT`; `mjohnson` at `Sales`; and `jsmith` at `IT`, changed from `Sales` mid-step for the round trip. No other on-premises object was touched.
 
 ### Step Seven: Assign directory roles
 
