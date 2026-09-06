@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress: Steps One through Six are complete. Steps Seven through Twelve are not started.
+In progress: Steps One through Seven are complete. Steps Eight through Twelve are not started.
 
 The tenant matched the expected baseline in every dimension: Microsoft Entra plan Entra Free, 10 users, 5 groups, 1 application, 0 devices, and a Microsoft 365 Business Basic (no Teams) trial with 1 of 25 licenses assigned, expiring 2026-09-22. Six users and four groups trace to Windows Server AD; the remaining four users and one group are cloud-only. The `AZUREADSSOACC` computer account's Kerberos key was last set 2026-08-31, five days before this baseline, comfortably inside the thirty-day rollover recommendation Lab 02 carried forward.
 
@@ -471,19 +471,71 @@ The script gap Design Decisions already named stands unresolved by design: `New-
 
 **Active Directory changes this step made**, carried forward for Step Twelve's reconciliation: `department` was set on all six synchronized users, with final values `akim`, `jdoe`, `testuser01`, and `tsync01` at `IT`; `mjohnson` at `Sales`; and `jsmith` at `IT`, changed from `Sales` mid-step for the round trip. No other on-premises object was touched.
 
-### Step Seven: Assign directory roles
+### Step Seven: Assigned a built-in directory role to a user, and built the tenant's first role-assignable group
 
-Assign a built-in Microsoft Entra role at tenant scope, then assign one to a role-assignable group, and record what each requires.
+Assigned License Administrator to `testuser01` at tenant (Directory) scope, then tested what that actually authorizes and what it blocks empirically rather than from Microsoft's role reference alone. Then created the tenant's first role-assignable group and assigned Groups Administrator to it instead of to an individual. Unlike Step Six, nothing here touched Active Directory: every object created or modified in this step is cloud-only, and Steps One through Six's on-premises state is unchanged.
 
-Start from least privilege rather than from Global Administrator. Microsoft publishes a least-privileged role per task, and the roles this track's own work maps to are specific: License Administrator for license assignment, Groups Administrator for group management, User Administrator for user management and for restoring deleted users, and Privileged Role Administrator for assigning roles to anybody. Assign one narrow built-in role to a licensed account, sign in as that account, and confirm both what it can now do and what it still cannot.
+**Seven-A: assigned License Administrator to testuser01, and read its boundary against a live account rather than only against Microsoft's documented permissions.**
 
-Then create a role-assignable group and assign a role to it. Three constraints belong in this step, and one of them is specific to this environment:
+License Administrator was assigned to `testuser01` at Directory scope, Assignment type Active rather than Eligible: Privileged Identity Management, which would allow Eligible assignments and just-in-time activation, requires Microsoft Entra ID P2, and this tenant holds P1 only. Standing assignments are what this environment has, a limit this step records rather than works around. The Assignments tab confirmed the result directly: `testuser01` / `testuser01@brindeck.com`, Type User, Scope Directory.
 
-- Using built-in roles is free; custom roles require Microsoft Entra ID P1 for every user holding a custom role assignment; role-assignable groups require P1.
-- A role-assignable group must use assigned membership, not dynamic. The reason is the same security consideration Step Six checked, applied by the product rather than left to the administrator, which makes the two steps read as a pair.
-- Microsoft Entra roles cannot be assigned to groups synchronized from on-premises Active Directory. Four of this tenant's five existing groups are exactly that, so the group holding the role assignment has to be created in the cloud. In an environment whose group structure lives on-premises by design, this is a structural limitation rather than a detail, and it is worth stating what it would mean for an organization whose access model is built entirely on Active Directory groups.
+Signing in as `testuser01` in a separate session met the same forced Authenticator registration Lab 02 Step Seven already documented at first cloud sign-in under security defaults; nothing about holding License Administrator changed that mechanism, consistent with the setting being tenant-wide rather than role-scoped.
 
-Note Privileged Identity Management as requiring Microsoft Entra ID P2, which this tenant does not have and this track does not plan to acquire, so just-in-time role activation is out of reach and standing assignments are what this environment has.
+The first capability check landed on a dead end that turned out to be about the product rather than the role. Opening Alex Kim's own Licenses blade in the Entra admin center, as `testuser01`, showed her current assignment (Microsoft 365 Business Premium, Active, 53 of 53 enabled services, Direct assignment path) under a banner reading "Adding, removing, and reprocessing licensing assignments is only available within the M365 Admin Center." That is a third count against the same SKU, and none of the three agree: Step Four's Graph reading found 62 service plans, Step Five's Microsoft 365 admin center Apps section found 60, and this Entra admin center blade's "53 of 53" is its own tally of enabled services. Whether "enabled services" is the same unit as "apps" or "service plans" is not established here; this lab records the third figure rather than reconciling it with the other two. That blade no longer does license editing for any role; it only reads. Testing what License Administrator actually authorizes had to happen where Microsoft put the control, not where the role's name suggests it should be.
+
+In the Microsoft 365 admin center, the same account's Licenses and apps tab was live. `testuser01`, holding nothing but License Administrator, unchecked Alex Kim's Business Premium license and saved; the panel confirmed "Your changes have been saved," and the tenant's Business Premium count moved to 21 of 25 available, one more than the 20 the five accounts Step Five licensed had left assigned. That is License Administrator doing the job its name describes, tested against a live account rather than assumed from the role's documented permissions.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/03-entra-id-user-group-and-license-administration/17-alex-kim-license-removed-testuser01.jpg" alt="17-alex-kim-license-removed-testuser01" width="700">
+</p>
+
+<p align="center">
+  <em>Alex Kim's Licenses and apps tab in the Microsoft 365 admin center, as testuser01: "Your changes have been saved," Licenses (0), Business Premium showing 21 of 25 licenses available after the removal.</em>
+</p>
+
+Alex Kim's license was restored immediately afterward. Step Five deliberately licensed her for the rest of this lab's continuity, and this step's test had no reason to leave that changed; Steps Eight through Twelve proceed from the state Step Five established, not from a state Step Seven quietly altered.
+
+The negative side split into two results, only one of which was actually about the role. Attempting Identity > Users > New user as `testuser01` found the control greyed out: License Administrator carries no user-creation permission, as expected. Attempting Identity > Groups > New group, though, succeeded outright, and that does not mean License Administrator grants group management. Identity > Groups > General showed Users can create security groups in Azure portals, API or PowerShell and Users can create Microsoft 365 groups in Azure portals, API or PowerShell both set to Yes at the tenant level, untouched since Lab 01. That setting authorizes group creation for any authenticated member regardless of role; the group `testuser01` created came from that tenant-wide default, not from the role this step assigned. Read against License Administrator's own documented permissions rather than the observed behavior alone, the correct conclusion is that License Administrator grants no group-management capability at all, and the tenant simply never restricted who else does. The group `testuser01` created to run this test was deleted immediately afterward, once it had confirmed the setting rather than the role was responsible; it was never a fixture this lab or Step Eight needed.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/03-entra-id-user-group-and-license-administration/18-groups-general-self-service-yes.jpg" alt="18-groups-general-self-service-yes" width="700">
+</p>
+
+<p align="center">
+  <em>Identity > Groups > General: Users can create security groups in Azure portals, API or PowerShell, and Users can create Microsoft 365 groups in Azure portals, API or PowerShell, both set to Yes, the tenant default this lab found unchanged.</em>
+</p>
+
+**Seven-B: built the tenant's first role-assignable group, and confirmed the eligibility rule is set at creation, not toggled on afterward.**
+
+Before creating anything, the role-assignable constraint was tested against groups that already exist rather than taken from Design Decisions' statement of it. From the Global Administrator account, Groups Administrator's Add assignments panel, filtered to its Groups tab, returned "No results found," despite the tenant holding eight groups by this point: four synchronized from `OU=Groups`, plus four cloud-only groups, `All Company`, `Finance` and `Company Announcements` from Step Six, and `IT-Department`, the dynamic membership group Step Six built. `IT-Department` is the strongest case in that set, not an afterthought: it is already excluded on a second, independent ground, since a role-assignable group must use Assigned membership and Design Decisions already ruled out Dynamic. Its absence from the results confirms both constraints hold at once, not only the one this test targeted. That rules out the plan's framing being only about synchronized groups: none of the tenant's eight existing groups qualified, cloud-only, dynamic, or neither, because none of them were created with role-assignability enabled, and the product does not offer a way to turn it on afterward.
+
+`Groups-Administrators` was created to test the alternative: Security type, Assigned membership, one member (Jane Doe), and the Microsoft Entra roles can be assigned to the group toggle enabled at creation, live and selectable now that the tenant holds Microsoft Entra ID P1. No role was assigned from the creation panel itself, so the same Add assignments panel could be rechecked afterward rather than only trusted at face value.
+
+Reopening Groups Administrator's Add assignments panel afterward, filtered again to Groups, now returned `Groups-Administrators` as a selectable result: the same view that had returned nothing against any of the tenant's eight pre-existing groups. Selecting and adding it produced "Successfully added assignment Groups-Administrators," and the role's own Assignments tab listed it: Type Group, Scope Directory.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/03-entra-id-user-group-and-license-administration/19-add-assignments-groups-administrators-found.jpg" alt="19-add-assignments-groups-administrators-found" width="700">
+</p>
+
+<p align="center">
+  <em>The same Add assignments panel, Groups tab, after Groups-Administrators was created with role-assignability enabled: it appears and is selectable, where no existing group had.</em>
+</p>
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/03-entra-id-user-group-and-license-administration/20-groups-administrator-assignment-success.jpg" alt="20-groups-administrator-assignment-success" width="700">
+</p>
+
+<p align="center">
+  <em>"Successfully added assignment Groups-Administrators," and Groups Administrator's Assignments tab listing Groups-Administrators, Type Group, Scope Directory.</em>
+</p>
+
+Checked from the other direction, `Groups-Administrators`' own Assigned roles blade listed Groups Administrator directly: "Members of this role can create/manage groups, create/manage groups settings like naming and expiration policies, and view groups activity and audit reports," Resource name Directory, Resource type Organization, Assignment path Direct, Role type Built-in.
+
+The membership-type constraint Design Decisions named, that a role-assignable group must use Assigned membership rather than Dynamic, was checked directly on the created group rather than left as an unexercised rule: `Groups-Administrators`' Properties page showed Membership type greyed out, not merely defaulted to Assigned but disabled from being changed at all once the group holds the role-assignable flag. The product enforces the constraint by locking the field, rather than by accepting a change and failing it afterward.
+
+Privileged Identity Management, which would let either of this step's assignments be Eligible rather than Active and add just-in-time activation, requires Microsoft Entra ID P2. This tenant holds P1 only, and this track does not plan to acquire P2, so this is recorded from Microsoft's documentation rather than exercised: both assignments this step made are standing, not time-bound, which is what an environment without P2 has regardless of administrator preference.
+
+No on-premises object was touched in this step. Every object created (the group `testuser01` created and deleted to test the self-service setting, and `Groups-Administrators`, of which only `Groups-Administrators` remains) and every account or license modified (testuser01's role assignment, and Alex Kim's temporarily removed and restored license) is cloud-only or lives entirely in the tenant.
 
 ### Step Eight: Group-based licensing
 
