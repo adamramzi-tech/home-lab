@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress: Steps One through Four are complete. Steps Five through Twelve are not started.
+In progress: Steps One through Five are complete. Steps Six through Twelve are not started.
 
 The tenant matched the expected baseline in every dimension: Microsoft Entra plan Entra Free, 10 users, 5 groups, 1 application, 0 devices, and a Microsoft 365 Business Basic (no Teams) trial with 1 of 25 licenses assigned, expiring 2026-09-22. Six users and four groups trace to Windows Server AD; the remaining four users and one group are cloud-only. The `AZUREADSSOACC` computer account's Kerberos key was last set 2026-08-31, five days before this baseline, comfortably inside the thirty-day rollover recommendation Lab 02 carried forward.
 
@@ -359,15 +359,37 @@ returned 62 service plans, all `Success` except `INTUNE_O365` at `PendingActivat
 
 This step is deliberately separate from Step Two. Starting a trial and what the trial gave you are two facts, and this track has already recorded one case, in Lab 01's description of security defaults, where the second was assumed from the first and turned out narrower than the product. What is recorded here becomes the licensing baseline Labs 04, 05, and 06 build on, along with the date it expires.
 
-### Step Five: Assign licenses per user, and establish usage location
+### Step Five: Assigned licenses per user, and established usage location
 
-Assign Business Premium directly to the accounts the remaining labs need, and document direct per-user assignment as the first of the two assignment models.
+Business Premium was assigned to five accounts: two cloud-only, `admin@brindeck.com` and `cloudonly-demo01`, and three synchronized, `testuser01`, Alex Kim, and Jane Doe, per Design Decisions' selection. The Emergency Access Account and the signup account were left untouched.
 
-With 25 trial licenses there is no rationing to do, but there is still a choice to make and record. License `admin@brindeck.com`, which Lab 05 targets with conditional access; `testuser01`, the account already proven end to end in Lab 02 and the natural subject for Lab 04's mailbox and Lab 05's password reset writeback and device enrollment; two more synchronized users, so that Lab 04's shared mailbox delegation and this lab's group membership changes have more than one subject; and `cloudonly-demo01`, so the synchronized-versus-cloud-only contrast extends past attribute editing into licensing and restore behavior. Leave the emergency access account unlicensed, since Lab 05 excludes it from conditional access and it needs no mailbox, and leave the signup account as it is.
+License assignment in the current Microsoft 365 admin center lives on a Licenses and apps tab that combines usage location and license selection in one panel, rather than the separate Account-tab location field this lab's plan expected. The panel never showed a blank Select location field on testuser01. Before anything on the account had been touched, the dropdown already read United States, resolved from the tenant's default rather than from anything set on the object. There was consequently no unset state left to provoke a validation error against: the value the Prerequisites table flagged as one accounts silently inherit was already showing, resolved, the moment the panel opened. That sharpens the point rather than undermining it. An administrator working this screen sees a settled location for every account regardless of whether anyone ever set one deliberately, which is exactly the kind of default worth setting on purpose instead of accepting by not noticing it. Checking Microsoft 365 Business Premium and saving with that pre-filled value untouched succeeded without further prompt or confirmation step.
 
-Set the usage location on each account before assigning, and record what the accounts carried beforehand, since an account without an explicit usage location silently inherits the tenant's. Note whether the assignment experience differs between a synchronized user and a cloud-only one: this is the first place a synchronized object might be expected to behave differently and, on Microsoft's account, does not, because licensing is a cloud-side property of an object rather than a synchronized attribute.
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/03-entra-id-user-group-and-license-administration/09-testuser01-licenses-and-apps-saved.jpg" alt="09-testuser01-licenses-and-apps-saved" width="700">
+</p>
 
-Confirm each assignment from the user's Licenses page, and record what security defaults does to the newly licensed accounts at their first cloud sign-in.
+<p align="center">
+  <em>testuser01's Licenses and apps tab after saving: Select location still reads United States, "Your changes have been saved," Licenses (1) with Business Premium checked and 24 of 25 licenses available, Apps (60) collapsed below.</em>
+</p>
+
+The panel confirmed "Your changes have been saved," the tenant's available count moved from 25 of 25 to 24 of 25, and the tab's own Apps section reported 60 apps under the newly assigned SKU, against the 62 service plans Step Four read from the same SKU through Microsoft Graph. This lab did not chase the two-item gap further, since neither the count nor the specific plans involved bears on anything downstream. Step Four's `INTUNE_O365` reading of `PendingActivation`, the only service plan on the SKU that did not read `Success`, plausibly accounts for one of the two, and `AAD_PREMIUM` being a licensing feature rather than a user-facing app plausibly accounts for the other, though neither is confirmed here.
+
+The remaining four accounts, `admin@brindeck.com`, `cloudonly-demo01`, Alex Kim, and Jane Doe, were licensed together from the Active users list's Manage product licenses bulk action instead of one at a time. That path never presented a usage location control at all, going directly from account selection to license assignment.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/03-entra-id-user-group-and-license-administration/10-manage-product-licenses-bulk-confirmation.jpg" alt="10-manage-product-licenses-bulk-confirmation" width="700">
+</p>
+
+<p align="center">
+  <em>The Manage product licenses confirmation: "You've assigned licenses for 5 of 5 users," listing Alex Kim, Jane Doe, Cloud Administrator, Cloud-Only Demo Account (Lab 03 fixture), and testuser01, each against Microsoft 365 Business Premium.</em>
+</p>
+
+The confirmation dialog listed all five accounts against Microsoft 365 Business Premium, the four just licensed together plus testuser01 from the step's first pass. A spot check of all five accounts' own Licenses and apps tabs afterward showed United States on every one, so the bulk path resolved the same tenant default the per-user tab had shown explicitly; it simply never surfaced the control for confirmation along the way. No difference appeared between the two cloud-only accounts and the three synchronized ones at any point in this step: licensing behaved exactly as Design Decisions expected, as a cloud-side property of the object rather than something the synchronization boundary touches.
+
+One cosmetic note from the same dialog: testuser01's row read "Microsoft 365 Business Premium," with a trailing comma and nothing following it. That reads as a rendering artifact of the summary view rather than a second license silently attached, since testuser01's own tab showed only the one SKU under Licenses (1).
+
+Security defaults' effect on these five accounts at first cloud sign-in was not re-tested here. Lab 02 Step Seven already established that a synchronized user is forced into Authenticator registration at first cloud sign-in regardless of role, because the setting is tenant-wide rather than scoped to administrators, and nothing about assigning a license changes that mechanism. It applies to each of these five the first time any of them signs in to a cloud service.
 
 ### Step Six: Catalogue the tenant's groups, and build a dynamic membership group
 
