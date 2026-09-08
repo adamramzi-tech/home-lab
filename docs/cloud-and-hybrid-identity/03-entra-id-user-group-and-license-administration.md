@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress: Steps One through Seven are complete. Steps Eight through Twelve are not started.
+In progress: Steps One through Eight are complete. Steps Nine through Twelve are not started.
 
 The tenant matched the expected baseline in every dimension: Microsoft Entra plan Entra Free, 10 users, 5 groups, 1 application, 0 devices, and a Microsoft 365 Business Basic (no Teams) trial with 1 of 25 licenses assigned, expiring 2026-09-22. Six users and four groups trace to Windows Server AD; the remaining four users and one group are cloud-only. The `AZUREADSSOACC` computer account's Kerberos key was last set 2026-08-31, five days before this baseline, comfortably inside the thirty-day rollover recommendation Lab 02 carried forward.
 
@@ -537,17 +537,97 @@ Privileged Identity Management, which would let either of this step's assignment
 
 No on-premises object was touched in this step. Every object created (the group `testuser01` created and deleted to test the self-service setting, and `Groups-Administrators`, of which only `Groups-Administrators` remains) and every account or license modified (testuser01's role assignment, and Alex Kim's temporarily removed and restored license) is cloud-only or lives entirely in the tenant.
 
-### Step Eight: Group-based licensing
+### Step Eight: Assigned licenses by group, and found where a direct assignment and a group assignment collide
 
-Assign a Business Premium license to a group and document the second assignment model, its inheritance behavior, and its failure modes.
+Assigned Business Premium to two of Step Six's cloud-only groups, watched licenses get granted and revoked by membership alone, moved a user between the two in Microsoft's documented order, and deliberately tried and failed to produce a license assignment error by three separate routes. The step also surfaced content Design Decisions never anticipated: what actually happens to a user who is both directly licensed and a member of a licensed group at the same time.
 
-Assign the license to the cloud-only security group created in Step Six, add and remove members, and observe licenses being granted and revoked by membership rather than by direct assignment. Then move a user between licensed groups using Microsoft's documented order, adding to the destination group and confirming the new license has applied before removing from the source, and record why that order exists: reversing it leaves the user unlicensed until group-based licensing finishes processing, which is a real service interruption rather than a cosmetic one.
+**Eight-A: assigned Business Premium to Finance, and checked the tenant's own screens against the documentation claim.**
 
-Induce at least one license assignment error deliberately and read it on the Errors and issues tab. An account with no usage location is the reliable way to produce one; insufficient licenses is harder to reach with 25 seats and a tenant of ten users, which is itself worth noting as a difference from a production tenant where that error is the common one.
+Before assigning anything, the Business Premium product page in the Microsoft 365 admin center was read for any mention of a licensing prerequisite on the group-assignment path itself. There wasn't one. The only banner on the page read "Licensing operations may take longer for tenants with many users," and the page carries no separate Groups tab at all: groups and members share one combined list, under the text "To manage your licenses, select a group or member," which is a different shape than the plan assumed going in. The Assign licenses panel's own copy also independently corroborated one of the constraints Microsoft's documentation states: "Assign licenses for Microsoft 365 Business Premium to members or groups in your organization, a maximum of 20 at a time."
 
-Record two constraints that bound the technique: group-based licensing does not process nested groups, so only first-level members of a licensed group receive licenses, and licenses can be assigned to a maximum of twenty groups at a time. The nesting limit matters here because the on-premises groups this environment already has could plausibly be nested.
+`Finance`, the assigned-membership cloud-only security group Step Six built, was selected as the target. It held zero members at the time, so the assignment consumed no seats. `Finance` subsequently appeared as its own row on the product page with a Type of Group, distinct from the five individually licensed users. `IT-Department`, Step Six's dynamic-membership group, was not used for this step's manual add-and-remove work, since a dynamic group's membership cannot be edited by hand in the portal at all.
 
-Also settle a claim planning could not: Microsoft's current group-based licensing documentation, having moved to the Microsoft 365 admin center, states no license prerequisite of its own, while the feature historically required a premium tier. This tenant will hold P1 throughout this step, so the question cannot be answered here directly, but what the documentation now claims is worth recording alongside what was observed rather than repeating an unverified prerequisite. If the trial was refused and this lab is running on the free tier, this step answers the question outright instead.
+**Eight-B: added a clean subject to Finance, and watched a license apply through membership alone.**
+
+`John Smith`, who held no license of any kind at this point in the lab, was added to `Finance`. Business Premium was already checked on his own Licenses and apps tab by the time it was opened, no visible delay of the kind Six-B's dynamic membership rule took roughly two minutes to show. His tab gave no indication of where the license came from, a plain checked box, no badge or note distinguishing a group-sourced grant from a direct one. That is less information than the Entra admin center's own Licenses blade gave in Step Seven, which explicitly labeled Alex Kim's assignment "Direct assignment path." The same fact is visible on one admin surface and invisible on the other.
+
+**Eight-C: tested what happens when a direct assignment and a group assignment supply the same license to the same user.**
+
+`testuser01` already held Business Premium directly, assigned in Step Five, and was added to `Finance` as well. On his own Licenses and apps tab, Business Premium was unchecked and saved. The save was immediate and total: Licenses (0), and the tenant-wide count dropped to 5 of 25 assigned.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/03-entra-id-user-group-and-license-administration/21-testuser01-direct-license-removed.jpg" alt="21-testuser01-direct-license-removed" width="700">
+</p>
+
+<p align="center">
+  <em>testuser01's Licenses and apps tab immediately after unchecking Business Premium and saving: Licenses (0), Business Basic 24 of 25 and Business Premium 20 of 25 available.</em>
+</p>
+
+Checking the Business Premium product page's Errors & Issues tab shortly afterward told a different story: 6 of 25 assigned, zero licensing errors, zero members without licenses.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/03-entra-id-user-group-and-license-administration/22-errors-issues-premium-reassigned-no-errors.jpg" alt="22-errors-issues-premium-reassigned-no-errors" width="700">
+</p>
+
+<p align="center">
+  <em>The Business Premium product page's Errors & Issues tab, checked moments after the previous screenshot: 6 of 25 assigned again, no errors, no members without licenses.</em>
+</p>
+
+Group-based licensing had silently reasserted the license while `testuser01` remained a `Finance` member, and his own tab confirmed it directly: Business Premium was checked again. The gap between unassignment and reassertion was real, on the order of the time it took to navigate from one screen to the other, not instantaneous, and not visible anywhere as a warning while it was happening.
+
+Removing `testuser01` from `Finance` immediately afterward answered the remaining question: whether the earlier direct assignment had survived underneath the group's reassertion, or had actually been consumed by the uncheck. It had been consumed. His license disappeared entirely the moment group membership ended, with nothing left to hold it. Unchecking a direct assignment on a user who is also group-licensed does not stick while the group membership continues, but it does permanently remove the direct component; what the user is left holding afterward is sourced entirely by the group, whether or not an administrator realizes that has happened.
+
+Business Premium was then reassigned to `testuser01` directly, restoring the state Step Five established, since Steps Eight through Twelve proceed from that baseline the same way Step Seven restored Alex Kim's license after its own test.
+
+**Eight-D: moved a user between two licensed groups in Microsoft's documented order.**
+
+Business Premium was assigned to `Company Announcements` as well, Step Six's other assigned-membership cloud-only group. `John Smith`, still licensed purely through `Finance` membership at this point, was added to `Company Announcements` first, and his license was confirmed still applied. Only then was he removed from `Finance`.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/03-entra-id-user-group-and-license-administration/23-johnsmith-license-retained-after-move.jpg" alt="23-johnsmith-license-retained-after-move" width="700">
+</p>
+
+<p align="center">
+  <em>John Smith's Licenses and apps tab after being removed from Finance, having already been added to Company Announcements: Business Premium stayed checked throughout, no gap.</em>
+</p>
+
+The license stayed checked the entire time. That contrast with Eight-C is the actual content here: add to the destination, confirm, then remove from the source produced zero interruption, while removing support before the replacement had a chance to apply, as Eight-C did by accident, produced a real if temporary one. That is why Microsoft documents the order it does, demonstrated rather than only cited.
+
+**Eight-E: attempted to induce a license assignment error, and could not, by three separate routes.**
+
+No existing account on this tenant had an unset usage location to begin with; Step Five already established that every account resolves to United States the moment any licensing screen touches it, before an administrator sets anything deliberately. To test whether group-based licensing specifically would behave differently, `nolocation-demo01` was created as a new cloud-only fixture using the "Create user without product license" option during account creation, so that no licensing screen touched the account at all before it was tested. It was added directly to `Finance` without its own Licenses and apps tab ever being opened first.
+
+It was licensed successfully, United States resolved, zero entries on Errors & Issues. Microsoft 365 Business Basic (no Teams) was then also assigned to `Finance`, giving `nolocation-demo01` both SKUs at once to test whether the tenant would treat them as conflicting. Both applied cleanly, no error of any kind.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/03-entra-id-user-group-and-license-administration/24-nolocation-demo01-dual-license-no-error.jpg" alt="24-nolocation-demo01-dual-license-no-error" width="700">
+</p>
+
+<p align="center">
+  <em>nolocation-demo01's Licenses and apps tab: both Business Basic and Business Premium checked, Select location resolved to United States despite never being set deliberately, Apps (98).</em>
+</p>
+
+Insufficient licenses was not attempted; a 25-seat trial against a ten-user tenant was never going to reach it, exactly as the plan anticipated going in. None of the three most reachable license-assignment failure modes, an unlocated user, two overlapping SKUs, or exhausted seats, are exposed through the Microsoft 365 admin center on this tenant. A real error here would need either a much larger population or two genuinely mutually-exclusive SKUs, and this environment has neither.
+
+`nolocation-demo01` was deleted once the test concluded, and the deletion itself surfaced one more finding on the way out. The account was deleted successfully, but the portal also reported a partial failure: "We couldn't unassign licenses for this user. One or more of the licenses could not be modified because they are inherited from a group membership. Manage group-based licenses from the Licenses and apps pivot in the Group Details page."
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/03-entra-id-user-group-and-license-administration/25-nolocation-demo01-deleted-group-license-warning.jpg" alt="25-nolocation-demo01-deleted-group-license-warning" width="700">
+</p>
+
+<p align="center">
+  <em>The delete confirmation for nolocation-demo01: "User account deleted" alongside a failure to unassign its group-inherited licenses first, which did not block the deletion.</em>
+</p>
+
+A user's group-inherited licenses are not cleanly unassignable through the same flow that unassigns direct ones, a detail this step did not go looking for but which bears directly on what Step Nine's delete-and-restore work should expect.
+
+**Constraints recorded from documentation.** Group-based licensing does not process nested groups: only first-level members of a licensed group receive licenses. This matters here because the on-premises groups this environment synchronizes could plausibly be nested in the future, even though none currently are; nothing in this step tested it directly, since building a nested cloud group for the purpose was out of scope. Licenses can be assigned to a maximum of twenty groups or members at a time, which this step corroborated directly rather than only citing, since the Assign licenses panel's own copy stated the same limit in Eight-A.
+
+**The P1 prerequisite question, settled as far as this lab can settle it.** Microsoft's current group-based licensing documentation states no license tier prerequisite of its own, and nothing on this tenant's own assignment screens claimed one either, exactly as Eight-A found. This tenant holds Microsoft Entra ID P1 throughout Lab 03, so whether Entra ID Free would actually permit or block group-based licensing is not something this lab can observe directly. That gap is recorded rather than assumed closed, the same way Step Two recorded trial eligibility as an open question rather than an assumption.
+
+**Final state.** Read directly from the Business Premium and Business Basic product pages rather than derived: Business Premium stood at 6 of 25 assigned. Five were direct assignments, held by Alex Kim, the Cloud Administrator, `cloudonly-demo01`, Jane Doe, and `testuser01`. The sixth was `John Smith`'s, sourced entirely through `Company Announcements` membership from Eight-D onward. `Finance` remained licensed but empty of members, holding no members after `testuser01`'s removal in Eight-C and `nolocation-demo01`'s deletion in Eight-E, so it consumed no seats, but it still carries two group-level assignments going forward: Business Premium from Eight-A and Business Basic from Eight-E. Business Basic's own consumed count held at 1 of 25, unchanged from before this step, but that count alone hides what changed underneath it: Business Basic is now assigned to `Finance` as a group and was not before, so any future member added to `Finance` would draw both SKUs at once rather than only Business Premium. That assignment sits on a trial that lapses on 2026-09-22, inside the window this lab still has open, so what a group-level assignment does when the subscription behind it lapses is now a real observable question rather than a hypothetical one, and it connects directly to the lapse Step Three already confirmed. No on-premises object was touched.
+
+`nolocation-demo01` is not fully gone, either. Deletion moves an Entra ID user object into Deleted users for up to 30 days before permanent removal, per Microsoft's documented retention behavior, rather than purging it immediately; this session did not check the Deleted users list to confirm it landed there. Combined with the unassignment failure this step already recorded, that leaves open the possibility of a soft-deleted object still holding a group-inherited license underneath it. Step Nine's delete-and-restore work should treat that account as a live complication already sitting in Deleted users rather than as a clean starting point.
 
 ### Step Nine: Delete and restore users, on both object types
 
