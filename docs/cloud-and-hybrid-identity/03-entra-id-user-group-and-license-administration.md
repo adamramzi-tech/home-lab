@@ -822,18 +822,180 @@ One observation from this step's own record does not fit the composition above, 
 
 **Final state, for Step Twelve's reconciliation.** Read fresh from the Entra Overview rather than derived: 9 groups, unchanged from Step Nine's own close, since both `zz-delete-test-*` fixtures were created and fully purged within this step and left no trace on the count. `Finance` and `Company Announcements` are exactly where Step Eight left them: licensed, `John Smith` a member of `Company Announcements` again after this step's repair, both groups now confirmed undeletable while that license assignment stands rather than merely assumed reversible. Part C's reconciliation gives Step Twelve the finished figures to work against: Business Premium at seven assignment targets and six consumed seats against twenty-five enabled, Business Basic at one consumed seat, and soft-deleted `nolocation-demo01` holding an SPB assignment on its object that counts toward neither figure. `nolocation-demo01`, `duptest01`, and `duptest02` remain exactly as Step Nine's own Final State left them, soft-deleted and outside this step's scope; this step adds nothing to that list and removes nothing from it. The `zz-delete-test-*` pair is the one addition and the one clean removal this step made: both objects were created, deleted, restored, and permanently purged entirely within Step Ten, and neither is present in any form, soft-deleted or otherwise, at this step's close.
 
-### Step Eleven: Establish what can and cannot be edited on a synchronized object
+### Step Eleven: Established what can and cannot be edited on a synchronized object
 
-Take one synchronized user and `cloudonly-demo01`, and work through the same set of administrative changes on each, recording what the portal allows, what it refuses, and what it says when it refuses.
+Confirmed the tenant's live state against Step Ten's Final State before touching anything, on the same discipline that step's own opening established and that Step Ten's own history shows is not ceremony. The Entra Overview read 9 groups and 10 users. `Finance` still showed zero direct members and "No license assignments found" on its Licenses blade, the same gap Step Ten already found rather than a new one. `Company Announcements` showed one direct member, John Smith, with the identical Licenses-blade gap. The Business Premium product page read 7 of 25 assigned. `Get-MgSubscribedSku` read `SPB` at 6 consumed and Microsoft 365 Business Basic (no Teams) at 1, both Enabled. Deleted users held exactly three objects, `nolocation-demo01`, `duptest01`, and `duptest02`. All six checks matched Step Ten's Final State exactly. No drift, so this step proceeded from Step Ten's own baseline rather than a re-derived one.
 
-Cover at minimum: display name and other directory attributes; the user principal name; group membership, on both a synchronized group and a cloud-only group; and the account's enabled state. The interesting cases are the ones where the two objects diverge, and the most instructive single artifact is the error Microsoft Graph returns when an on-premises mastered property is written in the cloud, which names directory sync objects explicitly rather than failing generically.
+Subjects: `mjohnson` (Mary Johnson), a synchronized, unlicensed user, confirmed going in with a blank Job title, `Account enabled: Yes`, and existing membership in `Domain-Users-Standard` and `IT-Admins`, both synchronized from Windows Server AD; and `cloudonly-demo01`, confirmed license-only with zero group memberships and zero directory role assignments before anything else ran. `mjohnson`'s existing membership in `IT-Admins` ruled it out as this step's synchronized-group refusal target for exactly the reason Design Decisions gives, so `Lab-Workstations` was used instead.
 
-Two behaviors are worth checking rather than assuming, because Microsoft's documentation on both has changed:
+**Eleven-A: directory attributes are locked per field, not per object, and the one field the portal left open on the Identity tab was the one an administrator would least expect.**
 
-- The `mobile` and `otherMobile` attributes were historically the exception that could be overwritten in the cloud on a synchronized user, setting a `DirSyncOverrides` flag that made on-premises updates to those attributes silently stop flowing. Microsoft now documents that this is no longer possible for synchronized users. Whether this tenant behaves as currently documented is a one-attribute test.
-- A synchronized user can be added to a cloud-only group in the tenant even though they cannot be added to a synchronized one, because the constraint belongs to the group's source of authority rather than the user's. This is the asymmetry that makes hybrid group administration confusing in practice and is worth demonstrating in both directions.
+Edit properties on `mjohnson` showed every field on the Job Information tab disabled: Job title, Company name, Department, Employee ID, Employee type, Office location, and the Manager and Sponsors controls, all greyed and unclickable, no save to even attempt. The Identity tab told a different story. Display name, First name, Last name, and User type were disabled the same way, but User principal name rendered as a live, editable field with its own domain dropdown, the only field on either tab the portal left open.
 
-Where a change is refused, make the corresponding change on-premises instead and watch it arrive on the next Delta cycle, so the step ends with the correct administrative path demonstrated rather than only the incorrect one blocked.
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/03-entra-id-user-group-and-license-administration/36-mjohnson-job-information-fields-locked.jpg" alt="36-mjohnson-job-information-fields-locked" width="700">
+</p>
+
+<p align="center">
+  <em>mjohnson's Edit properties view, Job Information tab, "Showing 9 results under Job Information": Job title, Company name, Department (holding Sales), Employee ID, Employee type, Employee hire date, and Office location all rendered as disabled fields, with Manager and Sponsors as greyed Add controls.</em>
+</p>
+
+The Identity tab capture below was taken after the UPN reverted in Eleven-B, which is why User principal name reads `mjohnson` rather than the temporary `mjohnson-test` it held earlier in this session.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/03-entra-id-user-group-and-license-administration/37-mjohnson-identity-tab-upn-editable-other-fields-locked.jpg" alt="37-mjohnson-identity-tab-upn-editable-other-fields-locked" width="700">
+</p>
+
+<p align="center">
+  <em>mjohnson's Edit properties view, Identity tab, "Showing 6 results under Identity": Display name (Mary Johnson), First name (Mary), and Last name (Johnson) all greyed, User type (Member) greyed with a disabled dropdown, and User principal name rendered as a live white text box reading mjohnson beside an active brindeck.com domain dropdown and a copy control, with a "Domain not listed?" link beneath it.</em>
+</p>
+
+That asymmetry matters more than a simple "synchronized objects are locked" finding would: the lock is enforced per field rather than per object, and the field left open is user principal name, the one a sign-in depends on, not a cosmetic one. What the UPN field actually did with that opening is Eleven-B.
+
+Because the portal locked Job title before any save could be attempted, the refusal itself had to be captured at the Microsoft Graph layer instead. These Graph-layer writes were run after the UPN change Eleven-B describes below, which is why the commands quoted address the account by its temporary `mjohnson-test@brindeck.com` UPN rather than her ordinary one; every Job Information field was still locked exactly as shown above, only her UPN had already changed by this point in the session. The screenshot below captures a later re-run of the same write, made after the UPN had reverted to `mjohnson@brindeck.com` in Eleven-B; the failure was identical in status, error code, and message text:
+
+```powershell
+Update-MgUser -UserId "mjohnson-test@brindeck.com" -JobTitle "Cloud Write Test"
+```
+
+```
+Update-MgUser : Unable to update the specified properties for on-premises mastered Directory Sync objects or objects currently undergoing migration.
+Status: 400 (BadRequest)
+ErrorCode: Request_BadRequest
+```
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/03-entra-id-user-group-and-license-administration/38-update-mguser-jobtitle-onpremises-mastered-error.jpg" alt="38-update-mguser-jobtitle-onpremises-mastered-error" width="700">
+</p>
+
+<p align="center">
+  <em>Update-MgUser -UserId "mjohnson@brindeck.com" -JobTitle "Cloud Write Test" re-run after the UPN reverted: Status 400 (BadRequest), ErrorCode Request_BadRequest, the full message naming on-premises mastered Directory Sync objects, and the complete header block down to FullyQualifiedErrorId, including the request-id and client-request-id correlation identifiers in full, the same treatment as screenshot 31.</em>
+</p>
+
+This is the single artifact Design Decisions called out as most instructive, and it earns that description: it names the constraint by category, directory sync objects, rather than returning a bare permissions error that would have left the actual reason to guess at. The identical write against `cloudonly-demo01` succeeded silently and read back as set:
+
+```powershell
+Update-MgUser -UserId "cloudonly-demo01@brindeck.com" -JobTitle "Cloud Write Test"
+Get-MgUser -UserId "cloudonly-demo01@brindeck.com" -Property JobTitle | Select-Object JobTitle
+```
+
+```
+JobTitle
+--------
+Cloud Write Test
+```
+
+The `mobile` and `otherMobile` exception Design Decisions flagged as worth checking rather than assuming did not hold on this tenant. The identical write against `mjohnson`,
+
+```powershell
+Update-MgUser -UserId "mjohnson-test@brindeck.com" -Mobile "555-0100"
+```
+
+returned the exact same error, same status, same error code, same message text naming on-premises mastered Directory Sync objects. Microsoft's current documentation states this override is no longer possible for synchronized users, and this tenant behaved exactly as documented rather than preserving the historical exception. That result is also consistent with the tenant's own configuration read back later in Eleven-B: `BypassDirSyncOverridesEnabled`, the specific flag that would have let Mobile and OtherMobile persist independently of on-premises AD, read `False`.
+
+**Eleven-B: the UPN write the portal allowed actually landed on the object, persisted through a completed synchronization cycle, and is explained by a tenant-level feature flag rather than left as a bare surprise.**
+
+Changing `mjohnson`'s UPN from `mjohnson@brindeck.com` to `mjohnson-test@brindeck.com` through Edit properties, saved at 12:56 AM EDT, returned "Successfully updated user" rather than the refusal Job title and Mobile had just returned.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/03-entra-id-user-group-and-license-administration/39-mjohnson-upn-change-successfully-updated-toast.jpg" alt="39-mjohnson-upn-change-successfully-updated-toast" width="700">
+</p>
+
+<p align="center">
+  <em>mjohnson's Overview immediately after the UPN edit: "Successfully updated user" toast, and the page itself now reading mjohnson-test@brindeck.com throughout.</em>
+</p>
+
+A Graph read-back confirmed the change had actually reached the directory object rather than only a portal toast:
+
+```powershell
+Get-MgUser -UserId "mjohnson-test@brindeck.com" -Property UserPrincipalName | Select-Object UserPrincipalName
+```
+
+```
+UserPrincipalName
+------------------
+mjohnson-test@brindeck.com
+```
+
+(The `-Property` parameter reached the request cleanly here, against a live user addressed by id; the gap Nine-A and Step Ten's Troubleshooting entry both found was specific to a deleted item and to a group, not a general defect in the parameter.)
+
+That result is not left as a bare "the portal permitted a UPN change on a synchronized user" observation. Microsoft documents a specific per-tenant directory synchronization feature that governs UPN synchronization for managed, non-federated users, and current Microsoft Learn documentation (not assumed from memory, after Lab 02 Step Eight already found `Get-EntraDirSyncFeature`'s accepted feature name did not match Microsoft's own documentation at the time) names the current cmdlet as `Get-MgDirectoryOnPremiseSynchronization` and the property as `Features.SynchronizeUpnForManagedUsersEnabled`. Reading it against this tenant:
+
+```powershell
+Connect-MgGraph -Scopes "OnPremDirectorySynchronization.Read.All", "User.Read.All"
+$DirectorySync = Get-MgDirectoryOnPremiseSynchronization
+$DirectorySync.Features | Format-List
+```
+
+returned `SynchronizeUpnForManagedUsersEnabled: True`, alongside `BypassDirSyncOverridesEnabled: False` (the Eleven-A finding above) and `SoftMatchOnUpnEnabled: True`.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/03-entra-id-user-group-and-license-administration/40-directoryonpremisesynchronization-features-synchronizeupnformanagedusers-true.jpg" alt="40-directoryonpremisesynchronization-features-synchronizeupnformanagedusers-true" width="700">
+</p>
+
+<p align="center">
+  <em>Get-MgDirectoryOnPremiseSynchronization's Features list in full: SynchronizeUpnForManagedUsersEnabled and SoftMatchOnUpnEnabled both True, BypassDirSyncOverridesEnabled False, alongside the tenant's other default feature settings.</em>
+</p>
+
+`mjohnson` meets both conditions Microsoft's documentation attaches to this feature, managed (nonfederated) and unlicensed, so the feature being enabled is consistent with UPN changes not being blocked for her specifically. That explains why an on-premises UPN change is allowed to flow up to the cloud; it does not by itself explain why a change made in the opposite direction, cloud-first, was accepted and kept standing. That second question was the actual content of the round-trip test.
+
+Before running anything that could force a synchronization cycle, `Get-ADSyncScheduler` on `SYNC01` confirmed `SyncCycleEnabled: True` rather than assuming it, the discipline Lab 02 Step Nine established after finding that flag had been `False` since installation. The Synchronization Service Manager's own operations log was checked directly rather than reasoned back from the scheduler's interval, and a natural Delta cycle had run since the 12:56 AM EDT UPN save: `corp.home.arpa` Delta Import starting 1:07:55 AM, `brindeck.onmicrosoft.com` Delta Synchronization completing 1:08:43 AM, and the Export to `brindeck.onmicrosoft.com` succeeding from 1:08:50 to 1:08:56 AM, entirely before the forced cycle described in Eleven-E below (the same log capture appears there as screenshot 42, both cycles sitting in one frame). The UPN change had therefore already survived one observed, unforced Delta cycle before the forced one ran. After the forced cycle completed too, a fresh check showed the UPN still reading `mjohnson-test@brindeck.com`, unchanged. The forced cycle had genuinely run in both directions, `mjohnson`'s Job title arrived from on-premises in that same cycle (Eleven-E), so it was not a no-op.
+
+The standard explanation for why a delta cycle would leave a cloud-side edit standing is that it reasserts only attributes with a detected change on the inbound side; since the on-premises `userPrincipalName` attribute itself was never touched, neither cycle would have had anything new to reassert over the cloud-side edit. That is the textbook behavior for a delta cycle, not a result this step actually tested. Confirming it would need either a Full Synchronization, which reprocesses every attribute regardless of whether a delta was detected, or an on-premises UPN change watched arriving and overwriting the cloud value the way Job title did in Eleven-E. Neither was run here, forcing a Full Synchronization or changing `mjohnson`'s on-premises UPN was outside this step's scope, so the mechanism is recorded as the working explanation for a later lab to confirm rather than as an established result.
+
+Per the decision made before this test ran, the tenant could not be left in that state regardless of which way the observation went. The UPN was reverted manually in the portal, back to `mjohnson@brindeck.com`, confirmed on her Overview page. Recorded here because it did not happen on its own: this was a manual fix, not a synchronization outcome.
+
+**Eleven-C: group membership confirmed both directions of the same asymmetry on one user, and the refusal surfaced before any add could be attempted.**
+
+Adding `mjohnson` to `All Company`, the tenant's cloud-only, unlicensed, assigned-membership group, succeeded immediately: "Successfully added group membership." Attempting the opposite direction, adding her to `Lab-Workstations`, a synchronized group, showed the constraint enforced directly in the Select groups picker rather than as a save-time error: every synchronized group in the list, `Domain-Users-Standard`, `IT-Admins`, `Lab-Workstations`, and `Linux-Admins`, appeared greyed with "Directory synced objects are not allowed." beside its name, unselectable. `IT-Department` carried its own separate reason, "Dynamic groups are not allowed.", confirming that constraint too rather than only the one this test targeted.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/03-entra-id-user-group-and-license-administration/41-select-groups-picker-directory-synced-objects-not-allowed.jpg" alt="41-select-groups-picker-directory-synced-objects-not-allowed" width="700">
+</p>
+
+<p align="center">
+  <em>The Select groups picker for mjohnson: All Company and Company Announcements selectable, Finance and Groups-Administrators selectable, while Domain-Users-Standard, IT-Admins, Lab-Workstations, and Linux-Admins each read "Directory synced objects are not allowed." and IT-Department reads "Dynamic groups are not allowed.", all four greyed and unselectable.</em>
+</p>
+
+Both results ran against the same user, confirming the constraint belongs to the group's source of authority rather than the user's, exactly as Design Decisions frames it: the identical `mjohnson` could join a cloud-only group and could not even attempt to join a synchronized one. Once the "successfully added" evidence above was captured, `mjohnson` was removed from `All Company` again; nothing in this step's content depends on the membership persisting, and leaving it in place would have carried a test artifact into Step Twelve's reconciliation for no reason.
+
+**Eleven-D: account enabled state is cloud-writable on a synchronized user, another field on the "open" side of the per-field lock.**
+
+Disabling and re-enabling `cloudonly-demo01` through Edit properties' Account enabled checkbox succeeded both directions, "Successfully updated user" each time. The identical toggle against `mjohnson` also succeeded both directions: unchecking Account enabled and saving succeeded, and re-checking it and saving succeeded, each confirmed with a fresh "Successfully updated user" notification and the checkbox state itself. Account enabled joins user principal name as a field the portal leaves genuinely writable on a synchronized object, widening Eleven-A's finding beyond UPN alone: the per-field lock excludes more than one exception.
+
+What this demonstrated is writability, not durability. `accountEnabled` synchronizes from `userAccountControl` in Active Directory, the same shape of relationship UPN has to its own on-premises attribute, and Eleven-B's mechanism predicts the same outcome here: a cloud-side disable or re-enable would stand only until a synchronization cycle carries an on-premises change to that account's enabled state, at which point it would be reasserted the same way a delta cycle reasserts any attribute with a detected inbound change. The disable-then-immediately-re-enable sequence run here cannot distinguish a write that persists from one that would be reverted on the next cycle carrying a change, because no cycle carrying a change to `mjohnson`'s on-premises enabled state ran in between. Whether disabling a synchronized user in the cloud actually holds, or only holds until the next cycle touches the account, is the operationally significant question a helpdesk-shaped reading of this finding would act on, and it is left open for a later lab rather than tested here.
+
+**Eleven-E: the refused Job title write was made on-premises instead, and the round trip was timed rather than described.**
+
+With `Get-ADSyncScheduler` already confirming `SyncCycleEnabled: True`, `mjohnson`'s Job title was set on-premises:
+
+```powershell
+Set-ADUser -Identity mjohnson -Title "IT Support Specialist"
+```
+
+run at 1:17:00 AM EDT. A Delta cycle was forced immediately afterward with `Start-ADSyncSyncCycle -PolicyType Delta` on `SYNC01`. The Synchronization Service Manager's own operations log gave second-level timing rather than the portal's minute-level precision Six-B had to work around: Delta Import on `corp.home.arpa` started 1:20:58 AM, Delta Synchronization against `brindeck.onmicrosoft.com` finished 1:21:47 AM, and the Export to `brindeck.onmicrosoft.com` succeeded from 1:21:55 AM to 1:22:01 AM, the step where the change actually reached the tenant.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/03-entra-id-user-group-and-license-administration/42-sync-service-manager-delta-cycle-round-trip-log.jpg" alt="42-sync-service-manager-delta-cycle-round-trip-log" width="700">
+</p>
+
+<p align="center">
+  <em>Get-ADSyncScheduler and the Synchronization Service Manager's Connector Operations log on SYNC01 in one frame. Left: SyncCycleEnabled True, a thirty-minute effective interval, next cycle due 9/9/2026 5:49:18 AM UTC. Right, both cycles this step relied on: the natural Delta cycle running corp.home.arpa Delta Import 1:07:55 AM through the corp.home.arpa Export at 1:09:04 AM, and the forced cycle running corp.home.arpa Delta Import 1:20:58 AM, brindeck.onmicrosoft.com Delta Synchronization completing 1:21:47 AM, the brindeck.onmicrosoft.com Export succeeding 1:21:55 to 1:22:01 AM, and the corp.home.arpa Export closing at 1:22:08 AM.</em>
+</p>
+
+From the 1:17:00 AM on-premises write to the 1:22:01 AM cloud-side export completing, the round trip measured 5 minutes 1 second. `mjohnson`'s Job Information tab confirmed the arrival directly: Job title now read `IT Support Specialist`, Department still `Sales`, unchanged.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/03-entra-id-user-group-and-license-administration/43-mjohnson-job-title-it-support-specialist-arrived.jpg" alt="43-mjohnson-job-title-it-support-specialist-arrived" width="700">
+</p>
+
+<p align="center">
+  <em>mjohnson's Job Information tab after the Delta cycle: Job title reading IT Support Specialist, Department unchanged at Sales.</em>
+</p>
+
+`title` was populated only on `mjohnson`, using the same domain gap Six-A already established (this domain's `Title` attribute had no populated values before this lab), and stays set permanently as this step's documented content rather than reversed once captured, the same precedent Step Six's `department` values set. Step Twelve's reconciliation is updated to name both attribute changes.
+
+**Restoration, confirmed rather than assumed.** `mjohnson` ended this step a member of exactly `Domain-Users-Standard` and `IT-Admins` again (the `All Company` test membership removed), `Account enabled: Yes`, and UPN back at `mjohnson@brindeck.com`; her Job title stayed set to `IT Support Specialist` as deliberate content. `cloudonly-demo01` had its test Job title cleared back to blank, and a fresh read confirmed the hard constraint: Groups blade reading "Not a member of any groups" and Assigned roles reading "No directory roles assigned.", license-only exactly as it started, with `memberOf` empty as required.
 
 ### Step Twelve: Validate the environment is otherwise unchanged, settle the SSO key, and record the finished state
 
@@ -847,7 +1009,7 @@ Confirm that a lab conducted almost entirely in two web portals left the on-prem
 
 **The `AZUREADSSOACC` key.** Step One already read the account's state and recorded how long it had been since Lab 02's roll. Lab 02 rolled the key on 2026-08-31, during its Step Eight-A (the same timestamp Step One read directly from `PasswordLastSet`), and Microsoft's Seamless SSO FAQ recommendation of at least every thirty days puts that threshold at 2026-09-30. (WIN11-CLIENT01 displays `PasswordLastSet` in its local Eastern time zone; the same moment in UTC is 2026-09-01 00:07, which is why the interval also reads as 2026-09-01 to 2026-10-01 on a UTC clock; one rollover, two clocks, not a discrepancy.) A roll performed in this lab falls well short of either date, so it demonstrates the procedure rather than tests the recommendation the threshold represents. Re-read the account's state now, so the elapsed time spans the lab rather than sitting at its start, then take the decision and record it either way: roll the key with `Update-AzureADSSOForest` on `SYNC01`, observing the two documented traps and expecting the authentication context to fight the same browser configuration Lab 02 recorded, or record the deliberate decision not to roll it and the reasoning. Whichever happens, state the conclusion research pointed to and the lab confirmed: whether thirty days is an expiry or a recommendation, and therefore whether this is an operational deadline the environment has to meet or a hygiene interval it should aim at, while 2026-09-30 (2026-10-01 in UTC) remains the date a later lab actually gets to watch the interval elapse and settle the question empirically. That closes the Lab 02 carry-forward item rather than restating it, and it tells Lab 06 whether it is automating a deadline or a good habit.
 
-**Finished state.** Reconcile both directories object by object against the Step One baseline, accounting for every difference. Three categories of change are expected and must each be accounted for rather than netted away: the cloud-only groups created in Step Six and the role-assignable group created in Step Seven, which persist; the `department` values populated on the synchronized users in Step Six, which are the only attribute change this lab makes on-premises; and `deltest01`, created and permanently destroyed in Step Nine, which nets to zero on both sides exactly as Step Nine already confirmed: six users on-premises and ten in the tenant, matching the Step One baseline with no residual discrepancy. Getting there cost two distinct Entra object GUIDs along the way, not a persistent count, the direct consequence of recreating a synchronized account with the Recycle Bin off, a finding Step Nine already made and this step does not need to re-derive. Record the finished licensing state: which subscriptions are active, their billing state, the trial's expiry date, how many licenses are assigned and to whom, and by which model each was assigned. Record the Business Basic trial as resolved, lapsing 2026-09-22, so the track's dated item closes here.
+**Finished state.** Reconcile both directories object by object against the Step One baseline, accounting for every difference. Three categories of change are expected and must each be accounted for rather than netted away: the cloud-only groups created in Step Six and the role-assignable group created in Step Seven, which persist; the `department` values populated on the synchronized users in Step Six (`akim`, `jdoe`, `testuser01`, and `tsync01` at `IT`; `mjohnson` at `Sales`; `jsmith` at `IT`, changed from `Sales` mid-step) and the `title` value populated on `mjohnson` in Step Eleven, the only two attribute changes this lab makes on-premises; and `deltest01`, created and permanently destroyed in Step Nine, which nets to zero on both sides exactly as Step Nine already confirmed: six users on-premises and ten in the tenant, matching the Step One baseline with no residual discrepancy. Getting there cost two distinct Entra object GUIDs along the way, not a persistent count, the direct consequence of recreating a synchronized account with the Recycle Bin off, a finding Step Nine already made and this step does not need to re-derive. Record the finished licensing state: which subscriptions are active, their billing state, the trial's expiry date, how many licenses are assigned and to whom, and by which model each was assigned. Record the Business Basic trial as resolved, lapsing 2026-09-22, so the track's dated item closes here.
 
 The reconciliation must also account for what the Entra Overview's user count cannot show: three objects sitting in Deleted users, invisible to that count entirely. Record them by name, not as a tally: `nolocation-demo01`, soft-deleted 2026-09-07 by Step Eight with its group-inherited licenses confirmed still attached; and `duptest01` and `duptest02`, soft-deleted by Lab 02 and still present, their thirty-day windows expiring around 2026-10-02. A reconciliation that reads only the active user count and calls it a match is the same shape of error Step Nine found in Lab 02's own reconciliation: complete against one view, silent about another. Take an actual decision on `duptest01` and `duptest02` rather than defaulting past them: either purge them permanently, which would make Lab 02's "left no residue" claim true at last, or leave all three objects for Labs 04 and 05 to inherit. State which and why.
 
@@ -868,7 +1030,7 @@ Planned validation, to be replaced with observed results as the lab is implement
 - **Synchronized versus cloud-only.** A documented table of administrative actions attempted against both a synchronized user and `cloudonly-demo01`, recording for each whether it succeeded, and where it failed, the exact refusal. A change refused in the cloud is shown succeeding when made on-premises and synchronized.
 - **Delete and restore.** Both user object types are deleted, with the differences recorded, using `cloudonly-demo01` and the throwaway `deltest01` rather than any account Lab 04 or Lab 05 depends on. The behavior of a synchronized user deleted only in the cloud is observed across at least one synchronization cycle. The terminal nature of an on-premises deletion in a forest with no Active Directory Recycle Bin is demonstrated, including that a recreated account arrives as a new cloud object under a new source anchor rather than rejoining the soft-deleted one. The security group restore contradiction is settled against the tenant.
 - **Seamless SSO key.** The `AZUREADSSOACC` account's state is recorded, the thirty-day recommendation is characterized as either a deadline or a hygiene interval on the evidence, and the key is either rolled or deliberately not rolled with the reasoning recorded.
-- **Environment unchanged.** Host and service configuration on DC01, WIN11-CLIENT01, Ubuntu Server, and `SYNC01` confirmed operating as documented. The only on-premises directory changes are the deliberate ones: `department` populated in Step Six, and `deltest01` created and destroyed in Step Nine. All four Wazuh agents confirmed active by an explicit agent list, not by the health report's default. Entra Connect version, source anchor, and scheduler unchanged. `Invoke-LabHealthReport.ps1` run and its `SYNC01` blind spot recorded. Pester suite at 174 tests, 0 failed.
+- **Environment unchanged.** Host and service configuration on DC01, WIN11-CLIENT01, Ubuntu Server, and `SYNC01` confirmed operating as documented. The only on-premises directory changes are the deliberate ones: `department` populated on six synchronized users in Step Six, `title` populated on `mjohnson` in Step Eleven, and `deltest01` created and destroyed in Step Nine. All four Wazuh agents confirmed active by an explicit agent list, not by the health report's default. Entra Connect version, source anchor, and scheduler unchanged. `Invoke-LabHealthReport.ps1` run and its `SYNC01` blind spot recorded. Pester suite at 174 tests, 0 failed.
 
 ---
 
