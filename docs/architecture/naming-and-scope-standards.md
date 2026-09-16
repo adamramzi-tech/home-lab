@@ -51,22 +51,43 @@ Numbering reflects implementation sequence rather than importance.
 
 ## Lab Documentation Structure
 
-All major labs should follow a consistent structure.
+Lab documents follow the structure defined in the [lab template](../templates/lab-template.md), which is the authoritative list of sections and the order they appear in. It is kept in one place rather than restated here, so that the two cannot drift apart.
 
-Standard sections include:
+Structure is a floor rather than a cage, and the reason is worth stating plainly. As the project has grown across tracks, it has become clear that different kinds of work need genuinely different things from their documentation. An infrastructure build lab earns its keep on deployment steps and topology. A scripting lab needs somewhere to record static analysis and test results that a build lab has no use for. An administration lab conducted almost entirely in web consoles produces findings, contradictions between vendor documentation and observed behavior, and readings taken against dated entitlements, none of which fit a section list written for building servers.
 
-1. Overview or Objective
-2. Context and Architectural Reasoning
-3. Technologies Used
-4. Topology or Architecture
-5. Deployment or Build Steps
-6. Validation
-7. Troubleshooting or Operational Adjustments
-8. Security Considerations
-9. Outcome
-10. Lessons Learned
+So a lab carries the sections its own work calls for, in the template's order, and omits the ones that would stand empty. A lab that needs something the template does not have should add a section rather than distorting an existing one to hold it, and where the same addition recurs across labs it belongs in the template.
 
-Not every lab requires every section, but structure should remain broadly consistent.
+What does not flex is naming. A section that is present uses the template's exact heading, unmodified, so that the same kind of content is always findable in the same place regardless of which track produced it. Flexibility is in which sections a lab carries, never in what they are called.
+
+---
+
+## Revising a Completed Lab
+
+A change to a lab that is already complete is appended as a new section at the end of that document, in past tense, rather than written into the original narrative.
+
+The original text is the record of what the lab found when it ran, and rewriting it destroys the thing the document exists to preserve. An appended section states what changed and why, and the original paragraphs stand as written even where a later lab proved them wrong.
+
+Where a correction belongs beside a specific claim rather than at the end of the document, it is placed there and dated, and the original claim is left standing with a note explaining why it did not hold. A claim that was hedged when it was written is a particularly good candidate for this, since the hedge is what a later reading is supposed to be able to land on.
+
+This rule protects findings and claims, not formatting. Correcting a broken link, a wrong file path, or a typo is maintenance and is made in place. The test is whether the edit changes what the lab is understood to have found: if it does, it is appended and dated; if it does not, it is simply fixed.
+
+Two labs established this pattern and show what it looks like in practice: [04 - Docker Setup](../linux-infrastructure/04-docker-setup.md) under "Later Infrastructure Changes," and [01 - User Lifecycle Automation](../automation-and-scripting/01-user-lifecycle-automation.md) under "Later Revision."
+
+---
+
+## Commit Messages
+
+Commits use a single-line subject with no body:
+
+```text
+docs(cloud-03): document Step Ten - group deletion blocked by an active license
+docs(automation-02): add planning and research
+fix(cloud-02): restore unredacted Wazuh dashboard screenshot
+```
+
+The scope names the track in short form, `linux`, `enterprise-infrastructure`, `automation`, `cloud`, `monitoring-stack`, followed by the lab number where the commit belongs to a single lab. A change spanning a whole track drops the number.
+
+The type is `docs` for documentation work, which is most of this repository, `fix` for correcting something already pushed, `feat` for new infrastructure or capability, and `chore` for maintenance that changes no documented behavior.
 
 ---
 
@@ -200,7 +221,7 @@ Avoid random or temporary naming for persistent infrastructure.
 
 Screenshots should:
 
-- use numbered ordering
+- use numbered ordering, contiguous from `01`, in the order the document references them
 - describe the operational action being shown
 - remain human readable
 
@@ -217,6 +238,20 @@ This structure improves:
 - documentation readability
 - image organization
 - future maintenance
+
+Images live in `images/<track>/<lab>/`, one folder per lab, named for the lab document the images belong to. An image that has been superseded is deleted rather than left beside its replacement, so that the folder and the document always hold the same set.
+
+---
+
+## Screenshot Captions
+
+Every image carries a caption describing what is visible in that frame.
+
+A caption states what the frame actually shows and stops there. A caption that claims content the image does not contain is a defect, and it is not one any text search will find: checking it means opening the image and reading it against its own caption. Numbering, filenames, and counts can all be correct while a caption describes the wrong screen.
+
+Where a value is masked in an image, the caption must not name that value. Masking an identifier in the frame and then writing it out in the caption underneath defeats the masking entirely.
+
+This convention settled after the enterprise infrastructure track was already underway. [01 - Virtualization Lab](../enterprise-infrastructure/01-virtualization-lab.md) and [02 - Windows Server Lab](../enterprise-infrastructure/02-windows-server-lab.md) predate it and carry their images without captions, describing each one in the surrounding prose instead. They are left as written rather than retrofitted, on the same reasoning that governs any change to a completed lab. Every lab from [03 - Active Directory Lab](../enterprise-infrastructure/03-active-directory-lab.md) onward follows the convention above.
 
 ---
 
