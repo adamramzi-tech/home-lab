@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress. Step One is complete: the pre-lab mail baseline, the administrative path, the message trace instrument, the mail-flow DNS state, the Business Premium service plan enumeration and the reconciliation of the three service counts Lab 03 left open, and both entitlement dates' pre-lapse readings are recorded below. Steps Two through Nine remain.
+In progress. Steps One and Two are complete. Step One recorded the pre-lab mail baseline, the administrative path, the message trace instrument, the mail-flow DNS state, the Business Premium service plan enumeration and the reconciliation of the three service counts Lab 03 left open, and both entitlement dates' pre-lapse readings. Step Two confirmed the licensed-equals-mailboxed premise from live state on both object types, established what an unlicensed account has instead using Mary Johnson and traced the categorizer-level rejection a message to her produces rather than Directory-Based Edge Blocking, closed Step One's primary-address finding on Alex Kim and John Smith with a disproved rather than confirmed hypothesis, recorded the operationally relevant mailbox properties and settled the 100 GB mailbox quota against the Business Basic SKU's own service plans before that subscription lapses, and took Adam Ramzi's pre-lapse mailbox baseline for Step Six. Steps Three through Nine remain.
 
 This lab runs against two clocks that were established by Lab 03 and cannot be moved. The Microsoft 365 Business Basic (no Teams) trial lapses on 2026-09-22, and `Finance` still carries a group-level Business Basic assignment, so the lapse falls inside this lab's window whether or not the lab plans for it. The Microsoft 365 Business Premium trial expires on 2026-10-05, and it is what carries Exchange Online Plan 1. Every mailbox this lab provisions depends on an entitlement that ends on that date. The lab is sized and sequenced accordingly.
 
@@ -411,15 +411,371 @@ So the call is that **2026-09-22 removes access rather than deferring it**. Thre
 
 The two dated carry-forward items this lab owns were both read fresh rather than carried forward from Lab 03's prose. `Get-ADComputer -Identity AZUREADSSOACC -Properties PasswordLastSet,whenChanged` returned `PasswordLastSet: 8/31/2026 8:07:44 PM`, unchanged from Lab 03's own reading, fifteen days elapsed as of this reading on 2026-09-15 against the thirty-day interval Lab 03 deliberately left unrolled, exactly at that interval's midpoint and comfortably short of 2026-09-30. Entra admin center, Deleted users and Deleted groups confirmed both retained objects exactly as the track README recorded them: `nolocation-demo01` deleted 9/7/2026 4:01 PM, permanent deletion 10/7/2026 4:01 PM; `Testgroup` deleted 9/6/2026 5:08:17 PM, permanent deletion 10/6/2026 5:08:17 PM. Neither shows any drift from Lab 03's close.
 
-### Step Two: Establish which accounts received mailboxes, and what an unlicensed account has instead
+### Step Two: Established which accounts received mailboxes, and what an unlicensed account has instead
 
-Exchange Online provisions a mailbox when a license carrying it is assigned, which means the licensed population Lab 03 established is the mailboxed population and the unlicensed accounts are not. Confirm that rather than assume it, for both object types: a synchronized user and a cloud-only user, licensed and unlicensed.
+Exchange Online provisions a mailbox when a license carrying it is assigned, so the licensed population Lab 03 established should be the mailboxed population and the unlicensed accounts should not. This was confirmed from live state on 2026-09-16 rather than assumed from Step One's baseline, across both object types.
 
-The instructive case is the unlicensed one. Establish what the account actually has, whether it appears in the Exchange admin center at all, what happens to mail addressed to it, and what error the sender receives. Lab 03 failed to induce a license assignment error across three attempted routes; this is a reachable failure mode in the same family and worth capturing properly if it presents.
+```powershell
+Get-MgUser -All -Property Id,DisplayName,UserPrincipalName,OnPremisesSyncEnabled | ForEach-Object {
+    $lic = Get-MgUserLicenseDetail -UserId $_.Id
+    [PSCustomObject]@{
+        DisplayName    = $_.DisplayName
+        UPN            = $_.UserPrincipalName
+        Synced         = $_.OnPremisesSyncEnabled
+        LicenseCount   = @($lic).Count
+        SkuPartNumbers = ($lic.SkuPartNumber -join ',')
+    }
+} | Sort-Object DisplayName | Format-Table -AutoSize
+```
 
-Record the mailbox properties that matter operationally: the primary SMTP address and how it was derived, the mailbox size limit the Plan 1 license grants, and whether the address matches the UPN or diverges from it.
+```text
+DisplayName                              UPN                                        Synced LicenseCount SkuPartNumbers
+-----------                              ---                                        ------ ------------ --------------
+Adam Ramzi                               Adam@brindeck.onmicrosoft.com                     1            Microsoft_365_Business_Basic_(no Teams)
+Alex Kim                                 akim@brindeck.com                          True   1            SPB
+Cloud Administrator                      admin@brindeck.com                                1            SPB
+Cloud-Only Demo Account (Lab 03 fixture) cloudonly-demo01@brindeck.com                     1            SPB
+Emergency Access Account                 [redacted]@brindeck.onmicrosoft.com                0
+Jane Doe                                 jdoe@brindeck.com                          True   1            SPB
+John Smith                               jsmith@brindeck.com                        True   1            SPB
+Mary Johnson                             mjohnson@brindeck.com                      True   0
+Test Sync                                tsync01@brindeck.com                       True   0
+testuser01                               testuser01@brindeck.com                    True   1            SPB
+```
 
-Close the open finding Step One handed forward. Two of the seven mailboxes carry a primary address that does not match their user principal name, Alex Kim's and John Smith's, and Step One eliminated both the default-accepted-domain reading and synchronization source as explanations. Read the full `EmailAddresses` collection on each of the seven rather than the primary address alone, since the primary is one entry in a stamp that also holds every secondary address the service or a prior lab added. The hypothesis worth testing is that the primary was set before `brindeck.com` was verified on 2026-08-23 and never reapplied when the UPN changed, which would make this a visible consequence of Lab 03 Step Eleven's finding that UPN is writable on a synchronized object while most attributes are not. Record what the stamp shows whether or not it supports that.
+`Get-MgUserLicenseDetail` reads the resultant license set rather than only direct assignment, which is why John Smith shows a license here even though Lab 03 recorded his as sourced through `Company Announcements` membership rather than direct assignment; the count is correct, the source is a separate question this step does not need to reopen.
+
+```powershell
+Get-EXOMailbox -ResultSize Unlimited | Select-Object DisplayName,PrimarySmtpAddress,RecipientTypeDetails,UserPrincipalName | Sort-Object DisplayName | Format-Table -AutoSize
+```
+
+```text
+DisplayName                              PrimarySmtpAddress                                                                     RecipientTypeDetails UserPrincipalName
+-----------                              ------------------                                                                     --------------------- -----------------
+Adam Ramzi                               Adam@brindeck.onmicrosoft.com                                                          UserMailbox            Adam@brindeck.onmicrosoft.com
+Alex Kim                                 akim@brindeck.onmicrosoft.com                                                          UserMailbox            akim@brindeck.com
+Cloud Administrator                      admin@brindeck.com                                                                     UserMailbox            admin@brindeck.com
+Cloud-Only Demo Account (Lab 03 fixture) cloudonly-demo01@brindeck.com                                                          UserMailbox            cloudonly-demo01@brindeck.com
+Discovery Search Mailbox                 DiscoverySearchMailbox{D919BA05-46A6-415f-80AD-7E09334BB852}@brindeck.onmicrosoft.com  DiscoveryMailbox       DiscoverySearchMailbox{D919BA05-46A6-415f-80AD-7E09334BB852}@brindeck.onmicrosoft.com
+Jane Doe                                 jdoe@brindeck.com                                                                      UserMailbox            jdoe@brindeck.com
+John Smith                               jsmith@brindeck.onmicrosoft.com                                                        UserMailbox            jsmith@brindeck.com
+testuser01                               testuser01@brindeck.com                                                                UserMailbox            testuser01@brindeck.com
+```
+
+Both directions confirm the premise exactly. The seven accounts with a `LicenseCount` of 1 (Adam Ramzi, Alex Kim, Cloud Administrator, the Cloud-Only Demo Account, Jane Doe, John Smith, and testuser01) are exactly the seven `UserMailbox` recipients; the three with `LicenseCount` of 0 (Emergency Access Account, Mary Johnson, and Test Sync) have no recipient object at all. The `Synced` column cross-checks Lab 03's object-type split at the same time: `True` on the six synchronized accounts, blank on the four cloud-only ones, matching Lab 03's own breakdown independent of anything this step read.
+
+The mailbox list also surfaced an eighth recipient that Step One's Exchange admin center read never showed: `Discovery Search Mailbox`, a `DiscoveryMailbox` rather than a `UserMailbox`, present in every Exchange Online tenant by default and carrying the same fixed GUID, `{D919BA05-46A6-415f-80AD-7E09334BB852}`, in every tenant rather than one specific to this one. `Get-EXOMailbox -ResultSize Unlimited` returns it; the Exchange admin center's Mailboxes view apparently filters it out by default, since Step One's read of that view reported exactly seven with no mention of an eighth. That is an instrument difference worth recording rather than a contradiction: the two surfaces are not counting the same underlying population, and it is a small instance of the pattern the rest of this lab keeps testing for.
+
+A live re-read of the Exchange admin center's Mailboxes view on 2026-09-16 confirmed the same seven-item population from the console side:
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/04-exchange-admin-center-mailboxes-step-two-reread.jpg" alt="04-exchange-admin-center-mailboxes-step-two-reread" width="700">
+</p>
+
+<p align="center">
+  <em>Exchange admin center, Recipients, Mailboxes, re-read for Step Two: 7 items, the same seven UserMailbox recipients Step One recorded, none of them Mary Johnson, Test Sync, or the Emergency Access Account.</em>
+</p>
+
+**The unlicensed case.** Mary Johnson (`mjohnson`) was used rather than the Emergency Access Account, whose UPN is redacted throughout this track and which Lab 05 depends on, and rather than Test Sync, for no reason beyond `mjohnson` being the more legible name in output. `Get-EXORecipient` found nothing for her at all:
+
+```powershell
+Get-EXORecipient -Identity mjohnson@brindeck.com -ErrorAction SilentlyContinue
+if (-not $?) { "No recipient object found for mjohnson@brindeck.com" }
+```
+
+```text
+No recipient object found for mjohnson@brindeck.com
+```
+
+Microsoft Graph confirmed why: she is a live, enabled, synchronized directory object with no Exchange attributes of any kind, not even a stub.
+
+```powershell
+Get-MgUser -UserId mjohnson@brindeck.com -Property Mail,ProxyAddresses,UserPrincipalName,AccountEnabled,OnPremisesSyncEnabled | Format-List
+```
+
+```text
+AccountEnabled        : True
+Mail                  :
+OnPremisesSyncEnabled : True
+ProxyAddresses        : {}
+UserPrincipalName     : mjohnson@brindeck.com
+```
+
+(The command returned the full Microsoft Graph user object, with dozens of properties outside the requested five coming back blank or as type placeholders; only the five requested fields are quoted here, since the rest carried nothing this step needed.)
+
+A message was sent from `testuser01@brindeck.com` through Outlook on the web at 5:18 PM Eastern (9:18 PM UTC) on 2026-09-16, subject "Lab 04 Step Two - unlicensed account test," to `mjohnson@brindeck.com`. Per Step One's mail-flow DNS finding there is no inbound mail flow for `brindeck.com` from outside the tenant, so the send originated from an internal mailbox rather than an external one. A non-delivery report arrived in testuser01's inbox within minutes:
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/05-mjohnson-ndr-summary.jpg" alt="05-mjohnson-ndr-summary" width="700">
+</p>
+
+<p align="center">
+  <em>Outlook on the web, testuser01's inbox: the non-delivery report for the message to mjohnson@brindeck.com, "mjohnson wasn't found at brindeck.com."</em>
+</p>
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/06-mjohnson-ndr-technical-details.jpg" alt="06-mjohnson-ndr-technical-details" width="700">
+</p>
+
+<p align="center">
+  <em>The same NDR's More Info for Email Admins section: status code 550 5.1.10, the RESOLVER.ADR.RecipientNotFound error text, and the two-hop Message Hops table.</em>
+</p>
+
+The NDR's technical detail, quoted verbatim:
+
+```text
+Status code: 550 5.1.10
+
+Original Message Details
+Created Date:       9/16/2026 9:18:00 PM
+Sender Address:     testuser01@brindeck.com
+Recipient Address:  mjohnson@brindeck.com
+Subject:            Lab 04 Step Two - unlicensed account test
+
+Error Details
+Error:               550 5.1.10 RESOLVER.ADR.RecipientNotFound; Recipient mjohnson@brindeck.com not found by SMTP address lookup
+Message rejected by: SA1PR18MB4661.namprd18.prod.outlook.com
+
+Notification Details
+Sent by: SA1PR18MB4661.namprd18.prod.outlook.com
+
+Message Hops
+HOP  TIME (UTC)           FROM                                     TO                                       WITH                                                                                    RELAY TIME
+1    9/16/2026 9:18:00 PM  PH0PR18MB3813.namprd18.prod.outlook.com  PH0PR18MB3813.namprd18.prod.outlook.com  mapi                                                                                    *
+2    9/16/2026 9:18:15 PM  PH0PR18MB3813.namprd18.prod.outlook.com  SA1PR18MB4661.namprd18.prod.outlook.com  Microsoft SMTP Server (version=TLS1_2, cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384)      15 sec
+```
+
+The attempt was traced at the instrument this lab is built around, rather than taking the NDR's word alone:
+
+```powershell
+Get-MessageTraceV2 -SenderAddress testuser01@brindeck.com -RecipientAddress mjohnson@brindeck.com -StartDate (Get-Date).AddHours(-1) -EndDate (Get-Date) | Format-List
+```
+
+```text
+Message Trace ID  : e68809dc-1d5d-4e34-f981-08df1437fc83
+Message ID        : <PH0PR18MB38133B0318991519E2059AA4ADB92@PH0PR18MB3813.namprd18.prod.outlook.com>
+Received          : 9/16/2026 9:18:00 PM
+Sender Address    : testuser01@brindeck.com
+Recipient Address : mjohnson@brindeck.com
+From IP           : [redacted, originating client address]
+To IP             :
+Subject           : Lab 04 Step Two - unlicensed account test
+Status            : Failed
+Size              : 18129
+```
+
+`Status: Failed` rather than `Expanded` or `Delivered`, consistent with the NDR. The `From IP` field is redacted under this track's identifier policy on the same grounds Step One recorded it: it is the public address of the lab's own connection, not a property of the tenant.
+
+Whether this is Directory-Based Edge Blocking, which Microsoft's own accepted-domains documentation credits `Authoritative` domains with enabling, was checked against that documentation rather than assumed from the accepted-domain type alone. Microsoft states DBEB's own rejection plainly: if an address doesn't exist, the service blocks the message before filtering even occurs, and returns an NDR reading `550 5.4.1 Recipient address rejected: Access denied`. That is a different status code and a different message than what this test produced. `550 5.1.10 RESOLVER.ADR.RecipientNotFound` is documented separately by Microsoft as a categorizer-level failure, "recipient not found by SMTP address lookup," and it appears in scenarios that have nothing to do with DBEB or an accepted domain's type: a just-restored Microsoft 365 group still replicating, or a cloud-only object with no on-premises counterpart in a hybrid deployment, among others. That fits what the Graph read above already showed: `mjohnson` has an empty `ProxyAddresses` collection and a blank `Mail` attribute, so there is no recipient object anywhere for the address to resolve against, and the failure happened at Exchange Online's internal recipient resolution rather than at the service's network perimeter. This message also never left the tenant to reach that perimeter in the first place, since it was sent mailbox to mailbox inside `brindeck.com`, and DBEB specifically polices inbound SMTP arriving from outside the service. `brindeck.com` remaining `Authoritative` is not in question here; what this corrects is crediting DBEB specifically with an NDR whose own status code and message text belong to a different, more general mechanism.
+
+**Closing the primary-address finding Step One handed forward.** The full `EmailAddresses` collection was read on all seven mailboxes together with the storage quotas each one carries:
+
+```powershell
+$mailboxes = 'Adam@brindeck.onmicrosoft.com','akim@brindeck.com','admin@brindeck.com','cloudonly-demo01@brindeck.com','jdoe@brindeck.com','jsmith@brindeck.com','testuser01@brindeck.com'
+
+foreach ($mbx in $mailboxes) {
+    Get-EXOMailbox -Identity $mbx -Properties EmailAddresses,ProhibitSendQuota,ProhibitSendReceiveQuota,IssueWarningQuota,RecipientTypeDetails |
+        Select-Object DisplayName,UserPrincipalName,PrimarySmtpAddress,RecipientTypeDetails,ProhibitSendQuota,ProhibitSendReceiveQuota,IssueWarningQuota,@{N='EmailAddresses';E={$_.EmailAddresses -join '; '}} |
+        Format-List
+}
+```
+
+```text
+DisplayName              : Adam Ramzi
+UserPrincipalName        : Adam@brindeck.onmicrosoft.com
+PrimarySmtpAddress       : Adam@brindeck.onmicrosoft.com
+RecipientTypeDetails     : UserMailbox
+ProhibitSendQuota        : 99 GB (106,300,440,576 bytes)
+ProhibitSendReceiveQuota : 100 GB (107,374,182,400 bytes)
+IssueWarningQuota        : 98 GB (105,226,698,752 bytes)
+EmailAddresses           : SIP:adam@brindeck.onmicrosoft.com; SMTP:Adam@brindeck.onmicrosoft.com
+
+DisplayName              : Alex Kim
+UserPrincipalName        : akim@brindeck.com
+PrimarySmtpAddress       : akim@brindeck.onmicrosoft.com
+RecipientTypeDetails     : UserMailbox
+ProhibitSendQuota        : 99 GB (106,300,440,576 bytes)
+ProhibitSendReceiveQuota : 100 GB (107,374,182,400 bytes)
+IssueWarningQuota        : 98 GB (105,226,698,752 bytes)
+EmailAddresses           : SIP:akim@brindeck.com; SMTP:akim@brindeck.onmicrosoft.com; smtp:akim@brindeck.com
+
+DisplayName              : Cloud Administrator
+UserPrincipalName        : admin@brindeck.com
+PrimarySmtpAddress       : admin@brindeck.com
+RecipientTypeDetails     : UserMailbox
+ProhibitSendQuota        : 99 GB (106,300,440,576 bytes)
+ProhibitSendReceiveQuota : 100 GB (107,374,182,400 bytes)
+IssueWarningQuota        : 98 GB (105,226,698,752 bytes)
+EmailAddresses           : SIP:admin@brindeck.com; SMTP:admin@brindeck.com
+
+DisplayName              : Cloud-Only Demo Account (Lab 03 fixture)
+UserPrincipalName        : cloudonly-demo01@brindeck.com
+PrimarySmtpAddress       : cloudonly-demo01@brindeck.com
+RecipientTypeDetails     : UserMailbox
+ProhibitSendQuota        : 99 GB (106,300,440,576 bytes)
+ProhibitSendReceiveQuota : 100 GB (107,374,182,400 bytes)
+IssueWarningQuota        : 98 GB (105,226,698,752 bytes)
+EmailAddresses           : SIP:cloudonly-demo01@brindeck.com; SMTP:cloudonly-demo01@brindeck.com
+
+DisplayName              : Jane Doe
+UserPrincipalName        : jdoe@brindeck.com
+PrimarySmtpAddress       : jdoe@brindeck.com
+RecipientTypeDetails     : UserMailbox
+ProhibitSendQuota        : 99 GB (106,300,440,576 bytes)
+ProhibitSendReceiveQuota : 100 GB (107,374,182,400 bytes)
+IssueWarningQuota        : 98 GB (105,226,698,752 bytes)
+EmailAddresses           : SIP:jdoe@brindeck.com; smtp:jdoe@brindeck.onmicrosoft.com; SMTP:jdoe@brindeck.com
+
+DisplayName              : John Smith
+UserPrincipalName        : jsmith@brindeck.com
+PrimarySmtpAddress       : jsmith@brindeck.onmicrosoft.com
+RecipientTypeDetails     : UserMailbox
+ProhibitSendQuota        : 99 GB (106,300,440,576 bytes)
+ProhibitSendReceiveQuota : 100 GB (107,374,182,400 bytes)
+IssueWarningQuota        : 98 GB (105,226,698,752 bytes)
+EmailAddresses           : SIP:jsmith@brindeck.com; SMTP:jsmith@brindeck.onmicrosoft.com; smtp:jsmith@brindeck.com
+
+DisplayName              : testuser01
+UserPrincipalName        : testuser01@brindeck.com
+PrimarySmtpAddress       : testuser01@brindeck.com
+RecipientTypeDetails     : UserMailbox
+ProhibitSendQuota        : 99 GB (106,300,440,576 bytes)
+ProhibitSendReceiveQuota : 100 GB (107,374,182,400 bytes)
+IssueWarningQuota        : 98 GB (105,226,698,752 bytes)
+EmailAddresses           : SIP:testuser01@brindeck.com; smtp:testuser01@brindeck.onmicrosoft.com; SMTP:testuser01@brindeck.com; [one additional SPO: entry carrying testuser01's own directory object ID, dropped here under this track's identifier policy]
+```
+
+The stamp shows something more specific than Step One's primary-address-only read could: all four synchronized mailboxes carry both `brindeck.com` and `brindeck.onmicrosoft.com` addresses, not one or the other. Alex Kim and John Smith each hold `brindeck.onmicrosoft.com` as primary (uppercase `SMTP:`) and `brindeck.com` as secondary (lowercase `smtp:`); Jane Doe and testuser01 hold the reverse. Adam Ramzi, Cloud Administrator, and the Cloud-Only Demo Account each carry a single address matching their own domain, which is expected and outside the mismatch.
+
+On-premises, `proxyAddresses` was read on the four synchronized accounts with mailboxes:
+
+```powershell
+Get-ADUser -Filter "SamAccountName -eq 'akim' -or SamAccountName -eq 'jdoe' -or SamAccountName -eq 'jsmith' -or SamAccountName -eq 'testuser01'" -Properties ProxyAddresses,UserPrincipalName |
+    Select-Object SamAccountName,UserPrincipalName,@{N='ProxyAddresses';E={$_.ProxyAddresses -join '; '}} |
+    Format-List
+```
+
+```text
+SamAccountName    : akim
+UserPrincipalName : akim@brindeck.com
+ProxyAddresses    :
+
+SamAccountName    : jdoe
+UserPrincipalName : jdoe@brindeck.com
+ProxyAddresses    :
+
+SamAccountName    : jsmith
+UserPrincipalName : jsmith@brindeck.com
+ProxyAddresses    :
+
+SamAccountName    : testuser01
+UserPrincipalName : testuser01@brindeck.com
+ProxyAddresses    :
+```
+
+`ProxyAddresses` is blank on all four, on-premises, with no exception. This domain has never populated Exchange mail attributes in Active Directory, consistent with there being no on-premises Exchange server anywhere in this environment. That eliminates synchronization more thoroughly than Step One's version of the finding: it is not merely that synchronization source fails to distinguish the two pairs, it is that there is nothing on-premises for the cloud stamp to have inherited or diverged from at all. Whatever produced the primary/secondary split happened entirely inside Exchange Online at the moment each mailbox was created.
+
+That made `WhenMailboxCreated` the property that could actually test the hypothesis, that the primary was set before `brindeck.com` was verified on 2026-08-23 and never reapplied when the UPN changed:
+
+```powershell
+foreach ($mbx in $mailboxes) {
+    Get-EXOMailbox -Identity $mbx -Properties WhenMailboxCreated | Select-Object DisplayName,WhenMailboxCreated
+}
+```
+
+```text
+DisplayName                              WhenMailboxCreated
+-----------                              ------------------
+Adam Ramzi                               8/19/2026 8:41:36 AM
+Alex Kim                                 9/6/2026 1:54:44 PM
+Cloud Administrator                      9/6/2026 1:54:41 PM
+Cloud-Only Demo Account (Lab 03 fixture) 9/6/2026 1:54:41 PM
+Jane Doe                                 9/6/2026 1:54:41 PM
+John Smith                               9/7/2026 3:04:05 PM
+testuser01                               9/6/2026 1:50:15 PM
+```
+
+The hypothesis does not survive this reading, and the result is recorded as a disproof rather than reshaped into a different confirmation. Every mailbox provisioned after the tenant's original signup was created between 9/6 and 9/7/2026, two weeks after `brindeck.com` was verified on 2026-08-23. A pre-verification stamp is not available as an explanation for any of them, including the two that ended up on the wrong primary.
+
+No substitute timing pattern explains the split either. Cloud Administrator, the Cloud-Only Demo Account, and Jane Doe were all created in the same second, 9/6/2026 1:54:41 PM, evidently one batch operation, and all three landed on the correct `brindeck.com` primary. Alex Kim was created three seconds later, 1:54:44 PM, apparently the same operation continuing, and landed on the wrong one. John Smith, whose license Lab 03 recorded as sourced through `Company Announcements` membership rather than direct assignment, was created over a day later than the rest, 9/7/2026 3:04:05 PM, and also landed on the wrong one; that distinguishes his provisioning path from the other five, but it does not reach back to explain Alex Kim, who was directly licensed in the same near-instantaneous batch as Jane Doe. Adam Ramzi's mailbox, created 8/19/2026 before the tenant's own domain was verified, is the one case where a pre-verification creation date is real, and Step One already set his address aside as evidence of nothing, since he is the original signup account on the initial domain by construction rather than an account this finding is about.
+
+This is recorded as an open, unresolved finding rather than forced into an explanation the timestamps do not support. What is known: the split is a cloud-side artifact of mailbox provisioning rather than anything synchronized, it does not correlate with the domain verification date, and it does not correlate with batch membership either, since one directly-licensed account created in the same batch second as two correctly-stamped ones still came out wrong.
+
+**Mailbox properties.** The quotas above are identical across all seven mailboxes regardless of recipient type or provisioning date: `ProhibitSendQuota` 99 GB, `ProhibitSendReceiveQuota` 100 GB, `IssueWarningQuota` 98 GB, all read directly from each mailbox rather than cited from a service description.
+
+The double-the-expected figure resolves against Step One's own service plan enumeration rather than standing as an anomaly, which is the first time in this lab that listing the 62 names instead of counting them has paid for itself. Microsoft's Exchange Online limits article gives two different answers depending on which row is read. Standalone Exchange Online Plan 1 is 50 GB, which is the figure the plan is usually quoted at and the one that makes 100 GB look wrong. The Microsoft 365 Business Basic, Business Standard, and Business Premium columns are all 100 GB, and its capacity alerts table gives those same SKUs a warning threshold of 98 GB, prohibit send at 99 GB, and prohibit send and receive at 100 GB. That triple matches what these mailboxes carry exactly, to the gigabyte, on all three values. The tenant is not diverging from the documentation; it is matching a row of it that the headline Plan 1 figure obscures.
+
+What supplies the extra 50 GB is named in Step One's enumeration: `EXCHANGE_STORAGE_50GB`, which the Microsoft 365 admin center's Apps list renders as Exchange Online Storage (50GB Additional). Fifty gigabytes of Exchange Online Plan 1 plus that additional fifty is the hundred these mailboxes report. So the quota is a property of what the SKU bundles rather than of the Plan 1 service plan alone, and the service plan that supplies it was sitting in a list this lab captured one step earlier.
+
+Adam Ramzi's mailbox carrying the identical figures while holding Business Basic rather than Business Premium is consistent with that reading rather than against it, since the limits article gives Business Basic the same 100 GB. That was then closed from the tenant instead of from documentation, while the subscription still existed to read. The Business Basic (no Teams) SKU's own service plans were enumerated on 2026-09-16, six days before it lapses, and the names are recorded here rather than the count for the same reason Step One recorded Business Premium's:
+
+```text
+ServicePlanName                   ProvisioningStatus
+---------------                   ------------------
+Bing_Chat_Enterprise              Success
+BPOS_S_TODO_1                     Success
+CDS_O365_P1                       Success
+DYN365_CDS_O365_P1                Success
+EXCHANGE_S_STANDARD               Success
+EXCHANGE_STORAGE_50GB             Success
+FLOW_O365_P1                      Success
+FORMS_PLAN_E1                     Success
+GRAPH_CONNECTORS_SEARCH_INDEX     Success
+INSIGHTS_BY_MYANALYTICS           Success
+INTUNE_O365                       PendingActivation
+KAIZALA_O365_P2                   Success
+M365_LIGHTHOUSE_CUSTOMER_PLAN1    Success
+MCOSTANDARD                       Success
+MDOLITE_ENTERPRISE                Success
+MESH_AVATARS_ADDITIONAL_FOR_TEAMS Success
+MESH_AVATARS_FOR_TEAMS            Success
+MESH_IMMERSIVE_FOR_TEAMS          Success
+MICROSOFT_MYANALYTICS_FULL        Success
+MICROSOFT_SEARCH                  Success
+MICROSOFTBOOKINGS                 Success
+MYANALYTICS_P2                    Success
+Nucleus                           Success
+OFFICEMOBILE_SUBSCRIPTION         Success
+PEOPLE_SKILLS_FOUNDATION          Success
+PLACES_CORE                       Success
+POWER_VIRTUAL_AGENTS_O365_P1      Success
+POWERAPPS_O365_P1                 Success
+PROJECT_O365_P1                   Success
+PROJECTWORKMANAGEMENT             Success
+RMS_S_BASIC                       Success
+SHAREPOINTSTANDARD                Success
+SHAREPOINTWAC                     Success
+STREAM_O365_SMB                   Success
+SWAY                              Success
+VIVA_LEARNING_SEEDED              Success
+VIVAENGAGE_CORE                   Success
+WHITEBOARD_PLAN1                  Success
+YAMMER_ENTERPRISE                 Success
+```
+
+Thirty-nine service plans against Business Premium's 62, and `EXCHANGE_STORAGE_50GB` is among them, provisioned and successful. The quota explanation is now confirmed from this tenant rather than inferred from a documentation table: both SKUs in this tenant carry Exchange Online Plan 1 plus the additional fifty gigabytes, which is why a Business Basic mailbox and a Business Premium mailbox report the same 100 GB.
+
+**That same read produces counter-evidence against something Step One said, and it is recorded here rather than corrected there.** Step One offered a probable explanation for why `EXCHANGE_S_FOUNDATION` is the one Business Premium service plan with no entry in the admin center's Apps list: that it is the underlying Exchange entitlement every Exchange-bearing SKU carries rather than a capability an administrator grants or revokes. Step One marked that as probable rather than established, which was the right call, because this list does not support it. Business Basic bears Exchange, holding `EXCHANGE_S_STANDARD` and provisioning real mailboxes, and it does not carry `EXCHANGE_S_FOUNDATION` at all. Whatever that plan is, it is not something every Exchange-bearing SKU includes, at least not in this tenant. The observation Step One's reconciliation actually rests on is unaffected, since that was a count of Business Premium's own plans against its own Apps list and stands on its own evidence; what falls is only the reason offered for it, which is now open again. Step One's text is left as written rather than revised, since the hedge it carried is exactly what a later reading is supposed to be able to land on.
+
+Two smaller things fall out of the comparison. `INTUNE_O365` reads `PendingActivation` on both SKUs, the single exception on each, which makes it a property of that service plan or of this tenant rather than a Business Premium quirk. And where the two SKUs carry the same capability they carry different tiers of it, visible in the names alone: Business Basic holds `CDS_O365_P1`, `PROJECT_O365_P1`, `POWER_VIRTUAL_AGENTS_O365_P1`, `RMS_S_BASIC`, and `STREAM_O365_SMB` where Business Premium holds the `P3`, `RMS_S_ENTERPRISE`, and `STREAM_O365_E1` variants of the same things.
+
+Primary SMTP address is derived from whichever accepted domain, `brindeck.com` or `brindeck.onmicrosoft.com`, was in effect when Exchange Online first created each mailbox, per the finding above, rather than from the object's UPN or its synchronization source. Recipient type is `UserMailbox` on all seven; nothing in this population is a shared, resource, or equipment mailbox yet, which is Step Four's and Step Seven's work.
+
+**Adam Ramzi's pre-lapse baseline, for Step Six.** Adam Ramzi holds the tenant's single consumed Business Basic seat, his only license, carrying the Exchange Online Plan 1 behind his mailbox. His mailbox's state was read on 2026-09-16, six days before the 2026-09-22 lapse:
+
+```powershell
+Get-EXOMailboxStatistics -Identity Adam@brindeck.onmicrosoft.com | Select-Object DisplayName,ItemCount,TotalItemSize,TotalDeletedItemSize,LastLogonTime | Format-List
+```
+
+```text
+DisplayName          : Adam Ramzi
+ItemCount            : 36
+TotalItemSize        : 7.536 MB (7,901,637 bytes)
+TotalDeletedItemSize : 0 B (0 bytes)
+LastLogonTime        :
+```
+
+Thirty-six items and 7.536 MB, entirely default provisioning content rather than anything this lab or an earlier one put there deliberately; Step One's own throwaway test message went to Jane Doe, not to this mailbox. `LastLogonTime` is blank, meaning nobody has ever opened this mailbox interactively through Outlook or Outlook on the web, consistent with the account existing for its Global Administrator role rather than for anyone reading mail through it. Recipient type is `UserMailbox` and the quotas match the uniform figures recorded above, `ProhibitSendReceiveQuota` 100 GB among them. This reading is the "before" half Step Six needs to score its prediction that the mailbox survives the license loss into Exchange's own retention; it has no value on its own until Step Six's "after" reading exists to compare it against.
 
 ### Step Three: Build and catalogue the mail-enabled group types Lab 03 handed forward
 
