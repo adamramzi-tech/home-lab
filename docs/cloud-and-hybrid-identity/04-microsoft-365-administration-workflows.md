@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress. Steps One and Two are complete. Step One recorded the pre-lab mail baseline, the administrative path, the message trace instrument, the mail-flow DNS state, the Business Premium service plan enumeration and the reconciliation of the three service counts Lab 03 left open, and both entitlement dates' pre-lapse readings. Step Two confirmed the licensed-equals-mailboxed premise from live state on both object types, established what an unlicensed account has instead using Mary Johnson and traced the categorizer-level rejection a message to her produces rather than Directory-Based Edge Blocking, closed Step One's primary-address finding on Alex Kim and John Smith with a disproved rather than confirmed hypothesis, recorded the operationally relevant mailbox properties and settled the 100 GB mailbox quota against the Business Basic SKU's own service plans before that subscription lapses, and took Adam Ramzi's pre-lapse mailbox baseline for Step Six. Steps Three through Nine remain.
+In progress. Steps One through Three are complete. Step One recorded the pre-lab mail baseline, the administrative path, the message trace instrument, the mail-flow DNS state, the Business Premium service plan enumeration and the reconciliation of the three service counts Lab 03 left open, and both entitlement dates' pre-lapse readings. Step Two confirmed the licensed-equals-mailboxed premise from live state on both object types, established what an unlicensed account has instead using Mary Johnson and traced the categorizer-level rejection a message to her produces rather than Directory-Based Edge Blocking, closed Step One's primary-address finding on Alex Kim and John Smith with a disproved rather than confirmed hypothesis, recorded the operationally relevant mailbox properties and settled the 100 GB mailbox quota against the Business Basic SKU's own service plans before that subscription lapses, and took Adam Ramzi's pre-lapse mailbox baseline for Step Six. Step Three built `Help-Desk`, a distribution list, and `IT-Support`, a mail-enabled security group, the two mail-enabled group types Lab 03 deliberately left as a boundary; catalogued all three mail-enabled group types by console, accepted member types, permissions granted beyond mail, and Entra admin center rendering, confirming the "can't be managed" boundary directly rather than taking it from the track README; confirmed empirically that a distribution list and a mail-enabled security group both accept a nested security group as a member while a Microsoft 365 group rejects one outright; tested a synchronized on-premises group's cloud-side mail-property write and recorded its outright rejection, distinct from the per-field allowlist Lab 03 found on user objects; traced a real message through `IT-Support` and followed it to a `Delivered` row for each member, closing the coverage gap Step Five's own plan would otherwise have left; and declared both new groups' disposition, removal at Step Nine once Step Five's own trace against `Help-Desk` completes. Steps Four through Nine remain.
 
 This lab runs against two clocks that were established by Lab 03 and cannot be moved. The Microsoft 365 Business Basic (no Teams) trial lapses on 2026-09-22, and `Finance` still carries a group-level Business Basic assignment, so the lapse falls inside this lab's window whether or not the lab plans for it. The Microsoft 365 Business Premium trial expires on 2026-10-05, and it is what carries Exchange Online Plan 1. Every mailbox this lab provisions depends on an entitlement that ends on that date. The lab is sized and sequenced accordingly.
 
@@ -777,13 +777,381 @@ LastLogonTime        :
 
 Thirty-six items and 7.536 MB, entirely default provisioning content rather than anything this lab or an earlier one put there deliberately; Step One's own throwaway test message went to Jane Doe, not to this mailbox. `LastLogonTime` is blank, meaning nobody has ever opened this mailbox interactively through Outlook or Outlook on the web, consistent with the account existing for its Global Administrator role rather than for anyone reading mail through it. Recipient type is `UserMailbox` and the quotas match the uniform figures recorded above, `ProhibitSendReceiveQuota` 100 GB among them. This reading is the "before" half Step Six needs to score its prediction that the mailbox survives the license loss into Exchange's own retention; it has no value on its own until Step Six's "after" reading exists to compare it against.
 
-### Step Three: Build and catalogue the mail-enabled group types Lab 03 handed forward
+### Step Three: Built and catalogued the mail-enabled group types Lab 03 handed forward
 
-Create a distribution list and a mail-enabled security group, the two types Lab 03 named as a boundary and did not build. Catalogue them alongside the Microsoft 365 groups the tenant already holds, recording for each: which console can create it, which can manage its membership, what it accepts as a member, whether it can hold permissions as well as receive mail, and what it looks like from the Entra admin center that cannot manage it.
+The four on-premises groups Lab 02 and Lab 03 described as synchronized from `OU=Groups` were read fresh on 2026-09-16 rather than carried forward from either lab's prose, since this step needed to know their category and scope before picking one to test against. The step was performed on the evening of 2026-09-16, America/New_York time. Timestamps in the Microsoft Graph, Exchange Online PowerShell, and message trace output below are UTC, which is why the later ones read 2026-09-17:
 
-The comparison that matters is the one Lab 03 could not make. A mail-enabled security group both receives mail and grants access; a distribution list only receives mail; a Microsoft 365 group does both and brings a shared mailbox, calendar, and SharePoint site with it. Those three are routinely conflated, and the tenant now holds all three.
+```powershell
+Get-ADGroup -Filter * -Properties GroupCategory,GroupScope,mail,proxyAddresses,Description |
+    Where-Object { $_.DistinguishedName -like "*OU=Groups*" } |
+    Select-Object Name,GroupCategory,GroupScope,mail,Description |
+    Format-Table -AutoSize
+```
 
-Record what happens when an attempt is made to manage a synchronized group's mail properties in the cloud. This is the mail-side extension of Lab 03's per-field lock finding and the answer is not assumed here.
+```text
+Name                    GroupCategory GroupScope mail Description
+----                    ------------- ---------- ---- -----------
+IT-Admins               Security      Global
+Domain-Users-Standard   Security      Global
+Lab-Workstations        Security      Global
+Linux-Admins            Security      Global          Authorized administrators of Linux infrastructure systems
+```
+
+All four are Global-scope security groups carrying no `mail` attribute. The tenant's mail-enabled group population was re-read in the same sitting, before this step added anything to it:
+
+```powershell
+Get-EXORecipient -RecipientTypeDetails MailUniversalDistributionGroup,MailUniversalSecurityGroup,GroupMailbox -ResultSize Unlimited |
+    Select-Object DisplayName,PrimarySmtpAddress,RecipientTypeDetails |
+    Format-Table -AutoSize
+```
+
+```text
+DisplayName            PrimarySmtpAddress                   RecipientTypeDetails
+-----------            ------------------                   --------------------
+All Company            allcompany@brindeck.onmicrosoft.com  GroupMailbox
+Company Announcements  CompanyAnnouncements@brindeck.com    GroupMailbox
+```
+
+No drift from Step One or Step Two: still exactly the two Microsoft 365 groups, and none of the four on-premises groups appear as a recipient of any kind.
+
+**What happens when an attempt is made to manage a synchronized group's mail properties in the cloud.** `IT-Admins` was used for the test, chosen over the other three for no reason beyond its name not colliding with `IT-Department`, Lab 03's cloud-only dynamic membership group. Microsoft Graph confirmed the object exists as an ordinary, unmailed, synchronized security group:
+
+```powershell
+$groupId = (Get-MgGroup -Filter "displayName eq 'IT-Admins'").Id
+Invoke-MgGraphRequest -Method GET -Uri "https://graph.microsoft.com/v1.0/groups/$groupId`?`$select=id,displayName,mail,mailEnabled,securityEnabled,groupTypes,onPremisesSyncEnabled,onPremisesSamAccountName" | Format-List
+```
+
+```text
+groupTypes               : {}
+displayName              : IT-Admins
+onPremisesSyncEnabled    : True
+mail                     :
+mailEnabled              : False
+securityEnabled          : True
+id                       : 6d494357-[remainder redacted]
+onPremisesSamAccountName : IT-Admins
+```
+
+(`Get-MgGroup -Property` does not reach the request the way it does on a live user read by ID, an instrument note this track already carries, so the read above went through `Invoke-MgGraphRequest` with an explicit `$select` instead.)
+
+`Get-EXORecipient` found no recipient object for `IT-Admins` at all, consistent with the baseline above:
+
+```powershell
+Get-EXORecipient -Identity "IT-Admins" -ErrorAction SilentlyContinue
+if (-not $?) { "No recipient object found for IT-Admins" }
+```
+
+```text
+No recipient object found for IT-Admins
+```
+
+The first attempt reached for `Enable-DistributionGroup`, the on-premises Exchange Management Shell cmdlet for mail-enabling an existing security group:
+
+```powershell
+Enable-DistributionGroup -Identity "IT-Admins"
+```
+
+```text
+Enable-DistributionGroup : The term 'Enable-DistributionGroup' is not recognized as the name of a cmdlet, function,
+script file, or operable program. Check the spelling of the name, or if a path was included, verify that the path
+is correct and try again.
+At line:1 char:1
++ Enable-DistributionGroup -Identity "IT-Admins"
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (Enable-DistributionGroup:String) [], CommandNotFoundException
+    + FullyQualifiedErrorId : CommandNotFoundException
+```
+
+That cmdlet belongs to on-premises Exchange Server, and Exchange Online PowerShell has no equivalent: nothing in the `ExchangeOnlineManagement` module mail-enables an existing group. Microsoft's documentation creates a mail-enabled security group as a new object, with `New-DistributionGroup -Type Security` or the Exchange admin center wizard, which is how `IT-Support` is built below. The error is therefore a small finding in its own right rather than a wrong-module slip. The write was then attempted one layer down, directly against Microsoft Graph, setting `mailNickname` on the same group object:
+
+```powershell
+$body = @{ mailNickname = "it-admins-test" } | ConvertTo-Json
+Invoke-MgGraphRequest -Method PATCH -Uri "https://graph.microsoft.com/v1.0/groups/$groupId" -Body $body -ContentType "application/json"
+```
+
+```text
+Invoke-MgGraphRequest : PATCH https://graph.microsoft.com/v1.0/groups/6d494357-[remainder redacted]
+HTTP/1.1 400 Bad Request
+Transfer-Encoding: chunked
+Vary: Accept-Encoding
+Strict-Transport-Security: max-age=31536000
+request-id: c3387ee5-5caf-43d1-ac08-7d0d5abde980
+client-request-id: 91b712df-f601-4f1a-acb0-1f7a17fea8ee
+x-ms-ags-diagnostic: {"ServerInfo":{"DataCenter":"East US","Slice":"E","Ring":"5","ScaleUnit":"010","RoleInstance":"MN1PEPF0006E495"}}
+x-ms-resource-unit: 1
+Cache-Control: no-cache
+Date: Wed, 16 Sep 2026 23:21:19 GMT
+Content-Type: application/json
+{"error":{"code":"Request_BadRequest","message":"Unable to update the specified properties for on-premises mastered
+Directory Sync objects or objects currently undergoing migration.","innerError":{"date":"2026-09-16T23:21:20","request-id":"c3387ee5-5caf-43d1-ac08-7d0d5abde980","client-request-id":"91b712df-f601-4f1a-acb0-1f7a17fea8ee"}}}
+At line:1 char:1
++ Invoke-MgGraphRequest -Method PATCH -Uri "https://graph.microsoft.com ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (Method: PATCH, ...ication/json
+}:HttpRequestMessage) [Invoke-MgGraphRequest], HttpResponseException
+    + FullyQualifiedErrorId : InvokeGraphHttpResponseException,Microsoft.Graph.PowerShell.Authentication.Cmdlets.InvokeMgGraphRequest
+```
+
+This is the same refusal Lab 03 recorded on the user side of the boundary. Lab 03's Step Eleven attempted `Update-MgUser -JobTitle` on a synchronized user and received this message word for word, on a field that was locked while user principal name and account-enabled state remained writable. The message names the class of on-premises-mastered objects rather than the field attempted, and it did so on users too, where some fields were nonetheless open, so the group result is consistent with the same per-field lock rather than evidence of a broader one. Whether a synchronized group carries a comparable narrow exception on a field not tried here, or has none at all, is not settled by one attempt, and it is left as an open question rather than resolved by inference.
+
+**Building the distribution list.** `Help-Desk` was created through the Exchange admin center rather than through PowerShell, since which console can create each group type is itself part of what this step catalogues: Recipients, Groups, Add a group. The wizard's own Choose a group type screen names the three mail-enabled types in the product's own words rather than this document's: Microsoft 365 ("Allows teams to collaborate by giving them a group email and a shared workspace for conversations, files, and calendars"), Distribution ("Creates an email address for a group of people"), and Mail-enabled security ("Sends messages to all members of the group and gives access to resources like OneDrive, SharePoint and admin roles"), alongside Dynamic distribution, whose membership list the same screen states is recalculated every 24 hours from a set of filters and conditions rather than resolved live.
+
+Distribution was selected. The wizard proceeded through Basics (name `Help-Desk`, description "Distribution list for help desk and support correspondence."), Owners (`Cloud Administrator`, the same account this lab has used throughout), Members (`testuser01`, `John Smith`, and `Jane Doe`, three of the seven mailboxes Step Two catalogued, chosen to keep the group inside accounts this lab has already characterized rather than involving Adam Ramzi, reserved for Step Six's observation, or `cloudonly-demo01`, which has to stay at zero group memberships for Lab 05 to inherit it clean), and Settings, left at its defaults rather than configured, specifically to observe what the product ships rather than what an administrator would choose: email address `help-desk@brindeck.com`, "Allow people outside of my organization to send email to this Distribution group" left unchecked, and both Joining the group and Leaving the group left on Open. That unchecked default is the setting Security Considerations already expected to find. Microsoft's documented default for new distribution groups is that all senders must be authenticated, and the checkbox's own unchecked state confirms that as this tenant's shipped behavior rather than a citation.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/07-help-desk-review-and-finish.jpg" alt="07-help-desk-review-and-finish" width="700">
+</p>
+
+<p align="center">
+  <em>Exchange admin center, Add a group, Review and finish: group type, name, description, owner, members, and settings for Help-Desk, all in their final state before creation.</em>
+</p>
+
+The group was created. The portal's own confirmation stated it can take up to an hour for `Help-Desk` to appear in the Groups list view, an interface-level propagation delay on the Exchange admin center's own list rather than anything about the recipient object itself.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/08-help-desk-distribution-list-created.jpg" alt="08-help-desk-distribution-list-created" width="700">
+</p>
+
+<p align="center">
+  <em>Exchange admin center: Help-Desk is created, with the portal's own note that the Groups list view can take up to an hour to reflect it.</em>
+</p>
+
+`Get-DistributionGroup` and `Get-DistributionGroupMember`, run immediately rather than waiting out that delay, both returned the object correctly:
+
+```powershell
+Get-DistributionGroup -Identity "Help-Desk" | Select-Object DisplayName,PrimarySmtpAddress,GroupType,RecipientTypeDetails | Format-List
+Get-DistributionGroupMember -Identity "Help-Desk" | Select-Object DisplayName,PrimarySmtpAddress
+```
+
+```text
+DisplayName          : Help-Desk
+PrimarySmtpAddress   : help-desk@brindeck.com
+GroupType            : Universal
+RecipientTypeDetails : MailUniversalDistributionGroup
+
+DisplayName PrimarySmtpAddress
+----------- ------------------
+Jane Doe    jdoe@brindeck.com
+John Smith  jsmith@brindeck.onmicrosoft.com
+testuser01  testuser01@brindeck.com
+```
+
+PowerShell resolved the group correctly while the portal's own Groups list view had not yet caught up, the same instrument-lag shape Step Two already found between the Exchange admin center's Mailboxes view and `Get-EXOMailbox` over the Discovery Search Mailbox, on a different pair of surfaces this time. Each member's primary address matches Step Two's own findings exactly: Jane Doe and testuser01 on `brindeck.com`, John Smith on `brindeck.onmicrosoft.com`, the same primary-address split Step Two characterized.
+
+**Building the mail-enabled security group.** `IT-Support` was created the same way, through Recipients, Groups, Add a group, choosing Mail-enabled security this time. That type's own Settings screen names its distinguishing capability directly, in the product's own words rather than this document's: "Has all the functionality of a distribution list and additionally can be used to control access to OneDrive and SharePoint." No comparable line appears anywhere in the distribution list's own wizard, which only ever describes itself as creating an email address for a group of people.
+
+The Settings screen also surfaced a real difference in how the two types handle self-service membership, worth recording alongside the permissions difference. The distribution list's Settings screen carried two separate three-way controls, Joining the group and Leaving the group, each a choice of Open, Closed, or Owner approval, both defaulting to Open. The mail-enabled security group's Settings screen carries neither. In their place is a single checkbox, "Require owner approval to join the group," unchecked by default, with no equivalent control over leaving shown anywhere in the wizard. A mail-enabled security group's membership model is narrower in the wizard than a distribution list's, not just differently labeled.
+
+`IT-Support` was given description "Mail-enabled security group for IT support ticket correspondence and shared resource access.", owner `Cloud Administrator`, and members `Alex Kim` and `testuser01`, chosen to keep this group's population distinct from `Help-Desk`'s rather than reusing the same three accounts for both. Settings were left at their shipped defaults for the same reason as before: email address `it-support@brindeck.com`, external senders unchecked, and owner approval to join unchecked.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/09-it-support-review-and-finish.jpg" alt="09-it-support-review-and-finish" width="700">
+</p>
+
+<p align="center">
+  <em>Exchange admin center, Add a group, Review and finish: group type, name, description, owner, members, and settings for IT-Support, all in their final state before creation.</em>
+</p>
+
+The same up-to-an-hour Groups list view delay appeared on creation, already documented once above and not repeated here. `Get-DistributionGroup` and `Get-DistributionGroupMember` confirmed the object immediately, the same instrument-lag shape as `Help-Desk`:
+
+```powershell
+Get-DistributionGroup -Identity "IT-Support" | Select-Object DisplayName,PrimarySmtpAddress,GroupType,RecipientTypeDetails | Format-List
+Get-DistributionGroupMember -Identity "IT-Support" | Select-Object DisplayName,PrimarySmtpAddress
+```
+
+```text
+DisplayName          : IT-Support
+PrimarySmtpAddress   : it-support@brindeck.com
+GroupType            : Universal, SecurityEnabled
+RecipientTypeDetails : MailUniversalSecurityGroup
+
+DisplayName PrimarySmtpAddress
+----------- ------------------
+testuser01  testuser01@brindeck.com
+Alex Kim    akim@brindeck.onmicrosoft.com
+```
+
+`RecipientTypeDetails` confirms the type distinction that matters: `MailUniversalSecurityGroup` rather than `Help-Desk`'s `MailUniversalDistributionGroup`, with `GroupType` itself carrying the extra `SecurityEnabled` flag a plain distribution list does not report. Alex Kim's primary address again lands on `brindeck.onmicrosoft.com` rather than `brindeck.com`, the same primary-address split Step Two characterized, appearing here for the third time on the same account.
+
+**Testing what each type accepts as a member.** Rather than take the product's own descriptions at face value, `IT-Admins`, the same on-premises synchronized security group used for the mail-property lock test above, was added as a member of each of the three group types in turn:
+
+```powershell
+Add-DistributionGroupMember -Identity "Help-Desk" -Member "IT-Admins"
+Add-DistributionGroupMember -Identity "IT-Support" -Member "IT-Admins"
+Add-UnifiedGroupLinks -Identity "Company Announcements" -LinkType Members -Links "IT-Admins"
+```
+
+The first two returned nothing, which in PowerShell is silent success rather than silent failure, and the third failed outright:
+
+```text
+Write-ErrorMessage : ||The user couldn't be found for mailbox Identity:'IT-Admins' isn't a mailbox user..
+At C:\Users\labadmin.CORP\AppData\Local\Temp\tmpEXO_0owifaqh.amv\tmpEXO_0owifaqh.amv.psm1:1196 char:13
++             Write-ErrorMessage $ErrorObject
++             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:) [Add-UnifiedGroupLinks], MailboxUserNotFoundException
+    + FullyQualifiedErrorId : [Server=PH0PR18MB988511,RequestId=c531290d-82d3-abfa-b01e-82ef8112a48c,TimeStamp=Thu, 17 Sep 2026 00:10:15 GMT],Write-ErrorMessage
+```
+
+Silent success is not confirmed success, so both distribution list and mail-enabled security group memberships were read back before anything was concluded:
+
+```powershell
+Get-DistributionGroupMember -Identity "Help-Desk" | Select-Object DisplayName,PrimarySmtpAddress,RecipientTypeDetails
+Get-DistributionGroupMember -Identity "IT-Support" | Select-Object DisplayName,PrimarySmtpAddress,RecipientTypeDetails
+```
+
+```text
+DisplayName PrimarySmtpAddress               RecipientTypeDetails
+----------- ------------------               --------------------
+Jane Doe    jdoe@brindeck.com                UserMailbox
+testuser01  testuser01@brindeck.com          UserMailbox
+John Smith  jsmith@brindeck.onmicrosoft.com  UserMailbox
+IT-Admins                                    ExchangeSecurityGroup
+
+DisplayName PrimarySmtpAddress               RecipientTypeDetails
+----------- ------------------               --------------------
+testuser01  testuser01@brindeck.com          UserMailbox
+Alex Kim    akim@brindeck.onmicrosoft.com    UserMailbox
+IT-Admins                                    ExchangeSecurityGroup
+```
+
+Both confirm it: `IT-Admins` nested into each without complaint, reported as `ExchangeSecurityGroup` rather than `UserMailbox`, a type distinct from every individual member. A Microsoft 365 group refused the same object outright, and its error message frames the rejection as a missing mailbox user rather than as a member-type restriction, which is a less direct explanation than the actual constraint but points at the same thing: a Microsoft 365 group accepts users and nothing else, while a distribution list and a mail-enabled security group both accept a nested group.
+
+**What each type looks like from the Entra admin center.** The track README states that the Entra admin center can list a distribution list or a mail-enabled security group but cannot manage either, which Lab 03 handed forward as a boundary rather than something it tested directly. This step tested it, reading the pages below while `IT-Admins` was still nested in `IT-Support`, before the test nesting was removed.
+
+Entra admin center, Groups, All groups read 11 groups found, reconciling exactly against the tenant's own count: nine before this step per the Architecture section above, plus `Help-Desk` and `IT-Support`. Its Group type column names every object by the same vocabulary this step has been using, drawn directly from the tenant rather than summarized:
+
+| Name | Group type | Membership type | Source |
+|---|---|---|---|
+| All Company | Microsoft 365 | Assigned | Cloud |
+| Company Announcements | Microsoft 365 | Assigned | Cloud |
+| Domain-Users-Standard | Security | Assigned | Windows Server AD |
+| Finance | Security | Assigned | Cloud |
+| Groups-Administrators | Security | Assigned | Cloud |
+| Help-Desk | Distribution | Assigned | Cloud |
+| IT-Admins | Security | Assigned | Windows Server AD |
+| IT-Department | Security | Dynamic | Cloud |
+| IT-Support | Mail enabled security | Assigned | Cloud |
+| Lab-Workstations | Security | Assigned | Windows Server AD |
+| Linux-Admins | Security | Assigned | Windows Server AD |
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/10-entra-admin-center-all-groups.jpg" alt="10-entra-admin-center-all-groups" width="700">
+</p>
+
+<p align="center">
+  <em>Entra admin center, Groups, All groups: 11 groups found, Group type distinguishing Microsoft 365, Security, Distribution, and Mail enabled security.</em>
+</p>
+
+`IT-Support`'s own Properties and Members pages both carry the same banner, word for word except for one preposition: "Some groups can't be managed in the Azure portal" on Properties, "Some groups can't be managed in this portal" on Members, each linking to "Learn where to manage these groups." Every field on Properties is greyed and non-interactive: Group name, Group description, Group type ("Mail enabled security", a different rendering of the same label the Exchange admin center wizard spelled with a hyphen), Membership type ("Assigned"), Object Id, and "Microsoft Entra roles can be assigned to the group" reading No. The Members page lists the three members correctly, `IT-Admins` shown as `Type: Group` with no email against the two `Type: User` entries, but its Add members, Bulk operations, and Remove controls sit alongside the same banner.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/11-it-support-entra-admin-center-properties.jpg" alt="11-it-support-entra-admin-center-properties" width="700">
+</p>
+
+<p align="center">
+  <em>Entra admin center, IT-Support, Properties: the "can't be managed" banner, every field greyed, Object Id masked to its first eight characters.</em>
+</p>
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/12-it-support-entra-admin-center-members.jpg" alt="12-it-support-entra-admin-center-members" width="700">
+</p>
+
+<p align="center">
+  <em>Entra admin center, IT-Support, Members: the same banner, IT-Admins listed with Type Group against two Type User entries.</em>
+</p>
+
+`Company Announcements`, read the same way rather than assumed to behave differently because it is a Microsoft 365 group, carries no banner on either page. Group name and Group description both show a green checkmark and are editable, and Add members, Bulk operations, and Remove are all active with no accompanying notice.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/13-company-announcements-entra-admin-center-properties.jpg" alt="13-company-announcements-entra-admin-center-properties" width="700">
+</p>
+
+<p align="center">
+  <em>Entra admin center, Company Announcements, Properties: no banner, Group name and Group description both editable, Object Id masked to its first eight characters.</em>
+</p>
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/14-company-announcements-entra-admin-center-members.jpg" alt="14-company-announcements-entra-admin-center-members" width="700">
+</p>
+
+<p align="center">
+  <em>Entra admin center, Company Announcements, Members: no banner, Add members and Remove both active.</em>
+</p>
+
+**Removing the test nesting.** Once the Entra admin center reads above were taken, `IT-Admins` was removed from both groups, since it existed only to test acceptance and has no part in this step's finished state:
+
+```powershell
+Remove-DistributionGroupMember -Identity "Help-Desk" -Member "IT-Admins" -Confirm:$false
+Remove-DistributionGroupMember -Identity "IT-Support" -Member "IT-Admins" -Confirm:$false
+```
+
+Removal returns nothing on success, the same silence the additions produced, so both memberships were read back again rather than assumed:
+
+```powershell
+Get-DistributionGroupMember -Identity "Help-Desk" | Select-Object DisplayName,PrimarySmtpAddress,RecipientTypeDetails
+Get-DistributionGroupMember -Identity "IT-Support" | Select-Object DisplayName,PrimarySmtpAddress,RecipientTypeDetails
+```
+
+```text
+DisplayName PrimarySmtpAddress              RecipientTypeDetails
+----------- ------------------              --------------------
+Jane Doe    jdoe@brindeck.com               UserMailbox
+testuser01  testuser01@brindeck.com         UserMailbox
+John Smith  jsmith@brindeck.onmicrosoft.com UserMailbox
+
+DisplayName PrimarySmtpAddress            RecipientTypeDetails
+----------- ------------------            --------------------
+testuser01  testuser01@brindeck.com       UserMailbox
+Alex Kim    akim@brindeck.onmicrosoft.com UserMailbox
+```
+
+`Help-Desk` is back to its three original members and `IT-Support` to its two, every entry a `UserMailbox`, and `IT-Admins` is absent from both.
+
+**The catalogue.** Everything above resolves into the comparison Lab 03 could not make, because it never built two of the three types. Each cell states whether it was observed in this step or taken from the product's own wizard text or Microsoft's documentation:
+
+| | Distribution list | Mail-enabled security group | Microsoft 365 group |
+|---|---|---|---|
+| Created via | Exchange admin center, Recipients, Groups, Add a group (observed) | The same wizard, different type selection (observed) | Offered as a type in the same wizard (observed); other creation paths not tested in this lab |
+| Membership managed via | Exchange admin center at creation and `Add-DistributionGroupMember` (both observed) | Exchange admin center at creation and `Add-DistributionGroupMember` (both observed) | `Add-UnifiedGroupLinks` (observed); Entra admin center Add members and Remove controls active (observed, not exercised) |
+| Accepts as members | Users and a nested security group (observed) | Users and a nested security group (observed) | Users; a nested security group rejected by `Add-UnifiedGroupLinks` (observed) |
+| Grants permissions beyond mail | No; the wizard describes it only as creating an email address for a group (wizard text) | Yes, access to OneDrive and SharePoint (wizard text, not exercised) | Yes, through the group mailbox and shared workspace it brings with it (wizard text, not exercised) |
+| Entra admin center rendering | Listed with type "Distribution" (observed); Properties and Members pages not opened in this step | Listed with type "Mail enabled security"; Properties and Members read-only behind the "can't be managed" banner (observed) | Listed with type "Microsoft 365"; Properties and Members editable, no banner (observed) |
+| Message trace delivery status | `Expanded` (Microsoft's documentation); traced against `Help-Desk` in Step Five | `Expanded` for the group, then `Delivered` to each member (observed in this step) | Not traced in this lab |
+
+The distinction this step was planned around holds up: a mail-enabled security group receives mail and, by the product's own description, grants access; a distribution list only receives mail; and a Microsoft 365 group brings its own mailbox and workspace rather than being pointed at existing resources. None of that is what decides whether the Entra admin center can manage a group. Distribution lists and mail-enabled security groups are Exchange Online objects and are managed there, which is what the banner says; a Microsoft 365 group, like the cloud security groups in the same list, is managed in Entra.
+
+**Sending mail through IT-Support.** Per Design Decisions, every mail-enabled object this lab builds has a real message traced through it. Step Five's three planned messages cover an individual mailbox, `Help-Desk`, and a message the rule stops, not `IT-Support`, so its test was run here.
+
+`testuser01`, one of `IT-Support`'s two original members, sent a plain message from Outlook on the web to the group's own address, `it-support@brindeck.com`, subject `Step Three mail routing test`, chosen to stay identifiable in a trace search:
+
+```powershell
+Get-MessageTraceV2 -RecipientAddress "it-support@brindeck.com" -StartDate (Get-Date).AddMinutes(-15) -EndDate (Get-Date).AddMinutes(5)
+```
+
+```text
+Received               Sender Address            Recipient Address        Subject                       Status
+--------               --------------            -----------------        -------                       ------
+9/17/2026 12:37:35 AM  testuser01@brindeck.com   it-support@brindeck.com  Step Three mail routing test  Expanded
+```
+
+The single row reports `Expanded`, the status Design Decisions describes for a message sent to a distribution list: the group resolved into its members rather than delivered to one mailbox. `IT-Support` produces it too, so the transport pipeline expands a mail-enabled security group the same way Microsoft documents it expanding a distribution list. The distribution list side is observed in Step Five.
+
+`Expanded` shows the group was resolved, not that the message reached anyone, so the same message was traced by recipient for both members:
+
+```powershell
+Get-MessageTraceV2 -RecipientAddress "testuser01@brindeck.com","akim@brindeck.onmicrosoft.com" -Subject "Step Three mail routing test" -SubjectFilterType "Contains" -StartDate (Get-Date "2026-09-16") -EndDate (Get-Date "2026-09-18")
+```
+
+```text
+Received               Sender Address           Recipient Address              Subject                       Status
+--------               --------------           -----------------              -------                       ------
+9/17/2026 12:37:35 AM  testuser01@brindeck.com  akim@brindeck.onmicrosoft.com  Step Three mail routing test  Delivered
+9/17/2026 12:37:35 AM  testuser01@brindeck.com  testuser01@brindeck.com        Step Three mail routing test  Delivered
+```
+
+Both members have a `Delivered` row carrying the same received time as the `Expanded` row above, so the expansion reached both mailboxes. testuser01 is both the sender and a member, and the group delivered a copy back to its own mailbox rather than skipping it.
+
+**What becomes of Help-Desk and IT-Support.** This is the first step in this lab to create objects, so both dispositions are declared here for Step Nine to reconcile against. Both groups are removed at Step Nine. `Help-Desk` stays until Step Five's trace against it has run; `IT-Support`'s mail-flow test is recorded above, and it has no further work in this lab. Both were left unlicensed throughout, because Lab 03 established that a group carrying a license assignment cannot be deleted. Deleting either removes the group object and its membership records only; the members' mailboxes are unaffected.
 
 ### Step Four: Create a shared mailbox and demonstrate all three delegation models
 
@@ -921,6 +1289,7 @@ To be completed during implementation, with each link confirmed resolving at clo
 - [Exchange Online limits](https://learn.microsoft.com/office365/servicedescriptions/exchange-online-service-description/exchange-online-limits) - mailbox storage limits, and the shared mailbox associated account described as active
 - [Exchange Online Archiving service description](https://learn.microsoft.com/office365/servicedescriptions/exchange-online-archiving-service-description/exchange-online-archiving-service-description) - the plan list naming Microsoft 365 Business Premium among those that already include archiving without the add-on, and the feature table giving Exchange Online Archiving for Exchange Online both Litigation Hold and retention policies
 - [Place a mailbox on litigation hold](https://learn.microsoft.com/microsoft-365/admin/misc/create-litigation-hold-mac) - the contradicting statement that a hold requires Exchange Online Plan 2, or Plan 1 plus a separate Exchange Online Archiving license
+- [Manage mail-enabled security groups in Exchange Online](https://learn.microsoft.com/exchange/recipients-in-exchange-online/manage-mail-enabled-security-groups) - mail-enabled security groups created as new objects with `New-DistributionGroup -Type Security` or the Exchange admin center
 - [Manage distribution groups](https://learn.microsoft.com/exchange/recipients/distribution-groups) - that new distribution groups require all senders to be authenticated by default, which blocks external senders until Delivery management is changed
 - [Message trace in the Exchange admin center in Exchange Online](https://learn.microsoft.com/exchange/monitoring/trace-an-email-message/message-trace-modern-eac) - delivery status values including `Expanded`, and the permissions required
 - [Message Trace FAQ in Exchange Online](https://learn.microsoft.com/exchange/monitoring/trace-an-email-message/message-trace-faq) - 90-day retention, the 10-day query window, `Get-MessageTraceV2`, and a stated five to ten minute appearance latency
