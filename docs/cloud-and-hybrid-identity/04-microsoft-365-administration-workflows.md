@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress. Steps One through Four are complete. Step One recorded the pre-lab mail baseline, the administrative path, the message trace instrument, the mail-flow DNS state, the Business Premium service plan enumeration and the reconciliation of the three service counts Lab 03 left open, and both entitlement dates' pre-lapse readings. Step Two confirmed the licensed-equals-mailboxed premise from live state on both object types, established what an unlicensed account has instead using Mary Johnson and traced the categorizer-level rejection a message to her produces rather than Directory-Based Edge Blocking, closed Step One's primary-address finding on Alex Kim and John Smith with a disproved rather than confirmed hypothesis, recorded the operationally relevant mailbox properties and settled the 100 GB mailbox quota against the Business Basic SKU's own service plans before that subscription lapses, and took Adam Ramzi's pre-lapse mailbox baseline for Step Six. Step Three built `Help-Desk`, a distribution list, and `IT-Support`, a mail-enabled security group, the two mail-enabled group types Lab 03 deliberately left as a boundary; catalogued all three mail-enabled group types by console, accepted member types, permissions granted beyond mail, and Entra admin center rendering, confirming the "can't be managed" boundary directly rather than taking it from the track README; confirmed empirically that a distribution list and a mail-enabled security group both accept a nested security group as a member while a Microsoft 365 group rejects one outright; tested a synchronized on-premises group's cloud-side mail-property write and recorded its outright rejection, distinct from the per-field allowlist Lab 03 found on user objects; traced a real message through `IT-Support` and followed it to a `Delivered` row for each member, closing the coverage gap Step Five's own plan would otherwise have left; and declared both new groups' disposition, removal at Step Nine once Step Five's own trace against `Help-Desk` completes. Step Four created the `Facilities` shared mailbox after Step Three's names ruled out the obvious alternatives, read its `RecipientTypeDetails` and unlicensed 50 GB quota directly from the object, resolved Microsoft's own contradictory documentation on the associated account's sign-in state by reading both Microsoft Graph's `AccountEnabled` and the Entra admin center's account status in the same sitting, granted and exercised all three delegation permissions against `testuser01` with recipients holding none of the three, captured Full Access alone failing to send with its exact client-side error, tested and then disproved its own reading that Send on Behalf's distinguishing `Sender` header depends on the compose path, the retest showing the result had been an unpropagated Send As removal and producing the more useful finding that revoking Send As leaves the permission working after the directory reports it gone, honored on a message sent within fourteen minutes of the revocation and no longer honored by a retest at most sixty-six minutes after it, inside the window Microsoft documents as normal for a permission change and in which a grant fails closed while a revocation fails open; and declared `Facilities`' disposition, removal at Step Nine, distinct from the shared mailbox Step Eight later produces by converting an existing user mailbox. Steps Five through Nine remain.
+In progress. Steps One through Five are complete. Step One recorded the pre-lab mail baseline, the administrative path, the message trace instrument, the mail-flow DNS state, the Business Premium service plan enumeration and the reconciliation of the three service counts Lab 03 left open, and both entitlement dates' pre-lapse readings. Step Two confirmed the licensed-equals-mailboxed premise from live state on both object types, established what an unlicensed account has instead using Mary Johnson and traced the categorizer-level rejection a message to her produces rather than Directory-Based Edge Blocking, closed Step One's primary-address finding on Alex Kim and John Smith with a disproved rather than confirmed hypothesis, recorded the operationally relevant mailbox properties and settled the 100 GB mailbox quota against the Business Basic SKU's own service plans before that subscription lapses, and took Adam Ramzi's pre-lapse mailbox baseline for Step Six. Step Three built `Help-Desk`, a distribution list, and `IT-Support`, a mail-enabled security group, the two mail-enabled group types Lab 03 deliberately left as a boundary; catalogued all three mail-enabled group types by console, accepted member types, permissions granted beyond mail, and Entra admin center rendering, confirming the "can't be managed" boundary directly rather than taking it from the track README; confirmed empirically that a distribution list and a mail-enabled security group both accept a nested security group as a member while a Microsoft 365 group rejects one outright; tested a synchronized on-premises group's cloud-side mail-property write and recorded its outright rejection, distinct from the per-field allowlist Lab 03 found on user objects; traced a real message through `IT-Support` and followed it to a `Delivered` row for each member, closing the coverage gap Step Five's own plan would otherwise have left; and declared both new groups' disposition, removal at Step Nine once Step Five's own trace against `Help-Desk` completes. Step Four created the `Facilities` shared mailbox after Step Three's names ruled out the obvious alternatives, read its `RecipientTypeDetails` and unlicensed 50 GB quota directly from the object, resolved Microsoft's own contradictory documentation on the associated account's sign-in state by reading both Microsoft Graph's `AccountEnabled` and the Entra admin center's account status in the same sitting, granted and exercised all three delegation permissions against `testuser01` with recipients holding none of the three, captured Full Access alone failing to send with its exact client-side error, tested and then disproved its own reading that Send on Behalf's distinguishing `Sender` header depends on the compose path, the retest showing the result had been an unpropagated Send As removal and producing the more useful finding that revoking Send As leaves the permission working after the directory reports it gone, honored on a message sent within fourteen minutes of the revocation and no longer honored by a retest at most sixty-six minutes after it, inside the window Microsoft documents as normal for a permission change and in which a grant fails closed while a revocation fails open; and declared `Facilities`' disposition, removal at Step Nine, distinct from the shared mailbox Step Eight later produces by converting an existing user mailbox. Step Five demonstrated the premise Project Context opens this lab on, building a mail flow rule that stopped mail to `Help-Desk` while the group's own membership page reported nothing about it, the sender being told by a non-delivery report; found that the wizard's recipient condition resolves against mailbox identity and therefore cannot see a distribution list at all, which `SentToMemberOf` rather than `SentTo` is Microsoft's documented answer to; established from the non-delivery report's own recipient list that the rule was evaluated against the expanded recipients rather than against the group address; traced the blocked message, a working baseline, and an individual control through both the Exchange admin center and PowerShell, finding that `Expanded` reads identically whether the mail was delivered or stopped and that the rule is named only one level below the summary in either instrument, with `Get-MessageTraceDetailV2` naming it in full where the admin center's panel truncated it; produced this lab's first bounded reading of message trace appearance latency, not queryable two minutes after the send and queryable by three, faster than the floor of the tightest range Microsoft's own sources give; retested and ruled out its own first reading that a three-address `Get-MessageTraceV2` query drops a recipient, the rerun returning all three rows and leaving appearance latency operating per row rather than per message as the explanation most consistent with the evidence, which means a query run inside that window can return a partial result that looks like non-delivery and is not; recorded one behavior as observed rather than explained, a rejection logged twice at one timestamp; and removed the rule at the end of the step, confirming restored delivery by trace within two minutes of the deletion, so that Step Nine inherits a confirmation to make rather than an object to reconcile. Steps Six through Nine remain.
 
 This lab runs against two clocks that were established by Lab 03 and cannot be moved. The Microsoft 365 Business Basic (no Teams) trial lapses on 2026-09-22, and `Finance` still carries a group-level Business Basic assignment, so the lapse falls inside this lab's window whether or not the lab plans for it. The Microsoft 365 Business Premium trial expires on 2026-10-05, and it is what carries Exchange Online Plan 1. Every mailbox this lab provisions depends on an entitlement that ends on that date. The lab is sized and sequenced accordingly.
 
@@ -1398,19 +1398,217 @@ Both of this step's timing observations sit against a figure Microsoft publishes
 
 **Disposition.** `Facilities` persists through the rest of this lab in its current permission state, Full Access and Send on Behalf on `testuser01`, Send As removed, and is removed at Step Nine alongside `Help-Desk` and `IT-Support`, on the same reasoning: it exists to demonstrate a workflow rather than to serve as lasting infrastructure. It is a different object from the shared mailbox Step Eight produces by converting an existing user mailbox, a distinction Step Nine's reconciliation keeps separate rather than conflating the two.
 
-### Step Five: Build a mail flow rule, send mail through the objects built, and trace it
+### Step Five: Built a mail flow rule, sent mail through the objects built, and traced it
 
-This is the step the lab is shaped around, and it is the step that closes the loop on the premise Project Context opens with. That premise is that a distribution list with correct membership and a transport rule silently dropping mail to it are indistinguishable from the object's own properties. So build the rule rather than only citing it.
+This step closes the loop on the premise Project Context opens with: a distribution list with correct membership and a transport rule stopping mail to it are indistinguishable from the object's own properties. The rule this step built rejects with an explanation rather than dropping, so the sender is told; what stays invisible is the object, which reports nothing about the rule acting on it. The order below is deliberate. `Help-Desk` was proven to work first, with a real message traced to `Expanded` and to a `Delivered` row for each member, before anything existed to break it. Only after that baseline was on record was the mail flow rule built, so the working state and the broken one could be read against the same object rather than argued from either alone.
 
-Create a mail flow rule in the Exchange admin center that blocks or redirects mail matching a condition this lab controls, and record what it looks like from each side: what the rule's own configuration page says, what the distribution list's membership page says, which is nothing, and what the sender receives. This is the deliberate failure case, and building it rather than borrowing one means the failure has a known cause to check the trace against.
+**Help-Desk working normally, before the rule exists.** A message was sent from `testuser01`'s mailbox through Outlook on the web at 11:37 AM Eastern on 9/18/2026, subject `Lab 04 Step Five - Help-Desk baseline test`, addressed to `help-desk@brindeck.com`. No mail flow rule existed in the tenant at this point.
 
-Send at least three messages and trace each: one to an individual mailbox, one to the distribution list built in Step Three, and one the rule stops. Record for each the delivery status message trace reports and what the detail view shows about the path the message took. The distribution list case should return a status of `Expanded`, showing the group resolving into its members, which is the clearest available demonstration of what a distribution list actually is.
+The Exchange admin center's own Message trace, searched for that recipient, returned one row:
 
-A second failure case is available for free if the mail-flow DNS state Step One establishes permits external mail, and is worth taking because it is a default rather than a configuration. New distribution groups require that all senders be authenticated, which rejects mail from outside the organization until Delivery management is changed. Sending to the new distribution list from an external address exercises a restriction nobody configured, and the contrast with the rule-stopped message above is the difference between a policy an administrator wrote and a policy the product shipped. If external mail is not available, record the distribution list's Delivery management setting as read and note that the behavior was not exercised.
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/22-help-desk-baseline-message-trace-admin-center.jpg" alt="22-help-desk-baseline-message-trace-admin-center" width="700">
+</p>
 
-Record the instrument's own behavior alongside the results, because it is the kind of thing that reads as a failure when it is not. Results are immediate for searches of 10 days or less and delivered as a prepared report beyond that, and trace data is retained for 90 days with no configurable retention. On latency, compare what this step observes against the figure Step One's throwaway trace produced and against the three different ranges Microsoft's own sources give, and treat a message that has not appeared as unresolved rather than lost. Run the trace both in the Exchange admin center and with `Get-MessageTraceV2`, and record where the two differ in what they return.
+<p align="center">
+  <em>Exchange admin center, Message trace search results: 1 item, testuser01@brindeck.com to help-desk@brindeck.com, Lab 04 Step Five - Help-Desk baseline test, Status Expanded, 9/18/2026 11:37 AM.</em>
+</p>
 
-Remove the mail flow rule at the end of the step and confirm mail flows again, so the lab's own test apparatus does not become Lab 05's inheritance.
+`Get-MessageTraceV2`, run against the same recipient at 11:39 AM Eastern, two minutes after the send, returned nothing at all, no rows and no error. A retry one minute later, 11:40 AM Eastern, returned the row:
+
+```powershell
+Get-MessageTraceV2 -RecipientAddress "help-desk@brindeck.com" -StartDate (Get-Date).AddMinutes(-20) -EndDate (Get-Date)
+```
+
+```text
+Received             Sender Address          Recipient Address      Subject                                    Status
+--------             --------------          -----------------      -------                                    ------
+9/18/2026 3:37:09 PM testuser01@brindeck.com help-desk@brindeck.com Lab 04 Step Five - Help-Desk baseline test Expanded
+```
+
+Received 3:37:09 PM UTC against an 11:37 AM Eastern send matches to the minute, the same pattern Step One recorded for its own throwaway message. This is the first timed reading this lab has against the appearance-latency question Design Decisions raised: not yet queryable at two minutes post-send, queryable by three. That falls under even the tightest of the three figures Microsoft's own sources give, the Message Trace FAQ's five to ten minutes, rather than inside any of their ranges. Step One's throwaway trace established only a ceiling comfortably under the lowest figure, since the interval between sending and checking was never timed there; this is a bounded reading rather than a ceiling, and the bound it produced beat the documentation's own floor. One message is one data point, and it is recorded as that rather than as a settled figure for this tenant.
+
+Each member was traced next, to confirm the expansion actually reached them rather than stopping at the group:
+
+```powershell
+Get-MessageTraceV2 -RecipientAddress "jdoe@brindeck.com","jsmith@brindeck.onmicrosoft.com","testuser01@brindeck.com" -Subject "Help-Desk baseline" -SubjectFilterType "Contains" -StartDate (Get-Date "2026-09-18") -EndDate (Get-Date "2026-09-19")
+```
+
+```text
+Received             Sender Address          Recipient Address               Subject                                    Status
+--------             --------------          -----------------               -------                                    ------
+9/18/2026 3:37:09 PM testuser01@brindeck.com jdoe@brindeck.com               Lab 04 Step Five - Help-Desk baseline test Delivered
+9/18/2026 3:37:09 PM testuser01@brindeck.com jsmith@brindeck.onmicrosoft.com Lab 04 Step Five - Help-Desk baseline test Delivered
+9/18/2026 3:37:09 PM testuser01@brindeck.com testuser01@brindeck.com         Lab 04 Step Five - Help-Desk baseline test Delivered
+```
+
+All three members carry a `Delivered` row at the identical received timestamp as the `Expanded` row above, the same shape Step Three found for `IT-Support`. `Help-Desk` resolves and delivers correctly, and that is the state the rest of this step now works against.
+
+**Building the rule.** The Exchange admin center's new transport rule wizard was opened, Mail flow, Rules, Add a rule, Create a new rule. The first condition attempt reached for the obvious option, **The recipient** > **is this person**, and its Select members picker refused the object this step needed. Typing `Help-Desk` into the search box returned "No results found" under Suggested results, and the unfiltered list beneath it, 10 items, listed every mailbox-bearing recipient in the tenant, Adam Ramzi, Cloud Administrator, Alex Kim, All Company, Company Announcements, the Cloud-Only Demo Account, Facilities, Jane Doe, John Smith, and testuser01, with `Help-Desk` and `IT-Support` both absent.
+
+That condition is `SentTo` underneath, and Microsoft's own transport rule troubleshooting documentation names this exact limitation, worded around the sender side of the same condition pair rather than the recipient side used here: `SentTo` matches a mailbox, mail-enabled user, or contact, and does not work with distribution groups; the documented fix is `SentToMemberOf`, exposed in the wizard as **is a member of this group**. `Help-Desk` is a `MailUniversalDistributionGroup` with no mailbox of its own, per Step Three, so it was never going to appear in a picker that resolves against mailbox identity. Switching the condition to **is a member of this group** and searching `Help-Desk` resolved it immediately.
+
+The finished rule: name `Lab 04 Step Five - block Help-Desk`, condition **The recipient is a member of `help-desk@brindeck.com`**, action **Block the message** > **Reject the message and include an explanation**, explanation text `Blocked by Lab 04 Step Five mail flow rule test.`, no exceptions, Mode Enforce, no date range, priority 0, severity not specified, rule processing errors ignored, stop processing more rules false:
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/23-mail-flow-rule-review-and-finish.jpg" alt="23-mail-flow-rule-review-and-finish" width="700">
+</p>
+
+<p align="center">
+  <em>New transport rule, Review and finish: Lab 04 Step Five - block Help-Desk, condition "The recipient is a member of 'help-desk@brindeck.com'," action Reject the message with the explanation text, Mode Enforce, priority 0.</em>
+</p>
+
+The wizard's own Review and finish page states plainly that a new rule is turned off by default until enabled from the Rules page, which this rule was: created and confirmed through the mail-delivery-impact warning, then found on the Rules list at Status `Disabled`. It was switched on at 11:59 AM Eastern on 9/18/2026, the portal confirming with "Rule status updated successfully," and that is the timestamp the propagation reading below is measured against.
+
+**What Help-Desk's own membership page says about it: nothing.** Read immediately after enabling the rule, Recipients, Groups, Distribution list, `Help-Desk`, Members:
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/24-help-desk-members-after-rule-enabled.jpg" alt="24-help-desk-members-after-rule-enabled" width="700">
+</p>
+
+<p align="center">
+  <em>Groups, Help-Desk, Members, read with the mail flow rule already enabled: Distribution list group, 1 owner, 3 members, Cloud Administrator as owner, Jane Doe, John Smith, and testuser01 as members, no reference anywhere on the page to a rule.</em>
+</p>
+
+Owner and membership are unchanged from Step Three, the same three names, and nothing on this page, or on the object's General or Settings tabs, names the rule, references Mail flow, or gives any indication that mail addressed to this group is now being rejected. This is the contrast the step was built to demonstrate: the rule's own configuration page states exactly what it does and to what, and the object it acts on states nothing about it at all.
+
+**The message the rule stops.** From `testuser01`, a message was sent to `help-desk@brindeck.com` at 12:15 PM Eastern on 9/18/2026, subject `Lab 04 Step Five - rule test`, sixteen minutes after the rule was enabled. That first attempt was already blocked, so the rule took effect somewhere inside that sixteen-minute window, comfortably under the up-to-30-minutes Microsoft documents for a new or modified mail flow rule to apply, and no further waiting or retrying was needed.
+
+What the sender received:
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/25-help-desk-rule-test-ndr-summary.jpg" alt="25-help-desk-rule-test-ndr-summary" width="700">
+</p>
+
+<p align="center">
+  <em>Outlook on the web, testuser01's inbox: the non-delivery report for the message to help-desk@brindeck.com, "Custom mail flow rules at the recipients' domains have blocked your message," the rule's own explanation text "Blocked by Lab 04 Step Five mail flow rule test," and "Couldn't deliver to the following recipients: jdoe@brindeck.com, testuser01@brindeck.com, jsmith@brindeck.onmicrosoft.com."</em>
+</p>
+
+The recipient list the NDR names, `jdoe@brindeck.com`, `testuser01@brindeck.com`, and `jsmith@brindeck.onmicrosoft.com`, is `Help-Desk`'s three members, not `help-desk@brindeck.com` itself. Exchange Online expanded the distribution list into its individual members first, and the rule's own condition, the recipient is a member of `Help-Desk`, still matched each expanded recipient individually, since each of the three is a member of the group regardless of which address the message is now addressed to. The rule was therefore evaluated against the expanded recipients rather than against the group address. Whether it fired once per matched recipient or once against a set of them is not something the NDR or the trace rows establish, so the evaluation point is what is recorded here rather than a count of firings.
+
+**Tracing it, both ways.** The Exchange admin center's Message trace, searched for `help-desk@brindeck.com`, returned one row at Status `Expanded`, with nothing in the summary row itself distinguishing this message from the working baseline traced earlier in this step. Clicking into that row for its detail view is where the two instruments diverge. The detail view's own top-line Status text describes success, exactly what the group-level `Expanded` row already implied and exactly what Design Decisions warned a configuration-level read can misstate. The Message events list beneath it is what actually shows the block: a `Drop` event follows `Expand DL`, and a `Transport rule` event follows that, naming the rule that acted, though the panel truncates the name to `Lab 0...` rather than showing it in full.
+
+`Get-MessageTraceV2`, run against the three expanded members directly, rather than against the group address, is what Step Three's own experience with `IT-Support` already anticipated: an `Expanded` status shows a group was resolved, not that anyone received anything, so the members have to be traced by their own addresses.
+
+```powershell
+Get-MessageTraceV2 -RecipientAddress "jdoe@brindeck.com","jsmith@brindeck.onmicrosoft.com","testuser01@brindeck.com" -Subject "rule test" -SubjectFilterType "Contains" -StartDate (Get-Date "2026-09-18 12:10") -EndDate (Get-Date "2026-09-18 12:30")
+```
+
+```text
+Received               Sender Address                                                          Recipient Address              Subject                                    Status
+--------               --------------                                                          -----------------              -------                                    ------
+9/18/2026 4:15:03 PM   MicrosoftExchange329e71ec88ae4615bbc36ab6ce41109e@brindeck.com            testuser01@brindeck.com        Undeliverable: Lab 04 Step Five - rule test Delivered
+9/18/2026 4:15:02 PM   testuser01@brindeck.com                                                   jdoe@brindeck.com              Lab 04 Step Five - rule test               Failed
+9/18/2026 4:15:02 PM   testuser01@brindeck.com                                                   jsmith@brindeck.onmicrosoft.com Lab 04 Step Five - rule test               Failed
+9/18/2026 4:15:02 PM   testuser01@brindeck.com                                                   testuser01@brindeck.com        Lab 04 Step Five - rule test               Failed
+```
+
+All three members read `Failed` rather than `Delivered`, at the identical timestamp the `Expanded` row carries. The fourth row is the NDR itself, generated by the service's own system sender and delivered to `testuser01`, the one member who is also the original sender, a full second later. Nothing in either `Get-MessageTraceV2` call names the rule; `Failed` is a status, not a reason, matching Design Decisions' own account of what a summary-level read can and cannot say.
+
+The rule name does surface in PowerShell, one level down, using the `MessageTraceId` the Exchange admin center's detail panel supplied:
+
+```powershell
+Get-MessageTraceDetailV2 -MessageTraceId ca9bd7dd-77c2-4f52-c6d5-08df159ffe95 -RecipientAddress jdoe@brindeck.com
+```
+
+```text
+Date                  Event           Detail
+----                  -----           ------
+9/18/2026 4:15:03 PM  Fail            Reason: [{LED=550 5.7.1 TRANSPORT.RULES.RejectMessage; the message was rejected by organization policy};{MSG=};{FQDN=};{IP=};{LRT=}]
+9/18/2026 4:15:03 PM  Fail            Reason: [{LED=550 5.7.1 TRANSPORT.RULES.RejectMessage; the message was rejected by organization policy};{MSG=};{FQDN=};{IP=};{LRT=}]
+9/18/2026 4:15:03 PM  Transport rule  Transport rule: 'Lab 04 Step Five - block Help-Desk', ID: ('3489BE3B-483A-4340-9FA5-D423E580E1A0'), DLP policy: '', ID: (00000000-0000-0000-0000-0...
+```
+
+This corrects what the admin center's own panel seemed to show a moment earlier. `Get-MessageTraceV2`'s summary carries no rule name, matching the expectation the admin center's truncated label suggested, but `Get-MessageTraceDetailV2` is the direct PowerShell equivalent of that same panel's Message events list, and it names the rule in full, `Lab 04 Step Five - block Help-Desk`, along with the rule's own GUID, neither of which the admin center's panel displayed without truncation. The two surfaces are not as different as the first read suggested: both carry the rule name at a detail level one step below their own summary, and the PowerShell detail cmdlet turned out to be the more complete of the two on this specific fact. The duplicate `Fail` event, identical reason text logged twice at the same timestamp, is recorded as observed rather than explained; nothing in this step's evidence says why the rejection logged twice.
+
+The two instruments also name the event differently, which is worth recording because a reader moving between them would otherwise be looking for the wrong word. The admin center's Message events list shows a `Drop` event; `Get-MessageTraceDetailV2` shows `Fail` events and no `Drop` at all. Both describe the same rejection of the same message. Whether the difference is a naming convention between the two surfaces or a genuine difference in what each is recording is not established here.
+
+**The individual mailbox control.** A message was sent from `testuser01` to `akim@brindeck.onmicrosoft.com` (Alex Kim) at 12:06 PM Eastern on 9/18/2026, subject `Lab 04 Step Five - individual control test`, unaffected by the rule since Alex Kim is not a member of `Help-Desk`. The Exchange admin center's Message trace, searched for that recipient, returned two rows rather than one: this message at 12:06 PM, and an unrelated hit from Step Three's `IT-Support` routing test on 9/16/2026 8:37 PM, also addressed to Alex Kim as one of that group's members, both `Delivered`. `Get-MessageTraceV2` against the same recipient and a tighter window returned the current message alone:
+
+```powershell
+Get-MessageTraceV2 -RecipientAddress "akim@brindeck.onmicrosoft.com" -StartDate (Get-Date "2026-09-18 12:00") -EndDate (Get-Date "2026-09-18 12:15")
+```
+
+```text
+Received              Sender Address          Recipient Address             Subject                                    Status
+--------              --------------          -----------------             -------                                    ------
+9/18/2026 4:06:05 PM  testuser01@brindeck.com akim@brindeck.onmicrosoft.com  Lab 04 Step Five - individual control test Delivered
+```
+
+Received 4:06:05 PM UTC against a 12:06 PM Eastern send matches to the minute, the same pattern every timed message in this lab has shown. This is the control the other two traces are read against: a plain mailbox-to-mailbox message, no group and no rule involved, delivered normally in both instruments with nothing to reconcile between them.
+
+All three traces this step set out to produce are now on record: the working baseline to `Help-Desk` (`Expanded` at the group, `Delivered` to each of its three members), this individual control (`Delivered`), and the message the rule stops (`Expanded` at the group's summary row, `Failed` at each expanded member, the rejection itself traceable to the rule one level below the summary in both instruments, named in full only by `Get-MessageTraceDetailV2` and truncated to `Lab 0...` in the admin center's own panel).
+
+**The instrument's own constraints, cited rather than rediscovered.** Per Design Decisions, message trace data is retained for 90 days with no configurable period, and results return immediately for a search spanning 10 days or less, delivered as a prepared report beyond that. Every search in this step stayed inside a single day, well under that boundary, so nothing here exercised the report path. On appearance latency, this step's one precisely timed reading is the baseline message: not yet queryable at two minutes post-send, queryable by three, which is under even the tightest of the three ranges Microsoft's sources give, the Message Trace FAQ's five to ten minutes. The rule-stopped message and the individual control were both already present, with their full detail, whenever they were checked, with no separate wait observed for either, though neither was checked against an earlier failed attempt the way the baseline was, so no comparable bound is claimed for them. One bounded reading is what this step produced, and it is recorded as that rather than generalized into a figure for the tenant or used to argue any of the three cited ranges wrong.
+
+**Help-Desk's Delivery management setting.** Step Three already read this, at creation rather than after the fact: the group's Settings screen carried "Allow people outside of my organization to send email to this Distribution group," left unchecked, matching Microsoft's documented default that new distribution groups require all senders to be authenticated. That reading is cited here rather than repeated. Changing it would open `help-desk@brindeck.com` to mail from outside the tenant, which Security Considerations already treats as the real exposure, not the default itself. Per Step One's mail-flow DNS finding, `brindeck.com` has no MX or SPF record and this lab confines itself to internal recipients, so what changing this setting would actually permit is recorded as documented behavior rather than tested live, on the same reasoning Step One gave for the external-sender premise generally.
+
+**The rule removed, mail flow restored.** The Rules list still showed `Lab 04 Step Five - block Help-Desk` at Status Enabled, Priority 0. Selecting it and choosing Delete opened a confirmation panel that read "Deleting" while the action completed; querying the Rules list afterward returned "No data available for given query," 0 items, at 12:40 PM Eastern on 9/18/2026, the point this step treats as the rule's removal.
+
+A confirmation message was sent from `testuser01` to `help-desk@brindeck.com` two minutes later, at 12:42 PM Eastern, subject `Lab 04 Step Five - post-removal confirmation`. It arrived in `testuser01`'s own inbox rather than generating a non-delivery report, the plain contrast sitting one row above it in the same inbox: the 12:15 PM message from "Microsoft Outlook," undeliverable, next to this one, sent directly and delivered.
+
+`Get-MessageTraceV2` against the group address confirms it:
+
+```powershell
+Get-MessageTraceV2 -RecipientAddress "help-desk@brindeck.com" -StartDate (Get-Date "2026-09-18 12:40") -EndDate (Get-Date)
+```
+
+```text
+Received              Sender Address          Recipient Address      Subject                                       Status
+--------              --------------          -----------------      -------                                       ------
+9/18/2026 4:42:02 PM  testuser01@brindeck.com help-desk@brindeck.com Lab 04 Step Five - post-removal confirmation Expanded
+```
+
+Received matches the 12:42 PM Eastern send to the minute, the same pattern every timed message in this lab has shown. `Expanded` alone says only that the group resolved, exactly as Step Three and this step's own baseline established, so the members were traced next:
+
+```powershell
+Get-MessageTraceV2 -RecipientAddress "jdoe@brindeck.com","jsmith@brindeck.onmicrosoft.com","testuser01@brindeck.com" -Subject "post-removal" -SubjectFilterType "Contains" -StartDate (Get-Date "2026-09-18 12:40") -EndDate (Get-Date)
+```
+
+```text
+Received              Sender Address          Recipient Address       Subject                                       Status
+--------              --------------          -----------------       -------                                       ------
+9/18/2026 4:42:02 PM  testuser01@brindeck.com jdoe@brindeck.com       Lab 04 Step Five - post-removal confirmation Delivered
+9/18/2026 4:42:02 PM  testuser01@brindeck.com testuser01@brindeck.com Lab 04 Step Five - post-removal confirmation Delivered
+```
+
+Two of the three expected rows, not three. `jsmith@brindeck.onmicrosoft.com` is a member of `Help-Desk` exactly as much as the other two, and the group-level row above already shows the message expanded to all of them, but the combined query returned nothing for that one address. Queried alone rather than alongside the other two, it appeared:
+
+```powershell
+Get-MessageTraceV2 -RecipientAddress "jsmith@brindeck.onmicrosoft.com" -Subject "post-removal" -SubjectFilterType "Contains" -StartDate (Get-Date "2026-09-18 12:40") -EndDate (Get-Date)
+```
+
+```text
+Received              Sender Address          Recipient Address               Subject                                       Status
+--------              --------------          -----------------               -------                                       ------
+9/18/2026 4:42:02 PM  testuser01@brindeck.com jsmith@brindeck.onmicrosoft.com Lab 04 Step Five - post-removal confirmation Delivered
+```
+
+Delivered, at the identical timestamp the other two members and the group row carry. All three members received the message; the gap was in what the trace had indexed at the moment it was asked, not in what actually happened.
+
+**Rerunning the query ruled out the reading the missing row first suggested.** Two rows from a three-address query, with each address returning its row when asked alone, reads as a property of `-RecipientAddress` taking an array. The mundane alternative had not been ruled out: this step's own baseline reading established that a row is not yet queryable two minutes after a send and is queryable by three, the message had been delivered at 12:42 PM Eastern, and the combined query ran within a few minutes of that. The single-address query for `jsmith` ran after the combined one, so the row becoming queryable in between accounts for the result equally well.
+
+The same query, byte for byte, re-run hours later over the identical window:
+
+```text
+Received              Sender Address          Recipient Address               Subject                                    Status
+--------              --------------          -----------------               -------                                    ------
+9/18/2026 4:42:02 PM  testuser01@brindeck.com jdoe@brindeck.com               Lab 04 Step Five - post-removal confirmation Delivered
+9/18/2026 4:42:02 PM  testuser01@brindeck.com jsmith@brindeck.onmicrosoft.com Lab 04 Step Five - post-removal confirmation Delivered
+9/18/2026 4:42:02 PM  testuser01@brindeck.com testuser01@brindeck.com         Lab 04 Step Five - post-removal confirmation Delivered
+```
+
+Three rows. A multi-address `-RecipientAddress` query does not deterministically drop a recipient, which is what the first reading would have required. The rerun does not go further than that on its own: a transient fault would also have cleared by the time it ran, so it rules out the array-query explanation without proving any particular one in its place.
+
+The explanation most consistent with what this step saw is appearance latency operating per row rather than per message. The three member rows carry an identical `Received` timestamp of 4:42:02 PM UTC and did not all become queryable at the same moment, which would follow if rows from a single expanded message are indexed independently rather than as a unit. That is offered as the likely reading rather than as an established one, since nothing here distinguishes it from a one-off indexing delay affecting that row alone.
+
+The operational point survives either way and is the part worth carrying forward. A query run inside the appearance window can return a partial set that looks exactly like non-delivery for the missing members, with no error raised and nothing marking the result as incomplete. An administrator checking minutes after a send whether a distribution list reached everyone can be handed a wrong answer by an instrument reporting success. The remedy is the one this step arrived at by accident: ask again before concluding anything from an absent row.
+
+A Message trace search in the Exchange admin center for `help-desk@brindeck.com`, spanning the whole step, returned three items: the 12:42 PM confirmation, the 12:15 PM rule test, and the 11:37 AM baseline, each `Expanded`. The status column reads identically across all three regardless of which one the rule blocked, the same point the group-level trace has made throughout this step: `Expanded` describes the group resolving its members, not what happened to the mail afterward, and reading it alone as proof of delivery would have missed the one message this step deliberately stopped.
+
+The removal's own timing is a bounded reading worth recording. The rule was deleted at 12:40 PM Eastern and mail reached the group again at 12:42, so it was out of effect within two minutes. That is worth setting beside Step Four carefully rather than loosely: that step's Send As revocation was still honored on a message sent at most fourteen minutes after `Remove-RecipientPermission` returned, and possibly a great deal less, since the removal's own time was never logged. The two readings therefore do not establish that the mechanisms behave differently. What they do establish is narrower and still worth having: a transport rule removal confirmed in effect within two minutes here, and a permission revocation a day earlier observed still working after the directory reported it gone. One produced a measured interval, the other only a bound, and neither licenses an assumption about the next mechanism.
+
+The mail flow rule was this step's own test apparatus, built to demonstrate a point and removed once it had. `Help-Desk` itself carries forward unchanged, the same distribution list Step Three built and this step worked with at every stage, per Step Three's own disposition of the object; the rule that acted on it between 11:59 AM and 12:40 PM Eastern does not. Step Nine's reconciliation therefore has a confirmation to make against this step rather than an object to account for: that the rule is absent and mail to `Help-Desk` still flows.
 
 ### Step Six: Observe the Business Basic lapse
 
