@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress. Steps One through Three are complete. Step One recorded the pre-lab mail baseline, the administrative path, the message trace instrument, the mail-flow DNS state, the Business Premium service plan enumeration and the reconciliation of the three service counts Lab 03 left open, and both entitlement dates' pre-lapse readings. Step Two confirmed the licensed-equals-mailboxed premise from live state on both object types, established what an unlicensed account has instead using Mary Johnson and traced the categorizer-level rejection a message to her produces rather than Directory-Based Edge Blocking, closed Step One's primary-address finding on Alex Kim and John Smith with a disproved rather than confirmed hypothesis, recorded the operationally relevant mailbox properties and settled the 100 GB mailbox quota against the Business Basic SKU's own service plans before that subscription lapses, and took Adam Ramzi's pre-lapse mailbox baseline for Step Six. Step Three built `Help-Desk`, a distribution list, and `IT-Support`, a mail-enabled security group, the two mail-enabled group types Lab 03 deliberately left as a boundary; catalogued all three mail-enabled group types by console, accepted member types, permissions granted beyond mail, and Entra admin center rendering, confirming the "can't be managed" boundary directly rather than taking it from the track README; confirmed empirically that a distribution list and a mail-enabled security group both accept a nested security group as a member while a Microsoft 365 group rejects one outright; tested a synchronized on-premises group's cloud-side mail-property write and recorded its outright rejection, distinct from the per-field allowlist Lab 03 found on user objects; traced a real message through `IT-Support` and followed it to a `Delivered` row for each member, closing the coverage gap Step Five's own plan would otherwise have left; and declared both new groups' disposition, removal at Step Nine once Step Five's own trace against `Help-Desk` completes. Steps Four through Nine remain.
+In progress. Steps One through Four are complete. Step One recorded the pre-lab mail baseline, the administrative path, the message trace instrument, the mail-flow DNS state, the Business Premium service plan enumeration and the reconciliation of the three service counts Lab 03 left open, and both entitlement dates' pre-lapse readings. Step Two confirmed the licensed-equals-mailboxed premise from live state on both object types, established what an unlicensed account has instead using Mary Johnson and traced the categorizer-level rejection a message to her produces rather than Directory-Based Edge Blocking, closed Step One's primary-address finding on Alex Kim and John Smith with a disproved rather than confirmed hypothesis, recorded the operationally relevant mailbox properties and settled the 100 GB mailbox quota against the Business Basic SKU's own service plans before that subscription lapses, and took Adam Ramzi's pre-lapse mailbox baseline for Step Six. Step Three built `Help-Desk`, a distribution list, and `IT-Support`, a mail-enabled security group, the two mail-enabled group types Lab 03 deliberately left as a boundary; catalogued all three mail-enabled group types by console, accepted member types, permissions granted beyond mail, and Entra admin center rendering, confirming the "can't be managed" boundary directly rather than taking it from the track README; confirmed empirically that a distribution list and a mail-enabled security group both accept a nested security group as a member while a Microsoft 365 group rejects one outright; tested a synchronized on-premises group's cloud-side mail-property write and recorded its outright rejection, distinct from the per-field allowlist Lab 03 found on user objects; traced a real message through `IT-Support` and followed it to a `Delivered` row for each member, closing the coverage gap Step Five's own plan would otherwise have left; and declared both new groups' disposition, removal at Step Nine once Step Five's own trace against `Help-Desk` completes. Step Four created the `Facilities` shared mailbox after Step Three's names ruled out the obvious alternatives, read its `RecipientTypeDetails` and unlicensed 50 GB quota directly from the object, resolved Microsoft's own contradictory documentation on the associated account's sign-in state by reading both Microsoft Graph's `AccountEnabled` and the Entra admin center's account status in the same sitting, granted and exercised all three delegation permissions against `testuser01` with recipients holding none of the three, captured Full Access alone failing to send with its exact client-side error, tested and then disproved its own reading that Send on Behalf's distinguishing `Sender` header depends on the compose path, the retest showing the result had been an unpropagated Send As removal and producing the more useful finding that revoking Send As leaves the permission working after the directory reports it gone, honored on a message sent within fourteen minutes of the revocation and no longer honored by a retest at most sixty-six minutes after it, inside the window Microsoft documents as normal for a permission change and in which a grant fails closed while a revocation fails open; and declared `Facilities`' disposition, removal at Step Nine, distinct from the shared mailbox Step Eight later produces by converting an existing user mailbox. Steps Five through Nine remain.
 
 This lab runs against two clocks that were established by Lab 03 and cannot be moved. The Microsoft 365 Business Basic (no Teams) trial lapses on 2026-09-22, and `Finance` still carries a group-level Business Basic assignment, so the lapse falls inside this lab's window whether or not the lab plans for it. The Microsoft 365 Business Premium trial expires on 2026-10-05, and it is what carries Exchange Online Plan 1. Every mailbox this lab provisions depends on an entitlement that ends on that date. The lab is sized and sequenced accordingly.
 
@@ -1153,15 +1153,250 @@ Both members have a `Delivered` row carrying the same received time as the `Expa
 
 **What becomes of Help-Desk and IT-Support.** This is the first step in this lab to create objects, so both dispositions are declared here for Step Nine to reconcile against. Both groups are removed at Step Nine. `Help-Desk` stays until Step Five's trace against it has run; `IT-Support`'s mail-flow test is recorded above, and it has no further work in this lab. Both were left unlicensed throughout, because Lab 03 established that a group carrying a license assignment cannot be deleted. Deleting either removes the group object and its membership records only; the members' mailboxes are unaffected.
 
-### Step Four: Create a shared mailbox and demonstrate all three delegation models
+### Step Four: Created a shared mailbox and demonstrated all three delegation models
 
-Create a shared mailbox through the Microsoft 365 admin center. Record that it requires no license of its own below 50 GB, and that a user accessing it does require an Exchange Online license, so the seat cost sits with the people who read the mailbox rather than with the mailbox.
+`Help-Desk` and `IT-Support` from Step Three ruled out the obvious names for this mailbox; `help-desk@brindeck.com` and `it-support@brindeck.com` were both already assigned to other mail-enabled objects. Rather than a variant of either name, `Facilities` was chosen as a shared mailbox functionally distinct from help desk correspondence, and `Get-EXORecipient` confirmed no recipient held that address before it was created:
 
-Establish the state of its associated user account directly rather than taking it from documentation, per Design Decisions. Read whether sign-in is blocked, and record what the tenant did rather than what any article says it should have done.
+```powershell
+Get-EXORecipient -Identity facilities@brindeck.com -ErrorAction SilentlyContinue
+if (-not $?) { "No recipient object found for facilities@brindeck.com" }
+```
 
-Grant Full Access, Send As, and Send on Behalf, and exercise each with a real message sent to a recipient outside the delegation. Capture what the recipient receives in each case, because the `From` header the recipient sees is the only place the three differ in any way a user would notice.
+```text
+No recipient object found for facilities@brindeck.com
+```
 
-Record what Full Access alone does and does not permit, since the most common real misconfiguration is granting it and expecting sending to work.
+`Facilities` was created through the Microsoft 365 admin center, Teams & groups, Shared mailboxes, Add a shared mailbox, name `Facilities`, address `facilities@brindeck.com`, with no members added at creation. The wizard's own members step was skipped deliberately: adding a member there grants Full Access with automapping as a side effect, which would have folded the first delegation grant into the creation step instead of into its own, observed step.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/15-facilities-shared-mailbox-created.jpg" alt="15-facilities-shared-mailbox-created" width="700">
+</p>
+
+<p align="center">
+  <em>Microsoft 365 admin center, Teams & groups, Shared mailboxes: Facilities created, listed at facilities@brindeck.com.</em>
+</p>
+
+**What the object actually is, read from itself.** Per Design Decisions, `RecipientTypeDetails` and quota were read from the mailbox rather than taken from the shared-mailbox service description:
+
+```powershell
+Get-EXOMailbox -Identity facilities@brindeck.com -Properties RecipientTypeDetails,ProhibitSendQuota,ProhibitSendReceiveQuota,IssueWarningQuota,ArchiveStatus | Format-List DisplayName,PrimarySmtpAddress,RecipientTypeDetails,ProhibitSendQuota,ProhibitSendReceiveQuota,IssueWarningQuota
+```
+
+```text
+DisplayName              : Facilities
+PrimarySmtpAddress       : facilities@brindeck.com
+RecipientTypeDetails     : SharedMailbox
+ProhibitSendQuota        : 49.5 GB (53,150,220,288 bytes)
+ProhibitSendReceiveQuota : 50 GB (53,687,091,200 bytes)
+IssueWarningQuota        : 49 GB (52,613,349,376 bytes)
+```
+
+`RecipientTypeDetails: SharedMailbox` confirms the object type from itself rather than from the console label. The 50 GB `ProhibitSendReceiveQuota` matches the documented unlicensed shared-mailbox limit exactly, and it is a different figure from the 100 GB every licensed `UserMailbox` in this tenant carries per Step Two's own reading, the SKU's Plan 1 allowance plus the `EXCHANGE_STORAGE_50GB` add-on Step One enumerated. A shared mailbox below 50 GB draws on neither, which is the concrete shape of "requires no license of its own" this step was asked to record; a user reading the mailbox still needs an Exchange Online license of their own, so the seat cost sits with the people reading it rather than with the mailbox.
+
+A second read turned up a small naming quirk worth recording, since it would otherwise confuse a later `-Identity` lookup that assumed `Name` and `DisplayName` were the same string:
+
+```powershell
+Get-Mailbox -Identity facilities@brindeck.com | Select-Object Name,Alias,DisplayName,PrimarySmtpAddress,Identity | Format-List
+```
+
+```text
+Name               : Facilities20260917205737
+Alias              : facilities
+DisplayName        : Facilities
+PrimarySmtpAddress : facilities@brindeck.com
+Identity           : Facilities20260917205737
+```
+
+The object's underlying `Name` and `Identity` are a timestamp-suffixed string the Microsoft 365 admin center generated at creation, distinct from the clean `Alias`, `DisplayName`, and `PrimarySmtpAddress` values every other command in this step addresses the mailbox by.
+
+**The sign-in state, read two ways in the same sitting.** Per Design Decisions, whether the mailbox's associated user account can sign in was established against the tenant rather than cited, since the three Microsoft sources that decision sets out give incompatible answers.
+
+Microsoft Graph first:
+
+```powershell
+Get-MgUser -UserId facilities@brindeck.com -Property Id,UserPrincipalName,AccountEnabled,DisplayName | Format-List
+```
+
+```text
+AboutMe                       :
+AccountEnabled                : False
+Activities                    :
+AdhocCalls                    :
+AgeGroup                      :
+```
+
+`AccountEnabled: False`, quoted here from the head of the returned block because the four requested properties do not arrive on their own. `-Property` narrows what Microsoft Graph is asked to return, but `Format-List` with no property list of its own prints every property on the resulting object, so the four requested values sit inside a full alphabetical dump of the user object with everything unrequested rendered blank or as a type placeholder. Step Two recorded the same behavior on `mjohnson` and attributed it to the request; it is the display rather than the request, and either way the relevant value is easy to miss in a screenful of empty fields. The fix is already demonstrated a few paragraphs above, where the `Get-EXOMailbox` read passes its own property list to `Format-List` and returns only those properties. This call could have done the same and did not.
+
+The Entra admin center's own reading was taken in the same sitting, Identity, Users, All users, the Facilities account's Overview page:
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/16-facilities-entra-admin-center-account-disabled.jpg" alt="16-facilities-entra-admin-center-account-disabled" width="700">
+</p>
+
+<p align="center">
+  <em>Entra admin center, Facilities, Overview: Account status Disabled. The Properties page's Settings section reads Account enabled: No, agreeing with the Overview card.</em>
+</p>
+
+All three readings, Microsoft Graph's `AccountEnabled: False`, the Overview card's `Account status: Disabled`, and the Properties page's `Account enabled: No`, agree. This tenant blocks sign-in on a new shared mailbox by default. That settles the contradiction in favor of the shared-mailbox-creation article over the Exchange Online limits reference, the label Design Decisions already gave this exact question as the third documentation conflict this track has resolved by testing, after Lab 02's `Get-EntraDirSyncFeature` naming mismatch and Lab 03's group-restore contradiction.
+
+**Delegation.** `testuser01` served as the delegate for all three models. The Full Access test addressed its message to `jdoe@brindeck.com` (Jane Doe); the Send As and Send on Behalf tests both addressed `admin@brindeck.com` (Cloud Administrator) instead, so its inbox could be read directly to check what each model actually produced. Neither recipient holds any of the three delegation permissions on `Facilities`, so what each one received is what an uninvolved recipient sees, which is where Design Decisions locates the only visible difference between the three models.
+
+Full Access was granted first:
+
+```powershell
+Add-MailboxPermission -Identity facilities@brindeck.com -User testuser01@brindeck.com -AccessRights FullAccess -InheritanceType All
+Get-MailboxPermission -Identity facilities@brindeck.com | Where-Object { $_.User -notlike "NT AUTHORITY*" } | Select-Object User,AccessRights,IsInherited
+```
+
+```text
+User                    AccessRights IsInherited
+----                    ------------ -----------
+testuser01@brindeck.com {FullAccess} False
+```
+
+Trying to open the mailbox in Outlook on the web immediately afterward, Open another mailbox, `facilities@brindeck.com`, failed outright:
+
+```text
+BootResult: accessDenied
+err: Microsoft.Exchange.Data.StoreObjects.AccessDeniedException
+UTC Date: 2026-09-17T21:26:11.016Z
+```
+
+against a grant made roughly five minutes earlier, so this is a propagation delay in delegation permissions reaching Outlook on the web, appearing at the mailbox-open stage rather than at send. The mailbox opened successfully on a retry at 5:45 PM Eastern, putting the observed ceiling at roughly 24 minutes. That interval was checked opportunistically rather than polled at short intervals, so 24 minutes is an upper bound on the propagation delay rather than a measured figure, the same distinction Step One drew for message trace latency.
+
+With the mailbox open and only Full Access granted, no Send As, no Send on Behalf, a new message addressed to `jdoe@brindeck.com` was composed from inside it and sent, draft timestamps placing the attempt around 5:49 PM Eastern. It failed at the client, before reaching the server:
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/17-facilities-full-access-send-blocked.jpg" alt="17-facilities-full-access-send-blocked" width="700">
+</p>
+
+<p align="center">
+  <em>Outlook on the web, composing from inside the Facilities mailbox with Full Access only: "You don't have permission to send messages from this mailbox," blocked before the message left the compose window.</em>
+</p>
+
+That settles what this step was built to catch. Full Access grants read and management access to the mailbox's contents and nothing about sending; the permission list itself gives no indication of the gap, only the attempt does.
+
+Send As was granted next:
+
+```powershell
+Add-RecipientPermission -Identity facilities@brindeck.com -Trustee testuser01@brindeck.com -AccessRights SendAs -Confirm:$false
+```
+
+```text
+Identity                  Trustee                              AccessControlType AccessRights Inherited
+--------                  -------                              ----------------- ------------ ---------
+Facilities20260917205737  653bc643-[remainder redacted]  Allow             {SendAs}     False
+```
+
+`Trustee` renders as `testuser01`'s raw object GUID rather than a resolved name. That is worth noting once for a practical reason rather than as trivia: the `Get-` permission cmdlets in this step, `Get-MailboxPermission` and `Get-RecipientPermission`, both resolve identity to a readable user principal name, while the write path and the raw `GrantSendOnBehalfTo` property value return an unresolved identifier. So a grant is verified against a `Get-` cmdlet rather than against the output of the command that made it.
+
+Sending from inside the still-open Facilities mailbox failed twice more, at 6:07 PM and 6:18 PM Eastern, with the identical client-side "You don't have permission to send messages from this mailbox" error. `Get-RecipientPermission` confirmed the grant was present and correct in between, ruling out a failed or wrong grant and leaving propagation as the only explanation:
+
+```powershell
+Get-RecipientPermission -Identity facilities@brindeck.com | Select-Object Trustee,AccessRights,AccessControlType
+```
+
+```text
+Trustee                 AccessRights AccessControlType
+-------                 ------------ -----------------
+NT AUTHORITY\SELF       {SendAs}     Allow
+testuser01@brindeck.com {SendAs}     Allow
+```
+
+The send succeeded at 6:25 PM Eastern. The exact grant time was not logged, so no precise propagation interval is claimed beyond what was directly observed: still blocked at 6:07 PM and 6:18 PM, succeeded by 6:25 PM. Cloud Administrator's inbox received the message with its sender shown as Facilities alone; opening the sender card surfaced only Facilities' own contact information, `facilities@brindeck.com`, with no reference anywhere to `testuser01`. That is Send As doing exactly what Design Decisions predicted, an impersonation with no indication a person sent it.
+
+Send on Behalf was granted last, with Send As removed first so its behavior could be observed on its own rather than layered underneath an impersonation grant already in effect:
+
+```powershell
+Remove-RecipientPermission -Identity facilities@brindeck.com -Trustee testuser01@brindeck.com -AccessRights SendAs -Confirm:$false
+Set-Mailbox -Identity facilities@brindeck.com -GrantSendOnBehalfTo testuser01@brindeck.com
+Get-Mailbox -Identity facilities@brindeck.com | Select-Object -ExpandProperty GrantSendOnBehalfTo
+```
+
+```text
+653bc643-[remainder redacted]
+```
+
+The same unresolved rendering appeared a third time, on a third command, consistent with the split noted above between the write path and the `Get-` cmdlets rather than being a quirk of any one of them.
+
+The first attempt at exercising Send on Behalf repeated the exact compose path that had worked for Send As, from inside the already-open Facilities mailbox, new message, send. It succeeded at 6:39 PM Eastern and did not produce the result Design Decisions anticipated. Cloud Administrator's inbox showed the message from Facilities alone, no on-behalf-of indicator anywhere in the reading pane, and the message's own headers showed why: `From: Facilities <facilities@brindeck.com>`, no `Sender:` line at all, the same shape Send As produced:
+
+```text
+From: Facilities <facilities@brindeck.com>
+To: Cloud Administrator <admin@brindeck.com>
+Subject: Lab 04 Step Four - Send on Behalf test
+Return-Path: facilities@brindeck.com
+```
+
+(the remainder of the header block, transport hops and antispam scoring, carried nothing relevant and is omitted). The reading this step first drew from that result was that composing from inside a mailbox opened through Full Access submits the message as the mailbox itself regardless of which permission authorizes it, collapsing a distinction that is supposed to be visible. That reading was wrong, and the retest that disproved it is recorded further below rather than the conclusion being quietly replaced.
+
+Composing from the delegate's own mailbox instead of the opened Facilities mailbox is the path that actually exercises Send on Behalf as documented. From `testuser01`'s own inbox, a new message with Show From set to `facilities@brindeck.com`, addressed to `admin@brindeck.com`, sent at 6:50 PM Eastern, arrived reading exactly as Design Decisions predicted:
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/18-testuser01-send-on-behalf-recipient-view.jpg" alt="18-testuser01-send-on-behalf-recipient-view" width="700">
+</p>
+
+<p align="center">
+  <em>Cloud Administrator's inbox: the reading pane's sender line reads "testuser01 on behalf of Facilities," naming both.</em>
+</p>
+
+The message's own headers back it up:
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/19-testuser01-send-on-behalf-message-headers.jpg" alt="19-testuser01-send-on-behalf-message-headers" width="700">
+</p>
+
+<p align="center">
+  <em>Message details on the same message: From: Facilities, Sender: testuser01, and X-MS-Exchange-MessageSentRepresentingType: 2.</em>
+</p>
+
+**The compose-path reading was wrong, and what disproved it is the more useful finding.** Two results taken eleven minutes apart had appeared to show that the compose path determined the header: composing from inside the opened mailbox at 6:39 PM produced no `Sender:` line, and composing from the delegate's own mailbox at 6:50 PM produced one. Neither source consulted for this plan documents such a behavior, which is the point at which a mundane explanation deserves looking for rather than a novel one deserves writing up.
+
+There was one available. `Remove-RecipientPermission` had stripped Send As somewhere between 6:25 PM and 6:39 PM, minutes before the first of those two sends. This same step had already watched a Send As grant take time to reach Outlook on the web, blocked at 6:07 PM, blocked again at 6:18 PM, and working by 6:25 PM. If a removal lags the way a grant does, Send As was still authoritative at 6:39 PM, and the message carried no `Sender:` line because it genuinely was a Send As message rather than because of where it was composed.
+
+The test that separates the two is the same send repeated once the removal has certainly propagated. `Get-RecipientPermission` was read first to establish the permission was gone, returning nothing at all:
+
+```powershell
+Get-RecipientPermission -Identity facilities@brindeck.com -Trustee testuser01@brindeck.com
+```
+
+```text
+
+```
+
+With Send As confirmed absent, the 6:39 PM compose path was repeated exactly, from inside the opened `Facilities` mailbox to `admin@brindeck.com`, at 7:31 PM Eastern:
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/20-compose-path-retest-recipient-view.jpg" alt="20-compose-path-retest-recipient-view" width="700">
+</p>
+
+<p align="center">
+  <em>Cloud Administrator's inbox, the 7:31 PM retest: the reading pane's sender line reads "testuser01 on behalf of Facilities," against the 6:39 PM message two rows below it in the same list showing Facilities alone.</em>
+</p>
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/21-compose-path-retest-message-headers.jpg" alt="21-compose-path-retest-message-headers" width="700">
+</p>
+
+<p align="center">
+  <em>Message details on the retest: From Facilities, and Sender: testuser01, present on a message composed from the same place as the 6:39 PM send that carried no Sender line.</em>
+</p>
+
+The compose path does not determine the header. Composing from inside the opened shared mailbox produces `Sender: testuser01` and an "on behalf of" line exactly as composing from the delegate's own mailbox does, once Send As is genuinely gone rather than merely revoked. The 6:39 PM message was authorized by a permission the directory had already stopped reporting.
+
+So the three-way distinction Design Decisions set out to demonstrate holds without qualification: Send As produces no `Sender:` line, Send on Behalf produces one naming the delegate, and Full Access alone sends nothing at all. What this step adds to it is a property of revocation rather than of the permissions themselves.
+
+**Revoking Send As does not take effect when the directory says it has.** `Get-RecipientPermission` reported the permission gone while Exchange was still honoring it, and a message sent in that window arrived as an unattributable impersonation of the shared mailbox.
+
+The interval is worth stating precisely, because the step's own evidence bounds it in only one direction usefully. `Remove-RecipientPermission` ran at an unlogged moment between 6:25 PM and 6:39 PM, so the honored send at 6:39 PM came at most fourteen minutes after the revocation and possibly a great deal less. Fourteen minutes is therefore a ceiling on what was observed rather than a floor, and this step cannot say how long the gap actually ran. What it can say at the other end is that the permission had stopped being honored by the 7:31 PM retest, at most sixty-six minutes after the earliest moment the revocation could have run.
+
+One further observation narrows it without settling it. The 6:50 PM send, composed from the delegate's own mailbox, carried a `Sender:` line, which would mean Send As was no longer being honored by then if Send As takes precedence over Send on Behalf when a delegate holds both. That precedence is not stated in any Microsoft source consulted for this lab, so it is recorded as the likely reading rather than used to tighten the bound, and sixty-six minutes stands as the figure this step can defend.
+
+Both of this step's timing observations sit against a figure Microsoft publishes: once mailbox permissions are set, the admin center documentation states it can take up to 60 minutes for the changes to propagate and take effect. The 24-minute ceiling on Full Access reaching Outlook on the web falls comfortably inside that, and the 66-minute outer bound on the Send As revocation falls just past it. Nothing this tenant did was anomalous, and the finding is not that Exchange takes time to apply a permission change, which is documented and expected.
+
+**The finding is that a revocation inside that documented window fails open while a grant inside it fails closed.** They are the same propagation behavior with the consequence inverted. A grant that has not landed yet produces a visible, safe failure: the delegate is told they do not have permission to send, which is what the 6:07 PM and 6:18 PM attempts recorded while Send As was in flight. (The earlier 5:49 PM block is not an instance of this. `testuser01` held Full Access and nothing else at that point, so that denial was correct and permanent rather than a grant still propagating, and it belongs to the Full Access finding above.) A revocation that has not landed yet produces no failure at all. The delegate keeps sending, the messages keep arriving as the shared mailbox with no attribution, and the administrator has `Get-RecipientPermission` returning empty as evidence the access is gone. Neither the cmdlet nor the admin center offers any signal that the tenant is inside the window, and the window is the normal case rather than a fault. It is recorded in Security Considerations below.
+
+**Disposition.** `Facilities` persists through the rest of this lab in its current permission state, Full Access and Send on Behalf on `testuser01`, Send As removed, and is removed at Step Nine alongside `Help-Desk` and `IT-Support`, on the same reasoning: it exists to demonstrate a workflow rather than to serve as lasting infrastructure. It is a different object from the shared mailbox Step Eight produces by converting an existing user mailbox, a distinction Step Nine's reconciliation keeps separate rather than conflating the two.
 
 ### Step Five: Build a mail flow rule, send mail through the objects built, and trace it
 
@@ -1259,6 +1494,7 @@ Three commands failed on the first attempt during Step One, none of them a findi
 ## Security Considerations
 
 - **A shared mailbox has an associated user account, and whether it can sign in is not something to take on faith.** Microsoft's documentation gives three incompatible answers about the default, which is reason enough to read it from the tenant. Whatever the default turns out to be, the account exists and holds a system-generated password, so an administrator who resets that password has created a credentialed identity that nobody is monitoring and that no person is accountable for. Microsoft's own guidance is to block sign-in and keep it blocked.
+- **Revoking Send As does not take effect when the directory says it has.** Step Four removed Send As from a delegate, confirmed the removal through `Get-RecipientPermission`, and then watched Exchange honor the permission anyway on a message sent within fourteen minutes of the revocation, which arrived as an unattributable impersonation of the shared mailbox with no `Sender:` header naming the person who sent it. The permission had stopped being honored by a retest taken at most sixty-six minutes after the revocation, so the gap sits somewhere inside that bound and the step does not claim a figure for it. Microsoft documents up to 60 minutes for a mailbox permission change to propagate and take effect, so this is the normal case rather than a fault, which is what makes it worth writing down. Within that window a grant fails closed, telling the delegate they lack permission, while a revocation fails open, and `Get-RecipientPermission` returns empty either way with no signal that the window is still running. This matters at exactly the moment it is least convenient: an administrator revoking a departing employee's Send As permission and verifying it in PowerShell holds evidence that is true of the directory and not yet true of the mail service, and anything sent in that window is indistinguishable from mail sent by the mailbox itself. Blocking the account's sign-in, or removing the mailbox from the client, does not close the gap either, since the permission is what authorizes the send. Where revocation is urgent, the interval has to be assumed rather than trusted.
 - **Send As is an impersonation grant.** A user holding it sends messages that arrive with no indication a person other than the mailbox sent them, which is exactly what makes it useful for a shared support address and exactly what makes it dangerous on a mailbox that carries authority. The distinction from Send on Behalf is a security control, not a cosmetic preference, and the lab records which one is appropriate for the mailbox it builds.
 - **Distribution lists reject external senders by default, and the risk is in what an administrator does next.** Microsoft's documented default is the safe one: new distribution groups require that all senders be authenticated, which blocks mail from outside the organization until Delivery management is changed. The exposure arrives when someone changes it, usually for a good reason such as a support alias that has to receive mail from customers, because an externally addressable distribution list is a delivery mechanism into every member's mailbox at once and nothing about the list's own page says so. This lab reads the setting as shipped rather than assuming either direction, and records what changing it would open.
 - **The entitlement carrying every mailbox in this lab expires inside the next month.** What happens to a mailbox when its license lapses is a real operational question with a data-retention answer attached, and Lab 05 inherits it. The lab records the expiry position accurately rather than leaving a successor to discover it.
@@ -1297,3 +1533,8 @@ To be completed during implementation, with each link confirmed resolving at clo
 - [Find and fix email delivery issues as a Microsoft 365 for business admin](https://learn.microsoft.com/troubleshoot/exchange/email-delivery/email-delivery-issues) - the same latency stated as ten minutes to one hour
 - [Configure OAuth authentication between Exchange and Exchange Online organizations](https://learn.microsoft.com/exchange/configure-oauth-authentication-between-exchange-and-exchange-online-organizations-exchange-2013-help) - the glossary naming `contoso.mail.onmicrosoft.com` as the hybrid routing domain, and the Microsoft Online Email Routing Address built from a user's UPN prefix and the initial domain suffix
 - [Manage accepted domains in Exchange Online](https://learn.microsoft.com/exchange/mail-flow-best-practices/manage-accepted-domains/manage-accepted-domains) - the Authoritative and Internal relay domain types, and Directory-Based Edge Blocking as what Authoritative enables
+- [Create a shared mailbox](https://learn.microsoft.com/microsoft-365/admin/email/create-a-shared-mailbox) - the statement that by default every new shared mailbox has sign-in blocked, which is the first of the three answers Design Decisions sets against each other
+- [Block sign-in for shared mailbox accounts in Microsoft 365 Lighthouse](https://learn.microsoft.com/microsoft-365/lighthouse/m365-lighthouse-block-signin-shared-mailboxes) - the third answer, a feature providing visibility into shared mailboxes across managed tenants that are enabled for direct sign-in
+- [Shared mailboxes in Exchange Online](https://learn.microsoft.com/exchange/collaboration-exo/shared-mailboxes) - the three delegation permissions and what each produces for the recipient, and that the Exchange admin center cannot grant Send on Behalf
+- [Give mailbox permissions to another Microsoft 365 user](https://learn.microsoft.com/microsoft-365/admin/add-users/give-mailbox-permissions-to-another-user) - that once permissions are set it can take up to 60 minutes for the changes to propagate and take effect
+- [Send Outlook messages from another user](https://learn.microsoft.com/graph/outlook-send-mail-from-other-user) - Send on Behalf surfacing as distinct `sender` and `from` values while Send As leaves the two identical, which is the header-level distinction Step Four captured

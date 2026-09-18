@@ -147,6 +147,20 @@ Defects and changes owed elsewhere:
 
 One question sits alongside those ten rather than among them, because the event that answers it is already scheduled. Whether Microsoft Entra ID Free permits group-based licensing at all is not something Lab 03 could observe: Microsoft's documentation states no tier prerequisite and the tenant's own assignment screens claimed none, but the tenant held P1 throughout. The Business Premium trial lapsing on 2026-10-05 is what would settle it, on the two groups this lab left licensed.
 
+### Owed at Lab 04's own close-out
+
+One item is held here rather than in Lab 04 itself, because it corrects reasoning that is already committed and the repository's convention is to leave such text standing and place a dated note beside it rather than rewrite it mid-lab.
+
+- **The shared mailbox sign-in conflict is two-way, not three-way.** Lab 04 frames Microsoft's documentation as giving three incompatible answers about whether a new shared mailbox's associated account can sign in, counting Microsoft 365 Lighthouse's feature for surfacing shared mailboxes enabled for direct sign-in as the third. That third source does not actually conflict. Lighthouse describes finding deviations from the blocked-by-default state and advises blocking sign-in and keeping it blocked, which is compatible with the creation article rather than contradicting it, since sign-in can be enabled after creation or carried in by a mailbox converted from a user mailbox. The genuine conflict is between the creation article, which states sign-in is blocked by default, and the Exchange Online limits reference, which describes the associated account as active by default. Lab 04's own Step Four resolution shows this without saying so: it settles the question in favor of the creation article over the limits reference and never mentions Lighthouse, because Lighthouse had nothing at stake. The wording is spread across [Lab 04](04-microsoft-365-administration-workflows.md) in more places than a reading turns up, so this item deliberately gives a command rather than a list. Three successive reviews of the same document counted three locations, then five, then seven, and two of the later ones had been introduced by an earlier round of fixing the same thing. Find them all before changing any:
+
+```bash
+grep -nE 'three incompatible answers|three Microsoft sources|three answers|the third answer' docs/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows.md
+```
+
+At the time this item was written that returned seven hits, in both Design Decisions that touch the question, Step Four's own prose, a Validation bullet, a Security Considerations bullet, and two Sources annotations. Re-run it rather than trusting the number, since the count has grown at every pass.
+
+The count of documentation conflicts this track has settled by testing is unaffected, because demoting Lighthouse narrows the third conflict without removing it, so the compliance decision's "fourth" still holds and should not be renumbered. Step Eight's mailbox conversion produces the evidence for why Lighthouse has legitimate work to do under a blocked-by-default rule, since a converted mailbox carries forward the user account it already had, so that step is worth reading before the correction is written.
+
 ---
 
 ## Success Criteria
