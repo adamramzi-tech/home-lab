@@ -1622,6 +1622,146 @@ If the outcome contradicts the prediction, record both and say plainly which one
 
 Then apply the result to this lab's own schedule rather than only to the record, on the three-way branch Design Decisions sets out. An Expired stage that retains access means the 2026-10-05 cliff is probably a status change, and the lab records roughly 30 days of unplanned slack without spending it. A clean removal of access at the date confirms the cliff, and anything outstanding that needs a mailbox is triaged against 2026-10-05 immediately. Anything in between keeps the conservative assumption. Record which branch the tenant put the lab on.
 
+**2026-09-21 readings.** The pre-lapse baseline for this step is partial. Only the product page and the SKU's unit breakdown were read on 2026-09-21. Adam Ramzi's mailbox already had a pre-lapse reference from Step Two.
+
+The Business Basic (no Teams) product page was read shortly before 6:40 PM Eastern (22:40 UTC) on 2026-09-21, the day before the subscription's stated 2026-09-22 lapse.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/26-business-basic-product-page-2026-09-21.jpg" alt="26-business-basic-product-page-2026-09-21" width="450">
+</p>
+
+<p align="center">
+  <em>Microsoft 365 admin center, Billing, Your products, Business Basic (no Teams), read shortly before 6:40 PM Eastern (22:40 UTC) on 2026-09-21: Active, Expiration date 9/22/2026, Recurring billing reading "Expires on September 23, 2026," 2 of 25 assigned, and Purchase channel reading Direct rather than Commercial direct.</em>
+</p>
+
+Every other field on the page read as it did in Step One's own pre-lapse reading: Subscription status Active, Expiration date 9/22/2026, Recurring billing reading "Expires on September 23, 2026," and 2 of 25 licenses assigned. All three banner notices were present and read the same as well, the expiration notice naming 9/22/2026, the trial-and-service-end notice, and the cancellation notice naming September 22, 2026. One field does not match. Purchase channel now reads Direct, where Step One's reading read Commercial direct. Nothing read here explains the change, and it is recorded as an observed difference between the two readings rather than as a rename or a reclassification of the field. Step One's own text stating Commercial direct is left standing as written, since it described the page as the page read at the time.
+
+The Business Basic SKU was read through Microsoft Graph in the same sitting, at 6:40:19 PM Eastern (22:40:19 UTC) on 2026-09-21:
+
+```powershell
+Get-MgSubscribedSku | Where-Object { $_.SkuPartNumber -like '*Business_Basic*' } |
+    Select-Object SkuPartNumber, CapabilityStatus, ConsumedUnits,
+        @{N='Enabled';E={$_.PrepaidUnits.Enabled}},
+        @{N='Warning';E={$_.PrepaidUnits.Warning}},
+        @{N='Suspended';E={$_.PrepaidUnits.Suspended}},
+        @{N='LockedOut';E={$_.PrepaidUnits.LockedOut}} | Format-List
+```
+
+```text
+SkuPartNumber    : Microsoft_365_Business_Basic_(no Teams)
+CapabilityStatus : Enabled
+ConsumedUnits    : 1
+Enabled          : 25
+Warning          : 0
+Suspended        : 0
+LockedOut        : 0
+```
+
+`CapabilityStatus` reads Enabled, `ConsumedUnits` reads 1, and the full 25-seat `Enabled` unit count carries no `Warning`, `Suspended`, or `LockedOut` units. This is the baseline the 2026-09-22 and 2026-09-23 readings are compared against.
+
+Adam Ramzi's license state, his mailbox object and statistics, `Finance`'s group-level assignment, and the admin center's assigned count against `Get-MgSubscribedSku`'s consumed units were not read on 2026-09-21. For the mailbox, the pre-lapse reference already exists: Step Two recorded 36 items, 7.536 MB, 0 B deleted, and a blank `LastLogonTime`, read 2026-09-16.
+
+**2026-09-22 readings.**
+
+The Business Basic (no Teams) product page was read first, before anything else that day, at 10:09 AM Eastern (14:09 UTC), a time taken from the screenshot's own save time.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/27-business-basic-product-page-2026-09-22.jpg" alt="27-business-basic-product-page-2026-09-22" width="450">
+</p>
+
+<p align="center">
+  <em>Microsoft 365 admin center, Billing, Your products, Business Basic (no Teams), read at 10:09 AM Eastern (14:09 UTC) on 2026-09-22: Active, Expiration date 9/22/2026, Recurring billing reading "Expires on September 23, 2026," 2 of 25 assigned, Purchase channel reading Direct, and the top banner reading "Your Microsoft 365 Business Basic (no Teams) expires today" with a red warning icon.</em>
+</p>
+
+Subscription status still reads Active, with the same green check mark the pre-lapse readings carried; the subscription has not disappeared from the portal and has not changed to an Expired or Disabled state. Expiration date still reads 9/22/2026, Recurring billing still reads "Expires on September 23, 2026," Licenses assigned still reads 2 of 25, and Purchase channel still reads Direct, unchanged from the 2026-09-21 reading. One thing did change. The top banner's icon and wording changed: the pre-lapse banner read "Your Microsoft 365 Business Basic (no Teams) expires on 9/22/2026," with a blue informational icon, and this reading's banner reads "Your Microsoft 365 Business Basic (no Teams) expires today," quoted verbatim from the portal, with a red warning icon in place of the blue one. The other two banners are unchanged in wording and icon.
+
+This reading is recorded as unresolved rather than as evidence the subscription survived the date. It was taken at 10:09 AM Eastern, early on the day the lapse is stated to occur, and nothing on the page says at what time of day the lapse is processed. A field unchanged this early says only that nothing had changed by 10:09 AM Eastern, not that nothing will change before the day ends.
+
+The Business Premium product page's Purchase channel field was checked in the same sitting, without a screenshot, since only the one field was needed. It reads Direct, the same value the Business Basic page now shows and the same field Lab 03 recorded as Commercial direct. Both subscriptions' Purchase channel fields now read Direct rather than Commercial direct, which is more consistent with a portal-wide label change than with anything specific to the Business Basic subscription's lapse, though the cause remains unestablished and this reading alone does not settle it.
+
+The subscription's unit breakdown, Adam Ramzi's license state, and his mailbox were read through Microsoft Graph and Exchange Online PowerShell at 12:24 PM Eastern (16:24 UTC) on 2026-09-22, from WIN11-CLIENT01:
+
+```powershell
+Get-MgSubscribedSku | Where-Object { $_.SkuPartNumber -like '*Business_Basic*' } |
+    Select-Object SkuPartNumber, CapabilityStatus, ConsumedUnits,
+        @{N='Enabled';E={$_.PrepaidUnits.Enabled}},
+        @{N='Warning';E={$_.PrepaidUnits.Warning}},
+        @{N='Suspended';E={$_.PrepaidUnits.Suspended}},
+        @{N='LockedOut';E={$_.PrepaidUnits.LockedOut}} | Format-List
+```
+
+```text
+SkuPartNumber    : Microsoft_365_Business_Basic_(no Teams)
+CapabilityStatus : Enabled
+ConsumedUnits    : 1
+Enabled          : 25
+Warning          : 0
+Suspended        : 0
+LockedOut        : 0
+```
+
+Identical to the 2026-09-21 reading in every field. `CapabilityStatus` still reads Enabled, `ConsumedUnits` is still 1, and the unit breakdown carries no `Warning`, `Suspended`, or `LockedOut` seats.
+
+```powershell
+Get-MgUserLicenseDetail -UserId Adam@brindeck.onmicrosoft.com | Select-Object SkuPartNumber | Format-List
+```
+
+```text
+SkuPartNumber : Microsoft_365_Business_Basic_(no Teams)
+```
+
+Adam Ramzi's direct assignment still holds.
+
+```powershell
+Get-EXOMailbox -Identity Adam@brindeck.onmicrosoft.com -Properties RecipientTypeDetails,ProhibitSendReceiveQuota,WhenSoftDeleted | Format-List DisplayName,RecipientTypeDetails,ProhibitSendReceiveQuota,WhenSoftDeleted
+```
+
+```text
+DisplayName              : Adam Ramzi
+RecipientTypeDetails     : UserMailbox
+ProhibitSendReceiveQuota : 100 GB (107,374,182,400 bytes)
+WhenSoftDeleted          :
+```
+
+```powershell
+Get-EXOMailboxStatistics -Identity Adam@brindeck.onmicrosoft.com | Format-List DisplayName,ItemCount,TotalItemSize,TotalDeletedItemSize,LastLogonTime
+```
+
+```text
+DisplayName          : Adam Ramzi
+ItemCount            : 36
+TotalItemSize        : 7.536 MB (7,901,842 bytes)
+TotalDeletedItemSize : 0 B (0 bytes)
+```
+
+The mailbox is still a `UserMailbox`, `WhenSoftDeleted` is still blank, and it is not in Exchange's own retention. `ItemCount` is unchanged at 36 against Step Two's baseline. `TotalItemSize` displays the same 7.536 MB Step Two recorded, but the exact byte count moved, 7,901,842 bytes against Step Two's 7,901,637 bytes, a difference of 205 bytes. Nothing in this lab put content in this mailbox between the two readings, and the unchanged item count agrees, so the increase is recorded as an unexplained small drift rather than attributed to anything. `LastLogonTime` did not print as a line at all in this reading's output, where Step Two's identical command printed it as a blank line (`LastLogonTime        :` with no value). The two commands were not identical, and the difference explains the output. Step Two piped through `Select-Object` before `Format-List`, and `Select-Object` creates every property it is asked for, printing one the input object does not carry as an empty value. This reading passed the property list to `Format-List` directly, which skips a property the object does not carry. Microsoft's property set reference for the Exchange Online PowerShell module lists `LastLogonTime` in `Get-EXOMailboxStatistics`'s All property set and not in the Minimum set a call without `-Properties` or `-PropertySets` returns. Neither command requested it, so neither reading retrieved `LastLogonTime` at all, and Step Two's blank value recorded the property's absence from the output rather than a mailbox that had never been signed in to. Step Two's text is left standing as written; the 2026-09-23 reading requests the property explicitly.
+
+`Finance`'s group-level assignment was checked on both surfaces in the same sitting, shortly after the 12:24 PM Eastern PowerShell reading.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/28-finance-entra-admin-center-licenses-blade.jpg" alt="28-finance-entra-admin-center-licenses-blade" width="700">
+</p>
+
+<p align="center">
+  <em>Microsoft Entra admin center, Groups, Finance, Licenses blade, read 2026-09-22: "No license assignments found."</em>
+</p>
+
+The Entra admin center's own Licenses blade for `Finance` reads "No license assignments found," the identical text Lab 03 recorded for this same blade before the lapse. That is not new information; it is the same directory-surface gap Lab 03's Part A already established, reproduced here on the same group rather than resolved by anything about the date.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/29-business-basic-licenses-tab-assignment-targets.jpg" alt="29-business-basic-licenses-tab-assignment-targets" width="700">
+</p>
+
+<p align="center">
+  <em>Microsoft 365 admin center, Business Basic (no Teams), Licenses tab, read 2026-09-22: 2/25 assigned, three rows, the subscription itself at 2 assigned licenses, Finance typed Group, and Adam Ramzi typed User.</em>
+</p>
+
+The Business Basic product's own Licenses tab tells a different story, the one Lab 03's Part A established as the reliable surface for this relationship. It lists three rows: the subscription itself, reading 2 assigned licenses; `Finance`, typed Group; and Adam Ramzi, typed User. `Finance` still appears as an assignment target on this surface, exactly as it did before the lapse, even though the Entra admin center's own blade for the same group shows nothing. The assignment record has not disappeared; it has only ever been visible on the commerce-facing surface rather than the directory-facing one, and that split predates this lapse by a full lab.
+
+**2026-09-22 close.** The target-versus-seat distinction Lab 03's Part C established still reconciles the same way on 2026-09-22. The Business Basic product page and Licenses tab both read 2 assigned licenses; `Get-MgSubscribedSku` reads 1 `ConsumedUnits`. The two assignment targets are `Finance` (Group, empty, contributing zero of its own consumed seats, exactly as Part C found) and Adam Ramzi (User, the tenant's one live seat). Two targets, one seat, the same one-target gap Part C described, reproduced here on Business Basic rather than Business Premium and on the day of the lapse rather than before it.
+
+Nothing read on 2026-09-22 moved from where the 2026-09-21 baseline left it. Subscription status is Active, `CapabilityStatus` is Enabled, `ConsumedUnits` is 1, `Finance`'s assignment persists on the commerce-facing surface, and Adam Ramzi's mailbox is intact. The one new thing this reading set produced is the banner's shift from a blue notice naming the date to a red warning naming the day as the day itself, which is consistent with the portal's own framing of the lapse rather than with any change in access. Per the caution recorded above, this remains an early reading rather than a settled result: the 2026-09-23 reading set is what actually tests the prediction.
+
 ### Step Seven: Establish the tenant's mailbox compliance surface and build what it supports
 
 Decided by evidence rather than by citation, on the enumeration Step One produced. Two Microsoft documents disagree about whether this subscription carries archiving and hold, and this step acts on what the SKU actually holds.
@@ -1736,3 +1876,4 @@ To be completed during implementation, with each link confirmed resolving at clo
 - [Shared mailboxes in Exchange Online](https://learn.microsoft.com/exchange/collaboration-exo/shared-mailboxes) - the three delegation permissions and what each produces for the recipient, and that the Exchange admin center cannot grant Send on Behalf
 - [Give mailbox permissions to another Microsoft 365 user](https://learn.microsoft.com/microsoft-365/admin/add-users/give-mailbox-permissions-to-another-user) - that once permissions are set it can take up to 60 minutes for the changes to propagate and take effect
 - [Send Outlook messages from another user](https://learn.microsoft.com/graph/outlook-send-mail-from-other-user) - Send on Behalf surfacing as distinct `sender` and `from` values while Send As leaves the two identical, which is the header-level distinction Step Four captured
+- [Property sets in Exchange Online PowerShell module cmdlets](https://learn.microsoft.com/powershell/exchange/cmdlet-property-sets) - `LastLogonTime` in `Get-EXOMailboxStatistics`'s All property set and absent from the Minimum set returned by default, read during Step Six.
