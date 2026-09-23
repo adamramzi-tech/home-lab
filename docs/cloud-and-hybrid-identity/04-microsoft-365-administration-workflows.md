@@ -219,9 +219,9 @@ Step Six is pinned rather than sequenced. It is read when 2026-09-22 arrives, fr
 
 ### Step One: Recorded the pre-lab mail baseline and established the administrative path
 
-The tenant's mail state was read before anything was touched, on the discipline Lab 03's Step Ten established after finding the live tenant had quietly diverged from what its own document claimed.
+The tenant's mail state was read before anything was touched.
 
-The Exchange admin center's Recipients, Mailboxes view listed seven recipients, all UserMailbox: Adam Ramzi (`Adam@brindeck.onmicrosoft.com`), Alex Kim (`akim@brindeck.onmicrosoft.com`), Cloud Administrator (`admin@brindeck.com`), the Cloud-Only Demo Account (`cloudonly-demo01@brindeck.com`), Jane Doe (`jdoe@brindeck.com`), John Smith (`jsmith@brindeck.onmicrosoft.com`), and testuser01 (`testuser01@brindeck.com`). The Entra admin center's Users blade still held all ten. The three without a mailbox, Emergency Access Account, Mary Johnson, and Test Sync, are exactly the three that never appear among Lab 03's licensed assignment targets on either SKU, so the gap tracks the licensing record rather than looking like drift.
+The Exchange admin center's Recipients, Mailboxes view listed seven recipients, all UserMailbox: Adam Ramzi (`Adam@brindeck.onmicrosoft.com`), Alex Kim (`akim@brindeck.onmicrosoft.com`), Cloud Administrator (`admin@brindeck.com`), the Cloud-Only Demo Account (`cloudonly-demo01@brindeck.com`), Jane Doe (`jdoe@brindeck.com`), John Smith (`jsmith@brindeck.onmicrosoft.com`), and testuser01 (`testuser01@brindeck.com`). The Entra admin center held all ten users. The three without a mailbox, Emergency Access Account, Mary Johnson, and Test Sync, are the three that never appear among Lab 03's licensed assignment targets, so the gap tracks licensing rather than drift.
 
 <p align="center">
   <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/01-exchange-admin-center-mailboxes-pre-lab.jpg" alt="01-exchange-admin-center-mailboxes-pre-lab" width="700">
@@ -231,17 +231,15 @@ The Exchange admin center's Recipients, Mailboxes view listed seven recipients, 
   <em>Exchange admin center, Recipients, Mailboxes: seven UserMailbox recipients, none archived.</em>
 </p>
 
-One thing in the baseline does not resolve cleanly and is recorded as a finding rather than forced into an explanation. Two of the seven mailboxes carry a primary address that does not match their user principal name: Alex Kim's and John Smith's sit on `akim@brindeck.onmicrosoft.com` and `jsmith@brindeck.onmicrosoft.com` despite both holding `@brindeck.com` UPNs. Four sit on `@brindeck.com` matching theirs, those of Jane Doe, Cloud Administrator, the Cloud-Only Demo Account, and testuser01. The seventh, Adam Ramzi, sits on the initial domain as the tenant's original signup account from Lab 01, so its address is evidence of nothing here and is set aside rather than counted either way.
+Two of the seven carry a primary address that does not match their user principal name. Alex Kim and John Smith sit on `@brindeck.onmicrosoft.com` despite `@brindeck.com` UPNs, while Jane Doe, Cloud Administrator, the Cloud-Only Demo Account, and testuser01 sit on `@brindeck.com`. Adam Ramzi, the original signup account, sits on the initial domain by construction and is set aside. `brindeck.com` is the default accepted domain (`Get-AcceptedDomain` returned `Default: True` for it alone), and synchronization source does not explain the split either, since Jane Doe and testuser01 are both synchronized and both on `brindeck.com`. Step Two reads the full `EmailAddresses` stamp.
 
-`brindeck.com` reads as the tenant's default accepted domain (`Get-AcceptedDomain` returned `Default: True` for `brindeck.com` alone, matching the Microsoft 365 admin center's own "(default domain)" label), so the default-domain reading does not explain the two. Neither does synchronization source, which is the obvious next guess and is wrong here: Jane Doe and testuser01 are both synchronized from Windows Server AD, on Lab 03's own source breakdown, and both sit on `brindeck.com`. What this baseline did not read is the full `EmailAddresses` stamp on each mailbox, which is where an answer would be if a primary address was set before `brindeck.com` was verified on 2026-08-23 and never reapplied afterward. Step Two reads it. It is left open until then rather than resolved here.
+Recipients, Groups showed only the two Microsoft 365 groups Lab 03 left, All Company and Company Announcements, with no distribution lists, dynamic distribution lists, or mail-enabled security groups. Mail flow, Accepted domains listed three, all Authoritative: `brindeck.onmicrosoft.com`, `brindeck.com` (default), and `brindeck.mail.onmicrosoft.com`, which Microsoft's glossary names the hybrid routing domain for mail between on-premises Exchange and Exchange Online. This environment has no on-premises Exchange, so the domain is present but unused.
 
-Recipients, Groups showed exactly the two Microsoft 365 groups Lab 03 left, All Company and Company Announcements, with the tenant's Distribution list, Dynamic distribution list, and Mail-enabled security tabs all empty, confirming the boundary Lab 03 handed forward rather than assuming it held. Mail flow, Accepted domains listed three domains, all Authoritative and all Allow Sending: `brindeck.onmicrosoft.com`, `brindeck.com` (the default), and `brindeck.mail.onmicrosoft.com`, which no prior lab in this track added. Microsoft's own glossary names that form the tenant's hybrid routing domain, used to route mail between an on-premises Exchange organization and Exchange Online. This environment has no on-premises Exchange, so the domain is present without being in use. Whether the service provisions it for every tenant or something in this one produced it is not established here.
+`ExchangeOnlineManagement` 3.10.1 was installed on WIN11-CLIENT01 (`Install-Module ExchangeOnlineManagement -Scope CurrentUser -Force -AllowClobber`, the `-AllowClobber` explained in Troubleshooting and Adjustments) and connected with `Connect-ExchangeOnline -UserPrincipalName admin@brindeck.com`. `Get-ConnectionInformation` confirmed `State: Connected` against tenant `dc2a02ec-636d-4df3-9af2-2908706aed4b`.
 
-`ExchangeOnlineManagement` 3.10.1 was installed on WIN11-CLIENT01 (`Install-Module ExchangeOnlineManagement -Scope CurrentUser -Force -AllowClobber`; the plain `-Force` install failed on a PackageManagement/PowerShellGet version clobber, a Windows PowerShell 5.1 packaging issue rather than a real blocker, recorded in Troubleshooting and Adjustments) and connected with `Connect-ExchangeOnline -UserPrincipalName admin@brindeck.com`, an interactive, REST-backed V3 connection that needs no WinRM Basic Auth. `Get-ConnectionInformation` confirmed `State: Connected`, `TenantId dc2a02ec-636d-4df3-9af2-2908706aed4b`, token valid to 9/16/2026. No script is written or committed in this lab, so the ADR-017 analysis and testing standard is not engaged, per Prerequisites.
+The lab's Exchange work runs under the existing Global Administrator account rather than a new Exchange Administrator assignment. Message trace requires Exchange Administrator or Organization Management, which Global Administrator satisfies. Privileged Identity Management is unavailable at P1, so a new role here would be a standing grant, added to a tenant that already carries three Global Administrators pending Lab 05's privileged role review.
 
-The Prerequisites table's administrative-path decision was taken in the same sitting: this lab's message trace and read-only Exchange work runs under the existing Global Administrator account rather than a dedicated Exchange Administrator assignment. Message trace requires Exchange Administrator or Organization Management, and Global Administrator satisfies it automatically. Lab 03 established least-privilege role assignment as the correct pattern in general, but Privileged Identity Management remains unavailable at P1, so any role assigned here would be a standing grant with no eligible or time-bound mechanism to remove it afterward, on a tenant that already carries three Global Administrators pending the privileged-role review Lab 01 opened and Lab 05 owns. Adding a fourth standing assignment now, to satisfy one lab's read-only diagnostic need, works against that pending review rather than for least privilege, so the existing account was used instead and the reasoning is recorded here rather than left implicit.
-
-The message trace instrument was established before anything else depended on it, per Design Decisions. One throwaway message was sent from `testuser01@brindeck.com` to `jdoe@brindeck.com` through Outlook on the web at 2:49 PM Eastern on 9/15/2026, subject "Lab 04 Step One - message trace test." It was already present in the Exchange admin center's Message trace when that view was checked, Status `Delivered`, and `Get-MessageTraceV2` returned the identical record:
+The message trace instrument was established before anything depended on it. A test message was sent from `testuser01@brindeck.com` to `jdoe@brindeck.com` through Outlook on the web at 2:49 PM Eastern on 9/15/2026, subject "Lab 04 Step One - message trace test." It was already in the Exchange admin center's Message trace when checked, Status `Delivered`, and `Get-MessageTraceV2` returned the same record:
 
 ```powershell
 Get-MessageTraceV2 -SenderAddress testuser01@brindeck.com -RecipientAddress jdoe@brindeck.com -StartDate (Get-Date).AddHours(-2) -EndDate (Get-Date) | Format-List
@@ -260,37 +258,26 @@ Status            : Delivered
 Size              : 36070
 ```
 
-`To IP` returns empty. The message never left the service: both mailboxes are in this tenant, so Exchange Online routed it internally and there is no destination host outside the service to name. That is the same reason Step One's mail-flow DNS finding does not block Steps Two through Five.
+`Received` prints in UTC: 6:49:18 PM matches the 2:49 PM Eastern send. `To IP` is empty because both mailboxes are in this tenant and the message never left the service. `From IP` is the public address of the lab's own network and is redacted under this track's identifier policy. Microsoft gives three different figures for how long a message takes to become queryable in trace (five to ten minutes, five to thirty, ten to sixty). The interval here was not timed, so this establishes only that the record was queryable by the time it was checked; Step Five times it.
 
-The received timestamp, 6:49:18 PM UTC, matches the 2:49 PM Eastern send time to the minute. That measures delivery, which is not the quantity the three conflicting Microsoft figures describe. Those figures, five to ten minutes, five to thirty minutes, and ten minutes to an hour, are about how long a message takes to become queryable in trace data, and the evidence for that here is weaker than the delivery timestamp is: the record was already present when the view was first checked, and the interval between sending and checking was not timed. What this establishes is a ceiling comfortably under the lowest of the three figures rather than a measured reading to set against them, and it is recorded that way rather than as a latency figure this tenant has confirmed. Step Five traces several more messages and can time the interval properly. The administrative path chosen above authorized both reads without incident.
-
-The originating client address that `Get-MessageTraceV2` returns in the `From IP` field is redacted above under this track's identifier policy. It is the public address of the connection the message was sent from, which is a fact about the lab's own network rather than about the tenant, and it is the one identifier a message trace prints that maps to a physical location.
-
-Mail-flow DNS for `brindeck.com` was established next, since the Prerequisites table flags it as the one item that could stop a step on the day. `Get-AcceptedDomain` (above) confirmed `brindeck.com` as the tenant's default domain. From WIN11-CLIENT01, against a public resolver rather than either administrative console, on the Lab 01 Step Four pattern:
+Mail-flow DNS for `brindeck.com` was checked from WIN11-CLIENT01 against a public resolver:
 
 ```powershell
 Resolve-DnsName -Name brindeck.com -Type MX -Server 1.1.1.1
 ```
 
-returned no MX record at all, only an SOA record in the Authority section, which is how a public resolver signals that no record of the requested type exists for the zone. The same query for TXT returned only Lab 01's original domain-verification string, `MS=ms19821357`; no SPF record accompanies it. Neither an MX nor an SPF record has been published for `brindeck.com` at any point in this track, exactly as the Prerequisites table anticipated. On DC01:
+It returned no MX record, only an SOA in the Authority section. The TXT query returned only Lab 01's verification string, `MS=ms19821357`, with no SPF record. On DC01, `Get-DnsServerZone` returned no `brindeck` zone and `Get-DnsServerForwarder` listed only public resolvers, so DC01 does not shadow the domain.
 
-```powershell
-Get-DnsServerZone -ComputerName DC01 | Where-Object ZoneName -like '*brindeck*'
-Get-DnsServerForwarder -ComputerName DC01
-```
+The lab confined its mail flow work to internal recipients rather than publishing MX and SPF. `brindeck.com` is a real registered domain, and an MX record would make it a live internet mail destination indefinitely. Nothing in the lab's objectives needs external mail. The external-sender tests against the new distribution list's authenticated-senders default are recorded as documented behavior rather than exercised.
 
-returned no zone matching `brindeck` at all, and a forwarder list of `1.1.1.1`, `8.8.8.8`, and one IPv6 resolver, none of it a conditional forwarder scoped to `brindeck.com`. DC01 neither hosts nor shadows the domain, confirmed rather than assumed, and its own general forwarders are public resolvers, so there is no shadowing risk in either direction.
-
-With MX and SPF both absent, this lab takes the Prerequisites fork by confining its mail flow work to internal recipients rather than publishing either record in Cloudflare. `brindeck.com` is a real, registered domain rather than a disposable lab fixture, and publishing an MX record would make it a live internet mail destination reachable by anyone, indefinitely, which is an exposure decision rather than a configuration step. Nothing this lab's objectives require depends on it: Step Five's mail flow rule and its `Expanded` and blocked-message delivery statuses both work entirely on internal mail by the plan's own design. Only a bonus external-sender test against the new distribution list's default authenticated-senders-only restriction, and the external-sender premise in Security Considerations, go unexercised as a result, and both are recorded as documented behavior rather than something tested live.
-
-The Business Premium SKU's service plans were enumerated in full, all 62 that Lab 03's Step Four counted and did not list:
+The Business Premium SKU's service plans were enumerated in full, all 62 that Lab 03 counted without listing:
 
 ```powershell
 Connect-MgGraph -Scopes "Organization.Read.All"
 (Get-MgSubscribedSku | Where-Object SkuPartNumber -eq "SPB").ServicePlans | Sort-Object ServicePlanName | Format-Table ServicePlanName, ProvisioningStatus -AutoSize
 ```
 
-(`Connect-MgGraph` was required first, since Microsoft Graph cmdlets authenticate per session.) All 62 read `Success` except `INTUNE_O365` at `PendingActivation`, matching Lab 03's count and its one exception exactly, no drift. The names are recorded here rather than counted, which is the whole point of the read:
+All 62 read `Success` except `INTUNE_O365` at `PendingActivation`, matching Lab 03:
 
 ```text
 ServicePlanName                            ProvisioningStatus
@@ -359,25 +346,16 @@ WINDOWSUPDATEFORBUSINESS_DEPLOYMENTSERVICE Success
 YAMMER_ENTERPRISE                          Success
 ```
 
-Among the 62 is `EXCHANGE_S_ARCHIVE_ADDON`, alongside `EXCHANGE_S_FOUNDATION`, `EXCHANGE_S_STANDARD`, and `EXCHANGE_STORAGE_50GB`. That settles the contradiction Design Decisions raised between Microsoft's litigation hold article and its Exchange Online Archiving service description, and it settles it more directly than either document states: the archiving add-on's own service plan is bundled into the SPB SKU itself, provisioned and successful, not merely implied by a tier exemption. Step Seven has a real capability to build against on this evidence, not a boundary to declare.
+`EXCHANGE_S_ARCHIVE_ADDON` is on the SKU, provisioned and successful, alongside `EXCHANGE_S_STANDARD`. That settles the contradiction Design Decisions raised between Microsoft's litigation hold article and its Exchange Online Archiving service description in favor of the service description, so Step Seven has a capability to build rather than a boundary to declare.
 
-**The three unreconciled service counts, settled.** Lab 03 read three different figures off this one SKU and reconciled none of them: 62 service plans through Microsoft Graph, 60 apps in the Microsoft 365 admin center, and "53 of 53 enabled services" on the Entra admin center's Licenses blade. It recorded all three and passed the question forward. Having the 62 names in hand makes the comparison a diff rather than a hypothesis, so `testuser01`'s Licenses and apps tab was expanded and every entry read against them.
+**The three unreconciled service counts, settled.** Lab 03 read three figures off this SKU and reconciled none: 62 service plans in Microsoft Graph, 60 apps in the Microsoft 365 admin center, and "53 of 53 enabled services" on the Entra Licenses blade. `testuser01`'s Licenses and apps tab was read against the 62 names:
 
-The admin center reads 61 rather than Lab 03's 60, on the same account's tab that Lab 03 read. The service plan count did not move with it: 62 then, 62 now. Nothing arrived on the SKU, so whatever changed is in what the admin center surfaces rather than in what the subscription contains. Three explanations fit and none can be tested, because Lab 03 recorded its 60 as a number and not as a list. Two plans may have gone unsurfaced then where one does now. One plan may have been substituted for another, leaving the total intact. Or Lab 03's reading, taken immediately after the license was saved, may have caught the panel before it had finished populating. The movement is recorded as unexplained rather than attributed to any of the three.
+- **62 to 61.** The admin center now shows 61 apps, not Lab 03's 60, with the service plan count unchanged. Lab 03 recorded its 60 as a number rather than a list, so the change cannot be traced. The 61 map onto the 62 with exactly one plan left over, `EXCHANGE_S_FOUNDATION`, probably because it is the base Exchange entitlement rather than something an administrator toggles.
+- **61 to 53.** Eight of the 61 are greyed out as assigned at the organization level, not per user: DO NOT USE - Microsoft MyAnalytics (Full), Insights by MyAnalytics Backend, Microsoft 365 Lighthouse (Plan 1), Microsoft 365 Lighthouse (Plan 2), Microsoft Defender for Office 365 (Plan 1), Microsoft Search, Mobile Device Management for Office 365, and Nucleus. Sixty-one less eight is 53.
 
-Mapping the 61 friendly names onto the 62 service plan names accounts for every app, leaving exactly one service plan with no counterpart in the Apps list: `EXCHANGE_S_FOUNDATION`. That it is the one plan with no app entry is what was observed. The likely reason is that it is the underlying Exchange entitlement every Exchange-bearing SKU carries rather than a capability an administrator grants or revokes, which would leave the admin center nothing to offer, but this read does not establish that and it is offered as the probable explanation rather than the finding. The Apps list is the service plan list minus that one entry. Two pairs are close enough in name that which friendly label belongs to which plan cannot be settled by eye, the two MyAnalytics plans and the two Common Data Service plans, but both members of each pair appear on both lists, so the pairing does not affect the count.
+So each figure answers a different question: 62 is everything on the SKU, 61 is what the admin center shows as an app, and 53 is what can be toggled per user. Lab 03's two guesses at the gap (`INTUNE_O365` and `AAD_PREMIUM`) are both disproved, since both appear in the app list. The Entra blade was not reread here; Step Nine rereads it, and the model predicts 53.
 
-The third figure follows from the same reading. Eight of the 61 are greyed and unchecked, each carrying the note that it is assigned at the organization level and cannot be assigned per user. Named as the admin center labels them, rather than by the service plan names behind them, they are DO NOT USE - Microsoft MyAnalytics (Full), Insights by MyAnalytics Backend, Microsoft 365 Lighthouse (Plan 1), Microsoft 365 Lighthouse (Plan 2), Microsoft Defender for Office 365 (Plan 1), Microsoft Search, Mobile Device Management for Office 365, and Nucleus. Sixty-one less those eight is 53, which is what the Entra blade counts. Each figure is therefore a different and correct answer to a different question: 62 is everything on the SKU, 61 is what the admin center presents as an app, and 53 is what can actually be toggled for one user.
-
-One detail sits alongside that without explaining it. `INTUNE_O365`, the single plan on the SKU not reading `Success`, is also one of the eight the admin center will not let an administrator assign per user, appearing there as Mobile Device Management for Office 365. Whether `PendingActivation` and organization-level assignment are related is not established by anything read here, and the coincidence is recorded rather than resolved.
-
-Two of Lab 03's own guesses at the gap are disproved by the same read. It suggested that `INTUNE_O365` at `PendingActivation` plausibly accounted for one of the missing two and that `AAD_PREMIUM` being a licensing feature rather than a user-facing app accounted for the other. Both appear in the list, as Mobile Device Management for Office 365 and Microsoft Entra ID P1 respectively, so neither is the explanation.
-
-One piece is a prediction rather than a reading and is marked as such. The Entra admin center's Licenses blade was not re-read in this step, and Lab 03 read its 53 on Alex Kim's blade rather than this account's, though both hold the same SKU by direct assignment. The prediction rests on this step's own reading rather than on Lab 03's: 61 apps less the eight the admin center will not assign per user is 53, so the blade should still read 53. Lab 03's own pair implies seven organization-level entries then against eight now, which is a second figure that moved in the same unexplained direction as the first and is recorded beside it rather than used to justify anything. Step Nine reads that blade again and either confirms the model or breaks it.
-
-The count movement carries a lesson worth more than the reconciliation. Lab 03 recorded "60 apps" as a number and not as a list, so which app arrived since cannot now be determined from anything in this repository. A figure recorded without the names behind it cannot be diffed later, which is why the 62 are written out above rather than counted.
-
-The Business Basic (no Teams) subscription was read in full before its 2026-09-22 lapse. Subscription status Active, Expiration date 9/22/2026, 2 of 25 licenses assigned, unchanged from Lab 03's own close (Finance, empty, and Adam Ramzi as the two assignment targets, one seat actually consumed). Its Recurring billing field, however, reads "Expires on September 23, 2026," a full day later than the page's own stated Expiration date. That is the identical one-day discrepancy Lab 03 found on Business Premium (stated expiry 10/5/2026, Recurring billing reading 10/6/2026), now appearing a second time on a different subscription. Read in the same sitting, Business Premium's own figures are unchanged from Lab 03's close: 7 of 25 assigned, Expiration date 10/5/2026, Recurring billing still reading "Expires on October 6, 2026." Two independent instances of the same pattern is no longer a coincidence worth treating as one; it is recorded as a reproducible property of this portal's billing page rather than a one-off oddity Lab 03 happened to notice.
+The Business Basic (no Teams) subscription was read before its 2026-09-22 lapse: Active, Expiration date 9/22/2026, 2 of 25 assigned (`Finance`, empty, and Adam Ramzi, one seat actually consumed). Its Recurring billing field reads "Expires on September 23, 2026," a day after its own Expiration date. That is the same one-day offset Lab 03 found on Business Premium, which in the same sitting still read 7 of 25 assigned, Expiration date 10/5/2026, and Recurring billing "Expires on October 6, 2026."
 
 <p align="center">
   <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/02-business-basic-product-page-pre-lapse.jpg" alt="02-business-basic-product-page-pre-lapse" width="450">
@@ -392,7 +370,7 @@ The Business Basic (no Teams) subscription was read in full before its 2026-09-2
 </p>
 
 <p align="center">
-  <em>The same Billing, Your products view for Business Premium, read in the same sitting: 7 of 25 assigned, Expiration date 10/5/2026, Recurring billing reading "Expires on October 6, 2026," both unchanged from Lab 03's close.</em>
+  <em>The same view for Business Premium, read in the same sitting: 7 of 25 assigned, Expiration date 10/5/2026, Recurring billing reading "Expires on October 6, 2026."</em>
 </p>
 
 **The prediction for the 2026-09-22 lapse.** Per Design Decisions, it is recorded here, before the date, and is not adjusted afterward.
@@ -409,11 +387,11 @@ So the call is that **2026-09-22 removes access rather than deferring it**. Thre
 
 **The lapse is allowed to happen rather than prevented, and that is a decision.** Assigning Adam Ramzi a Business Premium license before the date would preserve the mailbox, and it would also destroy the observation Step Six exists to make, at the cost of a seat. Nothing of value is at risk: the account's mailbox holds this step's own test message and nothing else, and because Microsoft Entra roles do not require a license, the account keeps Global Administrator, keeps sign-in, and keeps the admin center through the lapse whatever happens to its mailbox. The observation is worth more than the mailbox. The prediction stands as written regardless of what Step Six finds.
 
-The two dated carry-forward items this lab owns were both read fresh rather than carried forward from Lab 03's prose. `Get-ADComputer -Identity AZUREADSSOACC -Properties PasswordLastSet,whenChanged` returned `PasswordLastSet: 8/31/2026 8:07:44 PM`, unchanged from Lab 03's own reading, fifteen days elapsed as of this reading on 2026-09-15 against the thirty-day interval Lab 03 deliberately left unrolled, exactly at that interval's midpoint and comfortably short of 2026-09-30. Entra admin center, Deleted users and Deleted groups confirmed both retained objects exactly as the track README recorded them: `nolocation-demo01` deleted 9/7/2026 4:01 PM, permanent deletion 10/7/2026 4:01 PM; `Testgroup` deleted 9/6/2026 5:08:17 PM, permanent deletion 10/6/2026 5:08:17 PM. Neither shows any drift from Lab 03's close.
+The two dated carry-forward items were read fresh. `AZUREADSSOACC`'s `PasswordLastSet` read 8/31/2026 8:07:44 PM, unchanged from Lab 03, fifteen days into the thirty-day interval that ends 2026-09-30. The Entra admin center's deleted items showed both retained objects as recorded: `nolocation-demo01`, permanent deletion 10/7/2026 4:01 PM, and `Testgroup`, permanent deletion 10/6/2026 5:08:17 PM.
 
 ### Step Two: Established which accounts received mailboxes, and what an unlicensed account has instead
 
-Exchange Online provisions a mailbox when a license carrying it is assigned, so the licensed population Lab 03 established should be the mailboxed population and the unlicensed accounts should not. This was confirmed from live state on 2026-09-16 rather than assumed from Step One's baseline, across both object types.
+Exchange Online provisions a mailbox when a license carrying it is assigned, so the licensed population should be the mailboxed population. This was checked from live state on 2026-09-16, from both sides.
 
 ```powershell
 Get-MgUser -All -Property Id,DisplayName,UserPrincipalName,OnPremisesSyncEnabled | ForEach-Object {
@@ -443,8 +421,6 @@ Test Sync                                tsync01@brindeck.com                   
 testuser01                               testuser01@brindeck.com                    True   1            SPB
 ```
 
-`Get-MgUserLicenseDetail` reads the resultant license set rather than only direct assignment, which is why John Smith shows a license here even though Lab 03 recorded his as sourced through `Company Announcements` membership rather than direct assignment; the count is correct, the source is a separate question this step does not need to reopen.
-
 ```powershell
 Get-EXOMailbox -ResultSize Unlimited | Select-Object DisplayName,PrimarySmtpAddress,RecipientTypeDetails,UserPrincipalName | Sort-Object DisplayName | Format-Table -AutoSize
 ```
@@ -462,21 +438,17 @@ John Smith                               jsmith@brindeck.onmicrosoft.com        
 testuser01                               testuser01@brindeck.com                                                                UserMailbox            testuser01@brindeck.com
 ```
 
-Both directions confirm the premise exactly. The seven accounts with a `LicenseCount` of 1 (Adam Ramzi, Alex Kim, Cloud Administrator, the Cloud-Only Demo Account, Jane Doe, John Smith, and testuser01) are exactly the seven `UserMailbox` recipients; the three with `LicenseCount` of 0 (Emergency Access Account, Mary Johnson, and Test Sync) have no recipient object at all. The `Synced` column cross-checks Lab 03's object-type split at the same time: `True` on the six synchronized accounts, blank on the four cloud-only ones, matching Lab 03's own breakdown independent of anything this step read.
-
-The mailbox list also surfaced an eighth recipient that Step One's Exchange admin center read never showed: `Discovery Search Mailbox`, a `DiscoveryMailbox` rather than a `UserMailbox`, present in every Exchange Online tenant by default and carrying the same fixed GUID, `{D919BA05-46A6-415f-80AD-7E09334BB852}`, in every tenant rather than one specific to this one. `Get-EXOMailbox -ResultSize Unlimited` returns it; the Exchange admin center's Mailboxes view apparently filters it out by default, since Step One's read of that view reported exactly seven with no mention of an eighth. That is an instrument difference worth recording rather than a contradiction: the two surfaces are not counting the same underlying population, and it is a small instance of the pattern the rest of this lab keeps testing for.
-
-A live re-read of the Exchange admin center's Mailboxes view on 2026-09-16 confirmed the same seven-item population from the console side:
+The seven accounts with a license are exactly the seven `UserMailbox` recipients, and the three without one (Emergency Access Account, Mary Johnson, Test Sync) have no recipient object at all. `Get-MgUserLicenseDetail` reads the resultant license set, which is why John Smith shows a license although Lab 03 recorded it as sourced through `Company Announcements` membership. PowerShell also returned an eighth recipient the Exchange admin center's Mailboxes view does not show: `Discovery Search Mailbox`, a `DiscoveryMailbox` present in every Exchange Online tenant with the same fixed GUID.
 
 <p align="center">
   <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/04-exchange-admin-center-mailboxes-step-two-reread.jpg" alt="04-exchange-admin-center-mailboxes-step-two-reread" width="700">
 </p>
 
 <p align="center">
-  <em>Exchange admin center, Recipients, Mailboxes, re-read for Step Two: 7 items, the same seven UserMailbox recipients Step One recorded, none of them Mary Johnson, Test Sync, or the Emergency Access Account.</em>
+  <em>Exchange admin center, Recipients, Mailboxes, reread for Step Two: the same seven UserMailbox recipients, none of them Mary Johnson, Test Sync, or the Emergency Access Account.</em>
 </p>
 
-**The unlicensed case.** Mary Johnson (`mjohnson`) was used rather than the Emergency Access Account, whose UPN is redacted throughout this track and which Lab 05 depends on, and rather than Test Sync, for no reason beyond `mjohnson` being the more legible name in output. `Get-EXORecipient` found nothing for her at all:
+**The unlicensed case.** Mary Johnson (`mjohnson`) was used, since the Emergency Access Account is redacted throughout this track and Lab 05 depends on it. `Get-EXORecipient` found nothing for her:
 
 ```powershell
 Get-EXORecipient -Identity mjohnson@brindeck.com -ErrorAction SilentlyContinue
@@ -487,7 +459,7 @@ if (-not $?) { "No recipient object found for mjohnson@brindeck.com" }
 No recipient object found for mjohnson@brindeck.com
 ```
 
-Microsoft Graph confirmed why: she is a live, enabled, synchronized directory object with no Exchange attributes of any kind, not even a stub.
+Microsoft Graph showed why: she is a live, enabled, synchronized directory object with no Exchange attributes at all, not even a stub. Only the five requested fields are quoted:
 
 ```powershell
 Get-MgUser -UserId mjohnson@brindeck.com -Property Mail,ProxyAddresses,UserPrincipalName,AccountEnabled,OnPremisesSyncEnabled | Format-List
@@ -501,9 +473,7 @@ ProxyAddresses        : {}
 UserPrincipalName     : mjohnson@brindeck.com
 ```
 
-(The command returned the full Microsoft Graph user object, with dozens of properties outside the requested five coming back blank or as type placeholders; only the five requested fields are quoted here, since the rest carried nothing this step needed.)
-
-A message was sent from `testuser01@brindeck.com` through Outlook on the web at 5:18 PM Eastern (9:18 PM UTC) on 2026-09-16, subject "Lab 04 Step Two - unlicensed account test," to `mjohnson@brindeck.com`. Per Step One's mail-flow DNS finding there is no inbound mail flow for `brindeck.com` from outside the tenant, so the send originated from an internal mailbox rather than an external one. A non-delivery report arrived in testuser01's inbox within minutes:
+A message was sent from `testuser01@brindeck.com` through Outlook on the web at 5:18 PM Eastern (21:18 UTC) on 2026-09-16, subject "Lab 04 Step Two - unlicensed account test," to `mjohnson@brindeck.com`. A non-delivery report arrived in testuser01's inbox within minutes:
 
 <p align="center">
   <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/05-mjohnson-ndr-summary.jpg" alt="05-mjohnson-ndr-summary" width="700">
@@ -521,7 +491,7 @@ A message was sent from `testuser01@brindeck.com` through Outlook on the web at 
   <em>The same NDR's More Info for Email Admins section: status code 550 5.1.10, the RESOLVER.ADR.RecipientNotFound error text, and the two-hop Message Hops table.</em>
 </p>
 
-The NDR's technical detail, quoted verbatim:
+The NDR's technical detail:
 
 ```text
 Status code: 550 5.1.10
@@ -545,7 +515,7 @@ HOP  TIME (UTC)           FROM                                     TO           
 2    9/16/2026 9:18:15 PM  PH0PR18MB3813.namprd18.prod.outlook.com  SA1PR18MB4661.namprd18.prod.outlook.com  Microsoft SMTP Server (version=TLS1_2, cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384)      15 sec
 ```
 
-The attempt was traced at the instrument this lab is built around, rather than taking the NDR's word alone:
+The same attempt in message trace:
 
 ```powershell
 Get-MessageTraceV2 -SenderAddress testuser01@brindeck.com -RecipientAddress mjohnson@brindeck.com -StartDate (Get-Date).AddHours(-1) -EndDate (Get-Date) | Format-List
@@ -564,11 +534,9 @@ Status            : Failed
 Size              : 18129
 ```
 
-`Status: Failed` rather than `Expanded` or `Delivered`, consistent with the NDR. The `From IP` field is redacted under this track's identifier policy on the same grounds Step One recorded it: it is the public address of the lab's own connection, not a property of the tenant.
+`Status: Failed`, consistent with the NDR. This is not Directory-Based Edge Blocking, although `brindeck.com` is `Authoritative` and Microsoft credits that domain type with enabling it. Microsoft documents DBEB's rejection as `550 5.4.1 Recipient address rejected: Access denied`, applied to inbound SMTP arriving from outside the service. This message was sent mailbox to mailbox inside the tenant and failed with `550 5.1.10 RESOLVER.ADR.RecipientNotFound`, which Microsoft documents as a categorizer-level failure: the address had no recipient object to resolve against, as the Graph read above showed.
 
-Whether this is Directory-Based Edge Blocking, which Microsoft's own accepted-domains documentation credits `Authoritative` domains with enabling, was checked against that documentation rather than assumed from the accepted-domain type alone. Microsoft states DBEB's own rejection plainly: if an address doesn't exist, the service blocks the message before filtering even occurs, and returns an NDR reading `550 5.4.1 Recipient address rejected: Access denied`. That is a different status code and a different message than what this test produced. `550 5.1.10 RESOLVER.ADR.RecipientNotFound` is documented separately by Microsoft as a categorizer-level failure, "recipient not found by SMTP address lookup," and it appears in scenarios that have nothing to do with DBEB or an accepted domain's type: a just-restored Microsoft 365 group still replicating, or a cloud-only object with no on-premises counterpart in a hybrid deployment, among others. That fits what the Graph read above already showed: `mjohnson` has an empty `ProxyAddresses` collection and a blank `Mail` attribute, so there is no recipient object anywhere for the address to resolve against, and the failure happened at Exchange Online's internal recipient resolution rather than at the service's network perimeter. This message also never left the tenant to reach that perimeter in the first place, since it was sent mailbox to mailbox inside `brindeck.com`, and DBEB specifically polices inbound SMTP arriving from outside the service. `brindeck.com` remaining `Authoritative` is not in question here; what this corrects is crediting DBEB specifically with an NDR whose own status code and message text belong to a different, more general mechanism.
-
-**Closing the primary-address finding Step One handed forward.** The full `EmailAddresses` collection was read on all seven mailboxes together with the storage quotas each one carries:
+**Closing the primary-address finding from Step One.** The full `EmailAddresses` collection was read on all seven mailboxes, together with their quotas. The quota lines were identical on all seven and are shown once, for Adam Ramzi:
 
 ```powershell
 $mailboxes = 'Adam@brindeck.onmicrosoft.com','akim@brindeck.com','admin@brindeck.com','cloudonly-demo01@brindeck.com','jdoe@brindeck.com','jsmith@brindeck.com','testuser01@brindeck.com'
@@ -591,63 +559,31 @@ IssueWarningQuota        : 98 GB (105,226,698,752 bytes)
 EmailAddresses           : SIP:adam@brindeck.onmicrosoft.com; SMTP:Adam@brindeck.onmicrosoft.com
 
 DisplayName              : Alex Kim
-UserPrincipalName        : akim@brindeck.com
 PrimarySmtpAddress       : akim@brindeck.onmicrosoft.com
-RecipientTypeDetails     : UserMailbox
-ProhibitSendQuota        : 99 GB (106,300,440,576 bytes)
-ProhibitSendReceiveQuota : 100 GB (107,374,182,400 bytes)
-IssueWarningQuota        : 98 GB (105,226,698,752 bytes)
 EmailAddresses           : SIP:akim@brindeck.com; SMTP:akim@brindeck.onmicrosoft.com; smtp:akim@brindeck.com
 
 DisplayName              : Cloud Administrator
-UserPrincipalName        : admin@brindeck.com
 PrimarySmtpAddress       : admin@brindeck.com
-RecipientTypeDetails     : UserMailbox
-ProhibitSendQuota        : 99 GB (106,300,440,576 bytes)
-ProhibitSendReceiveQuota : 100 GB (107,374,182,400 bytes)
-IssueWarningQuota        : 98 GB (105,226,698,752 bytes)
 EmailAddresses           : SIP:admin@brindeck.com; SMTP:admin@brindeck.com
 
 DisplayName              : Cloud-Only Demo Account (Lab 03 fixture)
-UserPrincipalName        : cloudonly-demo01@brindeck.com
 PrimarySmtpAddress       : cloudonly-demo01@brindeck.com
-RecipientTypeDetails     : UserMailbox
-ProhibitSendQuota        : 99 GB (106,300,440,576 bytes)
-ProhibitSendReceiveQuota : 100 GB (107,374,182,400 bytes)
-IssueWarningQuota        : 98 GB (105,226,698,752 bytes)
 EmailAddresses           : SIP:cloudonly-demo01@brindeck.com; SMTP:cloudonly-demo01@brindeck.com
 
 DisplayName              : Jane Doe
-UserPrincipalName        : jdoe@brindeck.com
 PrimarySmtpAddress       : jdoe@brindeck.com
-RecipientTypeDetails     : UserMailbox
-ProhibitSendQuota        : 99 GB (106,300,440,576 bytes)
-ProhibitSendReceiveQuota : 100 GB (107,374,182,400 bytes)
-IssueWarningQuota        : 98 GB (105,226,698,752 bytes)
 EmailAddresses           : SIP:jdoe@brindeck.com; smtp:jdoe@brindeck.onmicrosoft.com; SMTP:jdoe@brindeck.com
 
 DisplayName              : John Smith
-UserPrincipalName        : jsmith@brindeck.com
 PrimarySmtpAddress       : jsmith@brindeck.onmicrosoft.com
-RecipientTypeDetails     : UserMailbox
-ProhibitSendQuota        : 99 GB (106,300,440,576 bytes)
-ProhibitSendReceiveQuota : 100 GB (107,374,182,400 bytes)
-IssueWarningQuota        : 98 GB (105,226,698,752 bytes)
 EmailAddresses           : SIP:jsmith@brindeck.com; SMTP:jsmith@brindeck.onmicrosoft.com; smtp:jsmith@brindeck.com
 
 DisplayName              : testuser01
-UserPrincipalName        : testuser01@brindeck.com
 PrimarySmtpAddress       : testuser01@brindeck.com
-RecipientTypeDetails     : UserMailbox
-ProhibitSendQuota        : 99 GB (106,300,440,576 bytes)
-ProhibitSendReceiveQuota : 100 GB (107,374,182,400 bytes)
-IssueWarningQuota        : 98 GB (105,226,698,752 bytes)
 EmailAddresses           : SIP:testuser01@brindeck.com; smtp:testuser01@brindeck.onmicrosoft.com; SMTP:testuser01@brindeck.com; [one additional SPO: entry carrying testuser01's own directory object ID, dropped here under this track's identifier policy]
 ```
 
-The stamp shows something more specific than Step One's primary-address-only read could: all four synchronized mailboxes carry both `brindeck.com` and `brindeck.onmicrosoft.com` addresses, not one or the other. Alex Kim and John Smith each hold `brindeck.onmicrosoft.com` as primary (uppercase `SMTP:`) and `brindeck.com` as secondary (lowercase `smtp:`); Jane Doe and testuser01 hold the reverse. Adam Ramzi, Cloud Administrator, and the Cloud-Only Demo Account each carry a single address matching their own domain, which is expected and outside the mismatch.
-
-On-premises, `proxyAddresses` was read on the four synchronized accounts with mailboxes:
+All four synchronized mailboxes carry both domains. Alex Kim and John Smith hold `brindeck.onmicrosoft.com` as primary (uppercase `SMTP:`) and `brindeck.com` as secondary; Jane Doe and testuser01 hold the reverse. On premises, `proxyAddresses` is blank on all four:
 
 ```powershell
 Get-ADUser -Filter "SamAccountName -eq 'akim' -or SamAccountName -eq 'jdoe' -or SamAccountName -eq 'jsmith' -or SamAccountName -eq 'testuser01'" -Properties ProxyAddresses,UserPrincipalName |
@@ -673,9 +609,7 @@ UserPrincipalName : testuser01@brindeck.com
 ProxyAddresses    :
 ```
 
-`ProxyAddresses` is blank on all four, on-premises, with no exception. This domain has never populated Exchange mail attributes in Active Directory, consistent with there being no on-premises Exchange server anywhere in this environment. That eliminates synchronization more thoroughly than Step One's version of the finding: it is not merely that synchronization source fails to distinguish the two pairs, it is that there is nothing on-premises for the cloud stamp to have inherited or diverged from at all. Whatever produced the primary/secondary split happened entirely inside Exchange Online at the moment each mailbox was created.
-
-That made `WhenMailboxCreated` the property that could actually test the hypothesis, that the primary was set before `brindeck.com` was verified on 2026-08-23 and never reapplied when the UPN changed:
+So there is nothing on premises for the cloud stamp to inherit, and the split happened inside Exchange Online when each mailbox was created. The remaining hypothesis was that the two primaries were set before `brindeck.com` was verified on 2026-08-23:
 
 ```powershell
 foreach ($mbx in $mailboxes) {
@@ -695,19 +629,9 @@ John Smith                               9/7/2026 3:04:05 PM
 testuser01                               9/6/2026 1:50:15 PM
 ```
 
-The hypothesis does not survive this reading, and the result is recorded as a disproof rather than reshaped into a different confirmation. Every mailbox provisioned after the tenant's original signup was created between 9/6 and 9/7/2026, two weeks after `brindeck.com` was verified on 2026-08-23. A pre-verification stamp is not available as an explanation for any of them, including the two that ended up on the wrong primary.
+The hypothesis is disproved. Every mailbox except Adam Ramzi's was created on 9/6 or 9/7, two weeks after verification. Batch timing does not explain it either: Cloud Administrator, the Cloud-Only Demo Account, and Jane Doe were created in the same second and landed on `brindeck.com`, and Alex Kim, three seconds later, did not. The split is a cloud-side provisioning artifact with no explanation found, and it is left open.
 
-No substitute timing pattern explains the split either. Cloud Administrator, the Cloud-Only Demo Account, and Jane Doe were all created in the same second, 9/6/2026 1:54:41 PM, evidently one batch operation, and all three landed on the correct `brindeck.com` primary. Alex Kim was created three seconds later, 1:54:44 PM, apparently the same operation continuing, and landed on the wrong one. John Smith, whose license Lab 03 recorded as sourced through `Company Announcements` membership rather than direct assignment, was created over a day later than the rest, 9/7/2026 3:04:05 PM, and also landed on the wrong one; that distinguishes his provisioning path from the other five, but it does not reach back to explain Alex Kim, who was directly licensed in the same near-instantaneous batch as Jane Doe. Adam Ramzi's mailbox, created 8/19/2026 before the tenant's own domain was verified, is the one case where a pre-verification creation date is real, and Step One already set his address aside as evidence of nothing, since he is the original signup account on the initial domain by construction rather than an account this finding is about.
-
-This is recorded as an open, unresolved finding rather than forced into an explanation the timestamps do not support. What is known: the split is a cloud-side artifact of mailbox provisioning rather than anything synchronized, it does not correlate with the domain verification date, and it does not correlate with batch membership either, since one directly-licensed account created in the same batch second as two correctly-stamped ones still came out wrong.
-
-**Mailbox properties.** The quotas above are identical across all seven mailboxes regardless of recipient type or provisioning date: `ProhibitSendQuota` 99 GB, `ProhibitSendReceiveQuota` 100 GB, `IssueWarningQuota` 98 GB, all read directly from each mailbox rather than cited from a service description.
-
-The double-the-expected figure resolves against Step One's own service plan enumeration rather than standing as an anomaly, which is the first time in this lab that listing the 62 names instead of counting them has paid for itself. Microsoft's Exchange Online limits article gives two different answers depending on which row is read. Standalone Exchange Online Plan 1 is 50 GB, which is the figure the plan is usually quoted at and the one that makes 100 GB look wrong. The Microsoft 365 Business Basic, Business Standard, and Business Premium columns are all 100 GB, and its capacity alerts table gives those same SKUs a warning threshold of 98 GB, prohibit send at 99 GB, and prohibit send and receive at 100 GB. That triple matches what these mailboxes carry exactly, to the gigabyte, on all three values. The tenant is not diverging from the documentation; it is matching a row of it that the headline Plan 1 figure obscures.
-
-What supplies the extra 50 GB is named in Step One's enumeration: `EXCHANGE_STORAGE_50GB`, which the Microsoft 365 admin center's Apps list renders as Exchange Online Storage (50GB Additional). Fifty gigabytes of Exchange Online Plan 1 plus that additional fifty is the hundred these mailboxes report. So the quota is a property of what the SKU bundles rather than of the Plan 1 service plan alone, and the service plan that supplies it was sitting in a list this lab captured one step earlier.
-
-Adam Ramzi's mailbox carrying the identical figures while holding Business Basic rather than Business Premium is consistent with that reading rather than against it, since the limits article gives Business Basic the same 100 GB. That was then closed from the tenant instead of from documentation, while the subscription still existed to read. The Business Basic (no Teams) SKU's own service plans were enumerated on 2026-09-16, six days before it lapses, and the names are recorded here rather than the count for the same reason Step One recorded Business Premium's:
+**Mailbox quotas.** All seven carry `IssueWarningQuota` 98 GB, `ProhibitSendQuota` 99 GB, and `ProhibitSendReceiveQuota` 100 GB. Standalone Exchange Online Plan 1 is documented at 50 GB, but Microsoft's Exchange Online limits article gives Business Basic, Standard, and Premium 100 GB with exactly this 98/99/100 triple. The extra 50 GB is `EXCHANGE_STORAGE_50GB`, which Step One's enumeration found on Business Premium. Adam Ramzi's mailbox reports the same 100 GB on Business Basic, so that SKU's service plans were enumerated too on 2026-09-16, while it still existed:
 
 ```text
 ServicePlanName                   ProvisioningStatus
@@ -753,15 +677,9 @@ WHITEBOARD_PLAN1                  Success
 YAMMER_ENTERPRISE                 Success
 ```
 
-Thirty-nine service plans against Business Premium's 62, and `EXCHANGE_STORAGE_50GB` is among them, provisioned and successful. The quota explanation is now confirmed from this tenant rather than inferred from a documentation table: both SKUs in this tenant carry Exchange Online Plan 1 plus the additional fifty gigabytes, which is why a Business Basic mailbox and a Business Premium mailbox report the same 100 GB.
+Business Basic carries 39 plans, `EXCHANGE_STORAGE_50GB` among them, which confirms the quota explanation from the tenant. It also carries `EXCHANGE_S_STANDARD` without `EXCHANGE_S_FOUNDATION`, so `EXCHANGE_S_FOUNDATION` is not a base entitlement every Exchange-bearing SKU includes, and why it is the one Business Premium plan with no app entry (Step One) stays open.
 
-**That same read produces counter-evidence against something Step One said, and it is recorded here rather than corrected there.** Step One offered a probable explanation for why `EXCHANGE_S_FOUNDATION` is the one Business Premium service plan with no entry in the admin center's Apps list: that it is the underlying Exchange entitlement every Exchange-bearing SKU carries rather than a capability an administrator grants or revokes. Step One marked that as probable rather than established, which was the right call, because this list does not support it. Business Basic bears Exchange, holding `EXCHANGE_S_STANDARD` and provisioning real mailboxes, and it does not carry `EXCHANGE_S_FOUNDATION` at all. Whatever that plan is, it is not something every Exchange-bearing SKU includes, at least not in this tenant. The observation Step One's reconciliation actually rests on is unaffected, since that was a count of Business Premium's own plans against its own Apps list and stands on its own evidence; what falls is only the reason offered for it, which is now open again. Step One's text is left as written rather than revised, since the hedge it carried is exactly what a later reading is supposed to be able to land on.
-
-Two smaller things fall out of the comparison. `INTUNE_O365` reads `PendingActivation` on both SKUs, the single exception on each, which makes it a property of that service plan or of this tenant rather than a Business Premium quirk. And where the two SKUs carry the same capability they carry different tiers of it, visible in the names alone: Business Basic holds `CDS_O365_P1`, `PROJECT_O365_P1`, `POWER_VIRTUAL_AGENTS_O365_P1`, `RMS_S_BASIC`, and `STREAM_O365_SMB` where Business Premium holds the `P3`, `RMS_S_ENTERPRISE`, and `STREAM_O365_E1` variants of the same things.
-
-Primary SMTP address is derived from whichever accepted domain, `brindeck.com` or `brindeck.onmicrosoft.com`, was in effect when Exchange Online first created each mailbox, per the finding above, rather than from the object's UPN or its synchronization source. Recipient type is `UserMailbox` on all seven; nothing in this population is a shared, resource, or equipment mailbox yet, which is Step Four's and Step Seven's work.
-
-**Adam Ramzi's pre-lapse baseline, for Step Six.** Adam Ramzi holds the tenant's single consumed Business Basic seat, his only license, carrying the Exchange Online Plan 1 behind his mailbox. His mailbox's state was read on 2026-09-16, six days before the 2026-09-22 lapse:
+**Adam Ramzi's pre-lapse baseline, for Step Six.** He holds the tenant's single consumed Business Basic seat, his only license. His mailbox was read on 2026-09-16:
 
 ```powershell
 Get-EXOMailboxStatistics -Identity Adam@brindeck.onmicrosoft.com | Select-Object DisplayName,ItemCount,TotalItemSize,TotalDeletedItemSize,LastLogonTime | Format-List
@@ -775,11 +693,11 @@ TotalDeletedItemSize : 0 B (0 bytes)
 LastLogonTime        :
 ```
 
-Thirty-six items and 7.536 MB, entirely default provisioning content rather than anything this lab or an earlier one put there deliberately; Step One's own throwaway test message went to Jane Doe, not to this mailbox. `LastLogonTime` is blank, meaning nobody has ever opened this mailbox interactively through Outlook or Outlook on the web, consistent with the account existing for its Global Administrator role rather than for anyone reading mail through it. Recipient type is `UserMailbox` and the quotas match the uniform figures recorded above, `ProhibitSendReceiveQuota` 100 GB among them. This reading is the "before" half Step Six needs to score its prediction that the mailbox survives the license loss into Exchange's own retention; it has no value on its own until Step Six's "after" reading exists to compare it against.
+Thirty-six items and 7.536 MB of default provisioning content; nothing in this lab has been sent to this mailbox. `LastLogonTime` printed blank, which later proved to mean the property was never retrieved rather than that nobody had signed in (Troubleshooting and Adjustments).
 
 ### Step Three: Built and catalogued the mail-enabled group types Lab 03 handed forward
 
-The four on-premises groups Lab 02 and Lab 03 described as synchronized from `OU=Groups` were read fresh on 2026-09-16 rather than carried forward from either lab's prose, since this step needed to know their category and scope before picking one to test against. The step was performed on the evening of 2026-09-16, America/New_York time. Timestamps in the Microsoft Graph, Exchange Online PowerShell, and message trace output below are UTC, which is why the later ones read 2026-09-17:
+The step ran on the evening of 2026-09-16 Eastern; timestamps in the PowerShell and trace output below are UTC, which is why later ones read 2026-09-17. The four synchronized on-premises groups were read first:
 
 ```powershell
 Get-ADGroup -Filter * -Properties GroupCategory,GroupScope,mail,proxyAddresses,Description |
@@ -797,7 +715,7 @@ Lab-Workstations        Security      Global
 Linux-Admins            Security      Global          Authorized administrators of Linux infrastructure systems
 ```
 
-All four are Global-scope security groups carrying no `mail` attribute. The tenant's mail-enabled group population was re-read in the same sitting, before this step added anything to it:
+All four are Global-scope security groups with no `mail` attribute. The tenant's mail-enabled groups were still only the two Microsoft 365 groups:
 
 ```powershell
 Get-EXORecipient -RecipientTypeDetails MailUniversalDistributionGroup,MailUniversalSecurityGroup,GroupMailbox -ResultSize Unlimited |
@@ -812,9 +730,7 @@ All Company            allcompany@brindeck.onmicrosoft.com  GroupMailbox
 Company Announcements  CompanyAnnouncements@brindeck.com    GroupMailbox
 ```
 
-No drift from Step One or Step Two: still exactly the two Microsoft 365 groups, and none of the four on-premises groups appear as a recipient of any kind.
-
-**What happens when an attempt is made to manage a synchronized group's mail properties in the cloud.** `IT-Admins` was used for the test, chosen over the other three for no reason beyond its name not colliding with `IT-Department`, Lab 03's cloud-only dynamic membership group. Microsoft Graph confirmed the object exists as an ordinary, unmailed, synchronized security group:
+**Managing a synchronized group's mail properties from the cloud.** `IT-Admins` was the test object. Microsoft Graph showed it as an ordinary synchronized security group, not mail-enabled:
 
 ```powershell
 $groupId = (Get-MgGroup -Filter "displayName eq 'IT-Admins'").Id
@@ -832,37 +748,7 @@ id                       : 6d494357-[remainder redacted]
 onPremisesSamAccountName : IT-Admins
 ```
 
-(`Get-MgGroup -Property` does not reach the request the way it does on a live user read by ID, an instrument note this track already carries, so the read above went through `Invoke-MgGraphRequest` with an explicit `$select` instead.)
-
-`Get-EXORecipient` found no recipient object for `IT-Admins` at all, consistent with the baseline above:
-
-```powershell
-Get-EXORecipient -Identity "IT-Admins" -ErrorAction SilentlyContinue
-if (-not $?) { "No recipient object found for IT-Admins" }
-```
-
-```text
-No recipient object found for IT-Admins
-```
-
-The first attempt reached for `Enable-DistributionGroup`, the on-premises Exchange Management Shell cmdlet for mail-enabling an existing security group:
-
-```powershell
-Enable-DistributionGroup -Identity "IT-Admins"
-```
-
-```text
-Enable-DistributionGroup : The term 'Enable-DistributionGroup' is not recognized as the name of a cmdlet, function,
-script file, or operable program. Check the spelling of the name, or if a path was included, verify that the path
-is correct and try again.
-At line:1 char:1
-+ Enable-DistributionGroup -Identity "IT-Admins"
-+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : ObjectNotFound: (Enable-DistributionGroup:String) [], CommandNotFoundException
-    + FullyQualifiedErrorId : CommandNotFoundException
-```
-
-That cmdlet belongs to on-premises Exchange Server, and Exchange Online PowerShell has no equivalent: nothing in the `ExchangeOnlineManagement` module mail-enables an existing group. Microsoft's documentation creates a mail-enabled security group as a new object, with `New-DistributionGroup -Type Security` or the Exchange admin center wizard, which is how `IT-Support` is built below. The error is therefore a small finding in its own right rather than a wrong-module slip. The write was then attempted one layer down, directly against Microsoft Graph, setting `mailNickname` on the same group object:
+Exchange Online PowerShell has no cmdlet that mail-enables an existing group (the attempt is in Troubleshooting and Adjustments); Microsoft creates a mail-enabled security group as a new object, which is how `IT-Support` was built below. The write was attempted directly against Microsoft Graph instead:
 
 ```powershell
 $body = @{ mailNickname = "it-admins-test" } | ConvertTo-Json
@@ -872,51 +758,34 @@ Invoke-MgGraphRequest -Method PATCH -Uri "https://graph.microsoft.com/v1.0/group
 ```text
 Invoke-MgGraphRequest : PATCH https://graph.microsoft.com/v1.0/groups/6d494357-[remainder redacted]
 HTTP/1.1 400 Bad Request
-Transfer-Encoding: chunked
-Vary: Accept-Encoding
-Strict-Transport-Security: max-age=31536000
-request-id: c3387ee5-5caf-43d1-ac08-7d0d5abde980
-client-request-id: 91b712df-f601-4f1a-acb0-1f7a17fea8ee
-x-ms-ags-diagnostic: {"ServerInfo":{"DataCenter":"East US","Slice":"E","Ring":"5","ScaleUnit":"010","RoleInstance":"MN1PEPF0006E495"}}
-x-ms-resource-unit: 1
-Cache-Control: no-cache
-Date: Wed, 16 Sep 2026 23:21:19 GMT
-Content-Type: application/json
+[response headers omitted]
 {"error":{"code":"Request_BadRequest","message":"Unable to update the specified properties for on-premises mastered
 Directory Sync objects or objects currently undergoing migration.","innerError":{"date":"2026-09-16T23:21:20","request-id":"c3387ee5-5caf-43d1-ac08-7d0d5abde980","client-request-id":"91b712df-f601-4f1a-acb0-1f7a17fea8ee"}}}
-At line:1 char:1
-+ Invoke-MgGraphRequest -Method PATCH -Uri "https://graph.microsoft.com ...
-+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : InvalidOperation: (Method: PATCH, ...ication/json
-}:HttpRequestMessage) [Invoke-MgGraphRequest], HttpResponseException
-    + FullyQualifiedErrorId : InvokeGraphHttpResponseException,Microsoft.Graph.PowerShell.Authentication.Cmdlets.InvokeMgGraphRequest
 ```
 
-This is the same refusal Lab 03 recorded on the user side of the boundary. Lab 03's Step Eleven attempted `Update-MgUser -JobTitle` on a synchronized user and received this message word for word, on a field that was locked while user principal name and account-enabled state remained writable. The message names the class of on-premises-mastered objects rather than the field attempted, and it did so on users too, where some fields were nonetheless open, so the group result is consistent with the same per-field lock rather than evidence of a broader one. Whether a synchronized group carries a comparable narrow exception on a field not tried here, or has none at all, is not settled by one attempt, and it is left as an open question rather than resolved by inference.
+This is the refusal Lab 03 received word for word on `Update-MgUser -JobTitle` against a synchronized user, where some other fields stayed writable. So this shows `mailNickname` is locked on a synchronized group, not that every field is; one attempt does not settle whether any field is open.
 
-**Building the distribution list.** `Help-Desk` was created through the Exchange admin center rather than through PowerShell, since which console can create each group type is itself part of what this step catalogues: Recipients, Groups, Add a group. The wizard's own Choose a group type screen names the three mail-enabled types in the product's own words rather than this document's: Microsoft 365 ("Allows teams to collaborate by giving them a group email and a shared workspace for conversations, files, and calendars"), Distribution ("Creates an email address for a group of people"), and Mail-enabled security ("Sends messages to all members of the group and gives access to resources like OneDrive, SharePoint and admin roles"), alongside Dynamic distribution, whose membership list the same screen states is recalculated every 24 hours from a set of filters and conditions rather than resolved live.
-
-Distribution was selected. The wizard proceeded through Basics (name `Help-Desk`, description "Distribution list for help desk and support correspondence."), Owners (`Cloud Administrator`, the same account this lab has used throughout), Members (`testuser01`, `John Smith`, and `Jane Doe`, three of the seven mailboxes Step Two catalogued, chosen to keep the group inside accounts this lab has already characterized rather than involving Adam Ramzi, reserved for Step Six's observation, or `cloudonly-demo01`, which has to stay at zero group memberships for Lab 05 to inherit it clean), and Settings, left at its defaults rather than configured, specifically to observe what the product ships rather than what an administrator would choose: email address `help-desk@brindeck.com`, "Allow people outside of my organization to send email to this Distribution group" left unchecked, and both Joining the group and Leaving the group left on Open. That unchecked default is the setting Security Considerations already expected to find. Microsoft's documented default for new distribution groups is that all senders must be authenticated, and the checkbox's own unchecked state confirms that as this tenant's shipped behavior rather than a citation.
+**Building the distribution list.** `Help-Desk` was created in the Exchange admin center (Recipients, Groups, Add a group, Distribution), with owner Cloud Administrator and members testuser01, John Smith, and Jane Doe. Adam Ramzi and `cloudonly-demo01` were kept out, for Step Six and Lab 05 respectively. Settings were left at their shipped defaults: address `help-desk@brindeck.com`, external senders not allowed, and joining and leaving both Open. The unchecked external-senders box matches Microsoft's documented default that a new distribution group accepts only authenticated senders.
 
 <p align="center">
   <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/07-help-desk-review-and-finish.jpg" alt="07-help-desk-review-and-finish" width="700">
 </p>
 
 <p align="center">
-  <em>Exchange admin center, Add a group, Review and finish: group type, name, description, owner, members, and settings for Help-Desk, all in their final state before creation.</em>
+  <em>Exchange admin center, Add a group, Review and finish for Help-Desk.</em>
 </p>
 
-The group was created. The portal's own confirmation stated it can take up to an hour for `Help-Desk` to appear in the Groups list view, an interface-level propagation delay on the Exchange admin center's own list rather than anything about the recipient object itself.
+The portal warned that the new group could take up to an hour to appear in the Groups list.
 
 <p align="center">
   <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/08-help-desk-distribution-list-created.jpg" alt="08-help-desk-distribution-list-created" width="700">
 </p>
 
 <p align="center">
-  <em>Exchange admin center: Help-Desk is created, with the portal's own note that the Groups list view can take up to an hour to reflect it.</em>
+  <em>Exchange admin center: Help-Desk created, with the note that the Groups list can take up to an hour to show it.</em>
 </p>
 
-`Get-DistributionGroup` and `Get-DistributionGroupMember`, run immediately rather than waiting out that delay, both returned the object correctly:
+PowerShell returned it immediately:
 
 ```powershell
 Get-DistributionGroup -Identity "Help-Desk" | Select-Object DisplayName,PrimarySmtpAddress,GroupType,RecipientTypeDetails | Format-List
@@ -936,23 +805,15 @@ John Smith  jsmith@brindeck.onmicrosoft.com
 testuser01  testuser01@brindeck.com
 ```
 
-PowerShell resolved the group correctly while the portal's own Groups list view had not yet caught up, the same instrument-lag shape Step Two already found between the Exchange admin center's Mailboxes view and `Get-EXOMailbox` over the Discovery Search Mailbox, on a different pair of surfaces this time. Each member's primary address matches Step Two's own findings exactly: Jane Doe and testuser01 on `brindeck.com`, John Smith on `brindeck.onmicrosoft.com`, the same primary-address split Step Two characterized.
-
-**Building the mail-enabled security group.** `IT-Support` was created the same way, through Recipients, Groups, Add a group, choosing Mail-enabled security this time. That type's own Settings screen names its distinguishing capability directly, in the product's own words rather than this document's: "Has all the functionality of a distribution list and additionally can be used to control access to OneDrive and SharePoint." No comparable line appears anywhere in the distribution list's own wizard, which only ever describes itself as creating an email address for a group of people.
-
-The Settings screen also surfaced a real difference in how the two types handle self-service membership, worth recording alongside the permissions difference. The distribution list's Settings screen carried two separate three-way controls, Joining the group and Leaving the group, each a choice of Open, Closed, or Owner approval, both defaulting to Open. The mail-enabled security group's Settings screen carries neither. In their place is a single checkbox, "Require owner approval to join the group," unchecked by default, with no equivalent control over leaving shown anywhere in the wizard. A mail-enabled security group's membership model is narrower in the wizard than a distribution list's, not just differently labeled.
-
-`IT-Support` was given description "Mail-enabled security group for IT support ticket correspondence and shared resource access.", owner `Cloud Administrator`, and members `Alex Kim` and `testuser01`, chosen to keep this group's population distinct from `Help-Desk`'s rather than reusing the same three accounts for both. Settings were left at their shipped defaults for the same reason as before: email address `it-support@brindeck.com`, external senders unchecked, and owner approval to join unchecked.
+**Building the mail-enabled security group.** `IT-Support` was created in the same wizard as Mail-enabled security, which describes itself as having "all the functionality of a distribution list and additionally can be used to control access to OneDrive and SharePoint." Its settings are narrower than the distribution list's: a single "Require owner approval to join the group" checkbox replaces the separate Open, Closed, or Owner approval controls for joining and leaving. Owner Cloud Administrator, members Alex Kim and testuser01, address `it-support@brindeck.com`, defaults otherwise.
 
 <p align="center">
   <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/09-it-support-review-and-finish.jpg" alt="09-it-support-review-and-finish" width="700">
 </p>
 
 <p align="center">
-  <em>Exchange admin center, Add a group, Review and finish: group type, name, description, owner, members, and settings for IT-Support, all in their final state before creation.</em>
+  <em>Exchange admin center, Add a group, Review and finish for IT-Support.</em>
 </p>
-
-The same up-to-an-hour Groups list view delay appeared on creation, already documented once above and not repeated here. `Get-DistributionGroup` and `Get-DistributionGroupMember` confirmed the object immediately, the same instrument-lag shape as `Help-Desk`:
 
 ```powershell
 Get-DistributionGroup -Identity "IT-Support" | Select-Object DisplayName,PrimarySmtpAddress,GroupType,RecipientTypeDetails | Format-List
@@ -971,9 +832,9 @@ testuser01  testuser01@brindeck.com
 Alex Kim    akim@brindeck.onmicrosoft.com
 ```
 
-`RecipientTypeDetails` confirms the type distinction that matters: `MailUniversalSecurityGroup` rather than `Help-Desk`'s `MailUniversalDistributionGroup`, with `GroupType` itself carrying the extra `SecurityEnabled` flag a plain distribution list does not report. Alex Kim's primary address again lands on `brindeck.onmicrosoft.com` rather than `brindeck.com`, the same primary-address split Step Two characterized, appearing here for the third time on the same account.
+`MailUniversalSecurityGroup` against `Help-Desk`'s `MailUniversalDistributionGroup`, with `GroupType` carrying `SecurityEnabled`.
 
-**Testing what each type accepts as a member.** Rather than take the product's own descriptions at face value, `IT-Admins`, the same on-premises synchronized security group used for the mail-property lock test above, was added as a member of each of the three group types in turn:
+**What each type accepts as a member.** `IT-Admins` was added to each of the three group types:
 
 ```powershell
 Add-DistributionGroupMember -Identity "Help-Desk" -Member "IT-Admins"
@@ -981,7 +842,7 @@ Add-DistributionGroupMember -Identity "IT-Support" -Member "IT-Admins"
 Add-UnifiedGroupLinks -Identity "Company Announcements" -LinkType Members -Links "IT-Admins"
 ```
 
-The first two returned nothing, which in PowerShell is silent success rather than silent failure, and the third failed outright:
+The first two returned nothing. The Microsoft 365 group refused:
 
 ```text
 Write-ErrorMessage : ||The user couldn't be found for mailbox Identity:'IT-Admins' isn't a mailbox user..
@@ -992,7 +853,7 @@ At C:\Users\labadmin.CORP\AppData\Local\Temp\tmpEXO_0owifaqh.amv\tmpEXO_0owifaqh
     + FullyQualifiedErrorId : [Server=PH0PR18MB988511,RequestId=c531290d-82d3-abfa-b01e-82ef8112a48c,TimeStamp=Thu, 17 Sep 2026 00:10:15 GMT],Write-ErrorMessage
 ```
 
-Silent success is not confirmed success, so both distribution list and mail-enabled security group memberships were read back before anything was concluded:
+Reading the memberships back confirmed the first two had worked:
 
 ```powershell
 Get-DistributionGroupMember -Identity "Help-Desk" | Select-Object DisplayName,PrimarySmtpAddress,RecipientTypeDetails
@@ -1014,11 +875,9 @@ Alex Kim    akim@brindeck.onmicrosoft.com    UserMailbox
 IT-Admins                                    ExchangeSecurityGroup
 ```
 
-Both confirm it: `IT-Admins` nested into each without complaint, reported as `ExchangeSecurityGroup` rather than `UserMailbox`, a type distinct from every individual member. A Microsoft 365 group refused the same object outright, and its error message frames the rejection as a missing mailbox user rather than as a member-type restriction, which is a less direct explanation than the actual constraint but points at the same thing: a Microsoft 365 group accepts users and nothing else, while a distribution list and a mail-enabled security group both accept a nested group.
+A distribution list and a mail-enabled security group both accept a nested security group. A Microsoft 365 group accepts only users, although its error frames the refusal as a missing mailbox user.
 
-**What each type looks like from the Entra admin center.** The track README states that the Entra admin center can list a distribution list or a mail-enabled security group but cannot manage either, which Lab 03 handed forward as a boundary rather than something it tested directly. This step tested it, reading the pages below while `IT-Admins` was still nested in `IT-Support`, before the test nesting was removed.
-
-Entra admin center, Groups, All groups read 11 groups found, reconciling exactly against the tenant's own count: nine before this step per the Architecture section above, plus `Help-Desk` and `IT-Support`. Its Group type column names every object by the same vocabulary this step has been using, drawn directly from the tenant rather than summarized:
+**What each type looks like from the Entra admin center.** The track README says the Entra admin center can list distribution lists and mail-enabled security groups but cannot manage them. This was checked while `IT-Admins` was still nested in `IT-Support`. All groups read 11, the nine from before this step plus `Help-Desk` and `IT-Support`:
 
 | Name | Group type | Membership type | Source |
 |---|---|---|---|
@@ -1039,17 +898,17 @@ Entra admin center, Groups, All groups read 11 groups found, reconciling exactly
 </p>
 
 <p align="center">
-  <em>Entra admin center, Groups, All groups: 11 groups found, Group type distinguishing Microsoft 365, Security, Distribution, and Mail enabled security.</em>
+  <em>Entra admin center, Groups, All groups: 11 groups, Group type distinguishing Microsoft 365, Security, Distribution, and Mail enabled security.</em>
 </p>
 
-`IT-Support`'s own Properties and Members pages both carry the same banner, word for word except for one preposition: "Some groups can't be managed in the Azure portal" on Properties, "Some groups can't be managed in this portal" on Members, each linking to "Learn where to manage these groups." Every field on Properties is greyed and non-interactive: Group name, Group description, Group type ("Mail enabled security", a different rendering of the same label the Exchange admin center wizard spelled with a hyphen), Membership type ("Assigned"), Object Id, and "Microsoft Entra roles can be assigned to the group" reading No. The Members page lists the three members correctly, `IT-Admins` shown as `Type: Group` with no email against the two `Type: User` entries, but its Add members, Bulk operations, and Remove controls sit alongside the same banner.
+`IT-Support`'s Properties and Members pages both carry a "Some groups can't be managed" banner. Every Properties field is greyed out, and the Members page lists `IT-Admins` as `Type: Group` beside the two users, with its Add members and Remove controls under the same banner.
 
 <p align="center">
   <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/11-it-support-entra-admin-center-properties.jpg" alt="11-it-support-entra-admin-center-properties" width="700">
 </p>
 
 <p align="center">
-  <em>Entra admin center, IT-Support, Properties: the "can't be managed" banner, every field greyed, Object Id masked to its first eight characters.</em>
+  <em>Entra admin center, IT-Support, Properties: the "can't be managed" banner and every field greyed out.</em>
 </p>
 
 <p align="center">
@@ -1057,17 +916,17 @@ Entra admin center, Groups, All groups read 11 groups found, reconciling exactly
 </p>
 
 <p align="center">
-  <em>Entra admin center, IT-Support, Members: the same banner, IT-Admins listed with Type Group against two Type User entries.</em>
+  <em>Entra admin center, IT-Support, Members: the same banner, IT-Admins listed as a Group beside two Users.</em>
 </p>
 
-`Company Announcements`, read the same way rather than assumed to behave differently because it is a Microsoft 365 group, carries no banner on either page. Group name and Group description both show a green checkmark and are editable, and Add members, Bulk operations, and Remove are all active with no accompanying notice.
+`Company Announcements`, a Microsoft 365 group, has no banner, and its name, description, and membership controls are all editable.
 
 <p align="center">
   <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/13-company-announcements-entra-admin-center-properties.jpg" alt="13-company-announcements-entra-admin-center-properties" width="700">
 </p>
 
 <p align="center">
-  <em>Entra admin center, Company Announcements, Properties: no banner, Group name and Group description both editable, Object Id masked to its first eight characters.</em>
+  <em>Entra admin center, Company Announcements, Properties: no banner, name and description editable.</em>
 </p>
 
 <p align="center">
@@ -1075,39 +934,19 @@ Entra admin center, Groups, All groups read 11 groups found, reconciling exactly
 </p>
 
 <p align="center">
-  <em>Entra admin center, Company Announcements, Members: no banner, Add members and Remove both active.</em>
+  <em>Entra admin center, Company Announcements, Members: no banner, Add members and Remove active.</em>
 </p>
 
-**Removing the test nesting.** Once the Entra admin center reads above were taken, `IT-Admins` was removed from both groups, since it existed only to test acceptance and has no part in this step's finished state:
+The test nesting was then removed:
 
 ```powershell
 Remove-DistributionGroupMember -Identity "Help-Desk" -Member "IT-Admins" -Confirm:$false
 Remove-DistributionGroupMember -Identity "IT-Support" -Member "IT-Admins" -Confirm:$false
 ```
 
-Removal returns nothing on success, the same silence the additions produced, so both memberships were read back again rather than assumed:
+A readback showed `Help-Desk` back to its three members and `IT-Support` to its two, all `UserMailbox`.
 
-```powershell
-Get-DistributionGroupMember -Identity "Help-Desk" | Select-Object DisplayName,PrimarySmtpAddress,RecipientTypeDetails
-Get-DistributionGroupMember -Identity "IT-Support" | Select-Object DisplayName,PrimarySmtpAddress,RecipientTypeDetails
-```
-
-```text
-DisplayName PrimarySmtpAddress              RecipientTypeDetails
------------ ------------------              --------------------
-Jane Doe    jdoe@brindeck.com               UserMailbox
-testuser01  testuser01@brindeck.com         UserMailbox
-John Smith  jsmith@brindeck.onmicrosoft.com UserMailbox
-
-DisplayName PrimarySmtpAddress            RecipientTypeDetails
------------ ------------------            --------------------
-testuser01  testuser01@brindeck.com       UserMailbox
-Alex Kim    akim@brindeck.onmicrosoft.com UserMailbox
-```
-
-`Help-Desk` is back to its three original members and `IT-Support` to its two, every entry a `UserMailbox`, and `IT-Admins` is absent from both.
-
-**The catalogue.** Everything above resolves into the comparison Lab 03 could not make, because it never built two of the three types. Each cell states whether it was observed in this step or taken from the product's own wizard text or Microsoft's documentation:
+**The catalogue.** Each cell is marked as observed here, or taken from the wizard's own text or Microsoft's documentation:
 
 | | Distribution list | Mail-enabled security group | Microsoft 365 group |
 |---|---|---|---|
@@ -1118,11 +957,9 @@ Alex Kim    akim@brindeck.onmicrosoft.com UserMailbox
 | Entra admin center rendering | Listed with type "Distribution" (observed); Properties and Members pages not opened in this step | Listed with type "Mail enabled security"; Properties and Members read-only behind the "can't be managed" banner (observed) | Listed with type "Microsoft 365"; Properties and Members editable, no banner (observed) |
 | Message trace delivery status | `Expanded` (Microsoft's documentation); traced against `Help-Desk` in Step Five | `Expanded` for the group, then `Delivered` to each member (observed in this step) | Not traced in this lab |
 
-The distinction this step was planned around holds up: a mail-enabled security group receives mail and, by the product's own description, grants access; a distribution list only receives mail; and a Microsoft 365 group brings its own mailbox and workspace rather than being pointed at existing resources. None of that is what decides whether the Entra admin center can manage a group. Distribution lists and mail-enabled security groups are Exchange Online objects and are managed there, which is what the banner says; a Microsoft 365 group, like the cloud security groups in the same list, is managed in Entra.
+What decides whether the Entra admin center can manage a group is not what the group does but where it lives. Distribution lists and mail-enabled security groups are Exchange Online objects and are managed there; Microsoft 365 groups and cloud security groups are managed in Entra.
 
-**Sending mail through IT-Support.** Per Design Decisions, every mail-enabled object this lab builds has a real message traced through it. Step Five's three planned messages cover an individual mailbox, `Help-Desk`, and a message the rule stops, not `IT-Support`, so its test was run here.
-
-`testuser01`, one of `IT-Support`'s two original members, sent a plain message from Outlook on the web to the group's own address, `it-support@brindeck.com`, subject `Step Three mail routing test`, chosen to stay identifiable in a trace search:
+**Sending mail through IT-Support.** Step Five's planned messages do not cover `IT-Support`, so its test ran here. testuser01 sent a message to `it-support@brindeck.com`, subject `Step Three mail routing test`:
 
 ```powershell
 Get-MessageTraceV2 -RecipientAddress "it-support@brindeck.com" -StartDate (Get-Date).AddMinutes(-15) -EndDate (Get-Date).AddMinutes(5)
@@ -1134,9 +971,7 @@ Received               Sender Address            Recipient Address        Subjec
 9/17/2026 12:37:35 AM  testuser01@brindeck.com   it-support@brindeck.com  Step Three mail routing test  Expanded
 ```
 
-The single row reports `Expanded`, the status Design Decisions describes for a message sent to a distribution list: the group resolved into its members rather than delivered to one mailbox. `IT-Support` produces it too, so the transport pipeline expands a mail-enabled security group the same way Microsoft documents it expanding a distribution list. The distribution list side is observed in Step Five.
-
-`Expanded` shows the group was resolved, not that the message reached anyone, so the same message was traced by recipient for both members:
+`Expanded` means the group resolved into its members, the same status Microsoft documents for a distribution list. It does not show delivery, so each member was traced:
 
 ```powershell
 Get-MessageTraceV2 -RecipientAddress "testuser01@brindeck.com","akim@brindeck.onmicrosoft.com" -Subject "Step Three mail routing test" -SubjectFilterType "Contains" -StartDate (Get-Date "2026-09-16") -EndDate (Get-Date "2026-09-18")
@@ -1149,34 +984,21 @@ Received               Sender Address           Recipient Address              S
 9/17/2026 12:37:35 AM  testuser01@brindeck.com  testuser01@brindeck.com        Step Three mail routing test  Delivered
 ```
 
-Both members have a `Delivered` row carrying the same received time as the `Expanded` row above, so the expansion reached both mailboxes. testuser01 is both the sender and a member, and the group delivered a copy back to its own mailbox rather than skipping it.
+Both members received it, including testuser01, who was also the sender.
 
-**What becomes of Help-Desk and IT-Support.** This is the first step in this lab to create objects, so both dispositions are declared here for Step Nine to reconcile against. Both groups are removed at Step Nine. `Help-Desk` stays until Step Five's trace against it has run; `IT-Support`'s mail-flow test is recorded above, and it has no further work in this lab. Both were left unlicensed throughout, because Lab 03 established that a group carrying a license assignment cannot be deleted. Deleting either removes the group object and its membership records only; the members' mailboxes are unaffected.
+**Disposition.** Both groups are removed at Step Nine, `Help-Desk` after Step Five's trace against it. Both were left unlicensed, because Lab 03 found a group with a license assignment cannot be deleted.
 
 ### Step Four: Created a shared mailbox and demonstrated all three delegation models
 
-`Help-Desk` and `IT-Support` from Step Three ruled out the obvious names for this mailbox; `help-desk@brindeck.com` and `it-support@brindeck.com` were both already assigned to other mail-enabled objects. Rather than a variant of either name, `Facilities` was chosen as a shared mailbox functionally distinct from help desk correspondence, and `Get-EXORecipient` confirmed no recipient held that address before it was created:
-
-```powershell
-Get-EXORecipient -Identity facilities@brindeck.com -ErrorAction SilentlyContinue
-if (-not $?) { "No recipient object found for facilities@brindeck.com" }
-```
-
-```text
-No recipient object found for facilities@brindeck.com
-```
-
-`Facilities` was created through the Microsoft 365 admin center, Teams & groups, Shared mailboxes, Add a shared mailbox, name `Facilities`, address `facilities@brindeck.com`, with no members added at creation. The wizard's own members step was skipped deliberately: adding a member there grants Full Access with automapping as a side effect, which would have folded the first delegation grant into the creation step instead of into its own, observed step.
+Step Three's groups already held `help-desk@` and `it-support@`, so the shared mailbox was named `Facilities`. `Get-EXORecipient` confirmed the address was free, and it was created in the Microsoft 365 admin center (Teams & groups, Shared mailboxes, Add a shared mailbox) with no members, since adding a member in that wizard grants Full Access with automapping as a side effect.
 
 <p align="center">
   <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/15-facilities-shared-mailbox-created.jpg" alt="15-facilities-shared-mailbox-created" width="700">
 </p>
 
 <p align="center">
-  <em>Microsoft 365 admin center, Teams & groups, Shared mailboxes: Facilities created, listed at facilities@brindeck.com.</em>
+  <em>Microsoft 365 admin center, Teams & groups, Shared mailboxes: Facilities created at facilities@brindeck.com.</em>
 </p>
-
-**What the object actually is, read from itself.** Per Design Decisions, `RecipientTypeDetails` and quota were read from the mailbox rather than taken from the shared-mailbox service description:
 
 ```powershell
 Get-EXOMailbox -Identity facilities@brindeck.com -Properties RecipientTypeDetails,ProhibitSendQuota,ProhibitSendReceiveQuota,IssueWarningQuota,ArchiveStatus | Format-List DisplayName,PrimarySmtpAddress,RecipientTypeDetails,ProhibitSendQuota,ProhibitSendReceiveQuota,IssueWarningQuota
@@ -1191,27 +1013,9 @@ ProhibitSendReceiveQuota : 50 GB (53,687,091,200 bytes)
 IssueWarningQuota        : 49 GB (52,613,349,376 bytes)
 ```
 
-`RecipientTypeDetails: SharedMailbox` confirms the object type from itself rather than from the console label. The 50 GB `ProhibitSendReceiveQuota` matches the documented unlicensed shared-mailbox limit exactly, and it is a different figure from the 100 GB every licensed `UserMailbox` in this tenant carries per Step Two's own reading, the SKU's Plan 1 allowance plus the `EXCHANGE_STORAGE_50GB` add-on Step One enumerated. A shared mailbox below 50 GB draws on neither, which is the concrete shape of "requires no license of its own" this step was asked to record; a user reading the mailbox still needs an Exchange Online license of their own, so the seat cost sits with the people reading it rather than with the mailbox.
+`SharedMailbox`, with a 50 GB `ProhibitSendReceiveQuota`: the documented unlicensed shared-mailbox limit, against the 100 GB on every licensed mailbox in Step Two. The mailbox itself needs no license; the people reading it need their own. Its underlying `Name` and `Identity` are a generated timestamped string, `Facilities20260917205737`, rather than `Facilities`, which is what shows up in some cmdlet output below.
 
-A second read turned up a small naming quirk worth recording, since it would otherwise confuse a later `-Identity` lookup that assumed `Name` and `DisplayName` were the same string:
-
-```powershell
-Get-Mailbox -Identity facilities@brindeck.com | Select-Object Name,Alias,DisplayName,PrimarySmtpAddress,Identity | Format-List
-```
-
-```text
-Name               : Facilities20260917205737
-Alias              : facilities
-DisplayName        : Facilities
-PrimarySmtpAddress : facilities@brindeck.com
-Identity           : Facilities20260917205737
-```
-
-The object's underlying `Name` and `Identity` are a timestamp-suffixed string the Microsoft 365 admin center generated at creation, distinct from the clean `Alias`, `DisplayName`, and `PrimarySmtpAddress` values every other command in this step addresses the mailbox by.
-
-**The sign-in state, read two ways in the same sitting.** Per Design Decisions, whether the mailbox's associated user account can sign in was established against the tenant rather than cited, since the three Microsoft sources that decision sets out give incompatible answers.
-
-Microsoft Graph first:
+**The sign-in state.** Microsoft's documentation disagrees about whether a new shared mailbox's account can sign in, so it was read from the tenant:
 
 ```powershell
 Get-MgUser -UserId facilities@brindeck.com -Property Id,UserPrincipalName,AccountEnabled,DisplayName | Format-List
@@ -1225,23 +1029,21 @@ AdhocCalls                    :
 AgeGroup                      :
 ```
 
-`AccountEnabled: False`, quoted here from the head of the returned block because the four requested properties do not arrive on their own. `-Property` narrows what Microsoft Graph is asked to return, but `Format-List` with no property list of its own prints every property on the resulting object, so the four requested values sit inside a full alphabetical dump of the user object with everything unrequested rendered blank or as a type placeholder. Step Two recorded the same behavior on `mjohnson` and attributed it to the request; it is the display rather than the request, and either way the relevant value is easy to miss in a screenful of empty fields. The fix is already demonstrated a few paragraphs above, where the `Get-EXOMailbox` read passes its own property list to `Format-List` and returns only those properties. This call could have done the same and did not.
-
-The Entra admin center's own reading was taken in the same sitting, Identity, Users, All users, the Facilities account's Overview page:
+(`Format-List` with no property list prints the whole user object; only its head is quoted.) The Entra admin center agreed in the same sitting:
 
 <p align="center">
   <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/16-facilities-entra-admin-center-account-disabled.jpg" alt="16-facilities-entra-admin-center-account-disabled" width="700">
 </p>
 
 <p align="center">
-  <em>Entra admin center, Facilities, Overview: Account status Disabled. The Properties page's Settings section reads Account enabled: No, agreeing with the Overview card.</em>
+  <em>Entra admin center, Facilities, Overview: Account status Disabled. The Properties page reads Account enabled: No.</em>
 </p>
 
-All three readings, Microsoft Graph's `AccountEnabled: False`, the Overview card's `Account status: Disabled`, and the Properties page's `Account enabled: No`, agree. This tenant blocks sign-in on a new shared mailbox by default. That settles the contradiction in favor of the shared-mailbox-creation article over the Exchange Online limits reference, the label Design Decisions already gave this exact question as the third documentation conflict this track has resolved by testing, after Lab 02's `Get-EntraDirSyncFeature` naming mismatch and Lab 03's group-restore contradiction.
+This tenant blocks sign-in on a new shared mailbox by default, which supports the shared-mailbox creation article over the Exchange Online limits reference.
 
-**Delegation.** `testuser01` served as the delegate for all three models. The Full Access test addressed its message to `jdoe@brindeck.com` (Jane Doe); the Send As and Send on Behalf tests both addressed `admin@brindeck.com` (Cloud Administrator) instead, so its inbox could be read directly to check what each model actually produced. Neither recipient holds any of the three delegation permissions on `Facilities`, so what each one received is what an uninvolved recipient sees, which is where Design Decisions locates the only visible difference between the three models.
+**Delegation.** `testuser01` was the delegate for all three models. The recipients, Jane Doe and Cloud Administrator, held none of the three permissions, so what they received is what an uninvolved recipient sees.
 
-Full Access was granted first:
+**Full Access.**
 
 ```powershell
 Add-MailboxPermission -Identity facilities@brindeck.com -User testuser01@brindeck.com -AccessRights FullAccess -InheritanceType All
@@ -1254,7 +1056,7 @@ User                    AccessRights IsInherited
 testuser01@brindeck.com {FullAccess} False
 ```
 
-Trying to open the mailbox in Outlook on the web immediately afterward, Open another mailbox, `facilities@brindeck.com`, failed outright:
+Opening the mailbox in Outlook on the web about five minutes later failed:
 
 ```text
 BootResult: accessDenied
@@ -1262,21 +1064,19 @@ err: Microsoft.Exchange.Data.StoreObjects.AccessDeniedException
 UTC Date: 2026-09-17T21:26:11.016Z
 ```
 
-against a grant made roughly five minutes earlier, so this is a propagation delay in delegation permissions reaching Outlook on the web, appearing at the mailbox-open stage rather than at send. The mailbox opened successfully on a retry at 5:45 PM Eastern, putting the observed ceiling at roughly 24 minutes. That interval was checked opportunistically rather than polled at short intervals, so 24 minutes is an upper bound on the propagation delay rather than a measured figure, the same distinction Step One drew for message trace latency.
-
-With the mailbox open and only Full Access granted, no Send As, no Send on Behalf, a new message addressed to `jdoe@brindeck.com` was composed from inside it and sent, draft timestamps placing the attempt around 5:49 PM Eastern. It failed at the client, before reaching the server:
+It opened on a retry at 5:45 PM Eastern, about 24 minutes after the grant. That was checked opportunistically, so 24 minutes is an upper bound on the delay, not a measurement. With only Full Access, a message composed inside the mailbox to Jane Doe around 5:49 PM Eastern was blocked at the client:
 
 <p align="center">
   <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/17-facilities-full-access-send-blocked.jpg" alt="17-facilities-full-access-send-blocked" width="700">
 </p>
 
 <p align="center">
-  <em>Outlook on the web, composing from inside the Facilities mailbox with Full Access only: "You don't have permission to send messages from this mailbox," blocked before the message left the compose window.</em>
+  <em>Outlook on the web, composing inside Facilities with Full Access only: "You don't have permission to send messages from this mailbox."</em>
 </p>
 
-That settles what this step was built to catch. Full Access grants read and management access to the mailbox's contents and nothing about sending; the permission list itself gives no indication of the gap, only the attempt does.
+Full Access grants the mailbox's contents and nothing about sending, and the permission list gives no hint of the gap.
 
-Send As was granted next:
+**Send As.**
 
 ```powershell
 Add-RecipientPermission -Identity facilities@brindeck.com -Trustee testuser01@brindeck.com -AccessRights SendAs -Confirm:$false
@@ -1288,9 +1088,7 @@ Identity                  Trustee                              AccessControlType
 Facilities20260917205737  653bc643-[remainder redacted]  Allow             {SendAs}     False
 ```
 
-`Trustee` renders as `testuser01`'s raw object GUID rather than a resolved name. That is worth noting once for a practical reason rather than as trivia: the `Get-` permission cmdlets in this step, `Get-MailboxPermission` and `Get-RecipientPermission`, both resolve identity to a readable user principal name, while the write path and the raw `GrantSendOnBehalfTo` property value return an unresolved identifier. So a grant is verified against a `Get-` cmdlet rather than against the output of the command that made it.
-
-Sending from inside the still-open Facilities mailbox failed twice more, at 6:07 PM and 6:18 PM Eastern, with the identical client-side "You don't have permission to send messages from this mailbox" error. `Get-RecipientPermission` confirmed the grant was present and correct in between, ruling out a failed or wrong grant and leaving propagation as the only explanation:
+The write cmdlets return the trustee as an unresolved object ID; `Get-MailboxPermission` and `Get-RecipientPermission` resolve it to a name, so grants are verified with those. Sends from inside Facilities were still blocked at 6:07 PM and 6:18 PM Eastern while `Get-RecipientPermission` showed the grant in place:
 
 ```powershell
 Get-RecipientPermission -Identity facilities@brindeck.com | Select-Object Trustee,AccessRights,AccessControlType
@@ -1303,9 +1101,9 @@ NT AUTHORITY\SELF       {SendAs}     Allow
 testuser01@brindeck.com {SendAs}     Allow
 ```
 
-The send succeeded at 6:25 PM Eastern. The exact grant time was not logged, so no precise propagation interval is claimed beyond what was directly observed: still blocked at 6:07 PM and 6:18 PM, succeeded by 6:25 PM. Cloud Administrator's inbox received the message with its sender shown as Facilities alone; opening the sender card surfaced only Facilities' own contact information, `facilities@brindeck.com`, with no reference anywhere to `testuser01`. That is Send As doing exactly what Design Decisions predicted, an impersonation with no indication a person sent it.
+The send succeeded at 6:25 PM. Cloud Administrator received it from Facilities alone, and the sender card showed only `facilities@brindeck.com`, with no trace of testuser01.
 
-Send on Behalf was granted last, with Send As removed first so its behavior could be observed on its own rather than layered underneath an impersonation grant already in effect:
+**Send on Behalf.** Send As was removed first, so Send on Behalf could be seen on its own:
 
 ```powershell
 Remove-RecipientPermission -Identity facilities@brindeck.com -Trustee testuser01@brindeck.com -AccessRights SendAs -Confirm:$false
@@ -1317,61 +1115,32 @@ Get-Mailbox -Identity facilities@brindeck.com | Select-Object -ExpandProperty Gr
 653bc643-[remainder redacted]
 ```
 
-The same unresolved rendering appeared a third time, on a third command, consistent with the split noted above between the write path and the `Get-` cmdlets rather than being a quirk of any one of them.
-
-The first attempt at exercising Send on Behalf repeated the exact compose path that had worked for Send As, from inside the already-open Facilities mailbox, new message, send. It succeeded at 6:39 PM Eastern and did not produce the result Design Decisions anticipated. Cloud Administrator's inbox showed the message from Facilities alone, no on-behalf-of indicator anywhere in the reading pane, and the message's own headers showed why: `From: Facilities <facilities@brindeck.com>`, no `Sender:` line at all, the same shape Send As produced:
-
-```text
-From: Facilities <facilities@brindeck.com>
-To: Cloud Administrator <admin@brindeck.com>
-Subject: Lab 04 Step Four - Send on Behalf test
-Return-Path: facilities@brindeck.com
-```
-
-(the remainder of the header block, transport hops and antispam scoring, carried nothing relevant and is omitted). The reading this step first drew from that result was that composing from inside a mailbox opened through Full Access submits the message as the mailbox itself regardless of which permission authorizes it, collapsing a distinction that is supposed to be visible. That reading was wrong, and the retest that disproved it is recorded further below rather than the conclusion being quietly replaced.
-
-Composing from the delegate's own mailbox instead of the opened Facilities mailbox is the path that actually exercises Send on Behalf as documented. From `testuser01`'s own inbox, a new message with Show From set to `facilities@brindeck.com`, addressed to `admin@brindeck.com`, sent at 6:50 PM Eastern, arrived reading exactly as Design Decisions predicted:
+A message composed inside Facilities at 6:39 PM Eastern arrived from Facilities alone, with no `Sender:` header, exactly like Send As. A message sent at 6:50 PM from testuser01's own mailbox with From set to Facilities arrived as documented:
 
 <p align="center">
   <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/18-testuser01-send-on-behalf-recipient-view.jpg" alt="18-testuser01-send-on-behalf-recipient-view" width="700">
 </p>
 
 <p align="center">
-  <em>Cloud Administrator's inbox: the reading pane's sender line reads "testuser01 on behalf of Facilities," naming both.</em>
+  <em>Cloud Administrator's inbox: "testuser01 on behalf of Facilities."</em>
 </p>
-
-The message's own headers back it up:
 
 <p align="center">
   <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/19-testuser01-send-on-behalf-message-headers.jpg" alt="19-testuser01-send-on-behalf-message-headers" width="700">
 </p>
 
 <p align="center">
-  <em>Message details on the same message: From: Facilities, Sender: testuser01, and X-MS-Exchange-MessageSentRepresentingType: 2.</em>
+  <em>The same message's headers: From: Facilities, Sender: testuser01, and X-MS-Exchange-MessageSentRepresentingType: 2.</em>
 </p>
 
-**The compose-path reading was wrong, and what disproved it is the more useful finding.** Two results taken eleven minutes apart had appeared to show that the compose path determined the header: composing from inside the opened mailbox at 6:39 PM produced no `Sender:` line, and composing from the delegate's own mailbox at 6:50 PM produced one. Neither source consulted for this plan documents such a behavior, which is the point at which a mundane explanation deserves looking for rather than a novel one deserves writing up.
-
-There was one available. `Remove-RecipientPermission` had stripped Send As somewhere between 6:25 PM and 6:39 PM, minutes before the first of those two sends. This same step had already watched a Send As grant take time to reach Outlook on the web, blocked at 6:07 PM, blocked again at 6:18 PM, and working by 6:25 PM. If a removal lags the way a grant does, Send As was still authoritative at 6:39 PM, and the message carried no `Sender:` line because it genuinely was a Send As message rather than because of where it was composed.
-
-The test that separates the two is the same send repeated once the removal has certainly propagated. `Get-RecipientPermission` was read first to establish the permission was gone, returning nothing at all:
-
-```powershell
-Get-RecipientPermission -Identity facilities@brindeck.com -Trustee testuser01@brindeck.com
-```
-
-```text
-
-```
-
-With Send As confirmed absent, the 6:39 PM compose path was repeated exactly, from inside the opened `Facilities` mailbox to `admin@brindeck.com`, at 7:31 PM Eastern:
+That pair first looked as though the compose path decided the header. The simpler explanation was that the Send As removal, made minutes before 6:39 PM, had not taken effect yet, the same way the grant had lagged. To separate the two, `Get-RecipientPermission -Identity facilities@brindeck.com -Trustee testuser01@brindeck.com` was confirmed to return nothing, and the 6:39 PM send was repeated exactly, from inside Facilities, at 7:31 PM Eastern:
 
 <p align="center">
   <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/20-compose-path-retest-recipient-view.jpg" alt="20-compose-path-retest-recipient-view" width="700">
 </p>
 
 <p align="center">
-  <em>Cloud Administrator's inbox, the 7:31 PM retest: the reading pane's sender line reads "testuser01 on behalf of Facilities," against the 6:39 PM message two rows below it in the same list showing Facilities alone.</em>
+  <em>Cloud Administrator's inbox: the 7:31 PM retest reads "testuser01 on behalf of Facilities," while the 6:39 PM message below it shows Facilities alone.</em>
 </p>
 
 <p align="center">
@@ -1379,42 +1148,35 @@ With Send As confirmed absent, the 6:39 PM compose path was repeated exactly, fr
 </p>
 
 <p align="center">
-  <em>Message details on the retest: From Facilities, and Sender: testuser01, present on a message composed from the same place as the 6:39 PM send that carried no Sender line.</em>
+  <em>The retest's headers: From: Facilities and Sender: testuser01, from the same compose path as the 6:39 PM send.</em>
 </p>
 
-The compose path does not determine the header. Composing from inside the opened shared mailbox produces `Sender: testuser01` and an "on behalf of" line exactly as composing from the delegate's own mailbox does, once Send As is genuinely gone rather than merely revoked. The 6:39 PM message was authorized by a permission the directory had already stopped reporting.
+The compose path does not matter. The 6:39 PM message was a Send As message, authorized by a permission the directory had already stopped reporting. The three models behave as documented: Send As leaves no `Sender:` line, Send on Behalf names the delegate, and Full Access alone cannot send.
 
-So the three-way distinction Design Decisions set out to demonstrate holds without qualification: Send As produces no `Sender:` line, Send on Behalf produces one naming the delegate, and Full Access alone sends nothing at all. What this step adds to it is a property of revocation rather than of the permissions themselves.
+**Revoking Send As fails open.** The revocation ran at an unlogged time between 6:25 PM and 6:39 PM, so it was still honored at most fourteen minutes after it ran, and no longer honored by 7:31 PM, at most sixty-six minutes after. Microsoft documents up to 60 minutes for mailbox permission changes to take effect, so the delay itself is expected. What matters is the consequence:
 
-**Revoking Send As does not take effect when the directory says it has.** `Get-RecipientPermission` reported the permission gone while Exchange was still honoring it, and a message sent in that window arrived as an unattributable impersonation of the shared mailbox.
+- A grant that has not landed fails closed: the delegate is told they cannot send (6:07 PM and 6:18 PM).
+- A revocation that has not landed fails open: the delegate keeps sending as the shared mailbox with no attribution, while `Get-RecipientPermission` already returns nothing.
 
-The interval is worth stating precisely, because the step's own evidence bounds it in only one direction usefully. `Remove-RecipientPermission` ran at an unlogged moment between 6:25 PM and 6:39 PM, so the honored send at 6:39 PM came at most fourteen minutes after the revocation and possibly a great deal less. Fourteen minutes is therefore a ceiling on what was observed rather than a floor, and this step cannot say how long the gap actually ran. What it can say at the other end is that the permission had stopped being honored by the 7:31 PM retest, at most sixty-six minutes after the earliest moment the revocation could have run.
+Nothing in the cmdlets or the admin center shows that the tenant is inside that window. It is recorded in Security Considerations.
 
-One further observation narrows it without settling it. The 6:50 PM send, composed from the delegate's own mailbox, carried a `Sender:` line, which would mean Send As was no longer being honored by then if Send As takes precedence over Send on Behalf when a delegate holds both. That precedence is not stated in any Microsoft source consulted for this lab, so it is recorded as the likely reading rather than used to tighten the bound, and sixty-six minutes stands as the figure this step can defend.
-
-Both of this step's timing observations sit against a figure Microsoft publishes: once mailbox permissions are set, the admin center documentation states it can take up to 60 minutes for the changes to propagate and take effect. The 24-minute ceiling on Full Access reaching Outlook on the web falls comfortably inside that, and the 66-minute outer bound on the Send As revocation falls just past it. Nothing this tenant did was anomalous, and the finding is not that Exchange takes time to apply a permission change, which is documented and expected.
-
-**The finding is that a revocation inside that documented window fails open while a grant inside it fails closed.** They are the same propagation behavior with the consequence inverted. A grant that has not landed yet produces a visible, safe failure: the delegate is told they do not have permission to send, which is what the 6:07 PM and 6:18 PM attempts recorded while Send As was in flight. (The earlier 5:49 PM block is not an instance of this. `testuser01` held Full Access and nothing else at that point, so that denial was correct and permanent rather than a grant still propagating, and it belongs to the Full Access finding above.) A revocation that has not landed yet produces no failure at all. The delegate keeps sending, the messages keep arriving as the shared mailbox with no attribution, and the administrator has `Get-RecipientPermission` returning empty as evidence the access is gone. Neither the cmdlet nor the admin center offers any signal that the tenant is inside the window, and the window is the normal case rather than a fault. It is recorded in Security Considerations below.
-
-**Disposition.** `Facilities` persists through the rest of this lab in its current permission state, Full Access and Send on Behalf on `testuser01`, Send As removed, and is removed at Step Nine alongside `Help-Desk` and `IT-Support`, on the same reasoning: it exists to demonstrate a workflow rather than to serve as lasting infrastructure. It is a different object from the shared mailbox Step Eight produces by converting an existing user mailbox, a distinction Step Nine's reconciliation keeps separate rather than conflating the two.
+**Disposition.** `Facilities` keeps Full Access and Send on Behalf for testuser01 and is removed at Step Nine. It is separate from the shared mailbox Step Eight produces by converting a user mailbox.
 
 ### Step Five: Built a mail flow rule, sent mail through the objects built, and traced it
 
-This step closes the loop on the premise Project Context opens with: a distribution list with correct membership and a transport rule stopping mail to it are indistinguishable from the object's own properties. The rule this step built rejects with an explanation rather than dropping, so the sender is told; what stays invisible is the object, which reports nothing about the rule acting on it. The order below is deliberate. `Help-Desk` was proven to work first, with a real message traced to `Expanded` and to a `Delivered` row for each member, before anything existed to break it. Only after that baseline was on record was the mail flow rule built, so the working state and the broken one could be read against the same object rather than argued from either alone.
+Project Context's premise is that a distribution list with correct membership and a transport rule stopping mail to it look identical from the group's own properties. `Help-Desk` was proven working first, then the rule was built, so the working and broken states could be read against the same object.
 
-**Help-Desk working normally, before the rule exists.** A message was sent from `testuser01`'s mailbox through Outlook on the web at 11:37 AM Eastern on 9/18/2026, subject `Lab 04 Step Five - Help-Desk baseline test`, addressed to `help-desk@brindeck.com`. No mail flow rule existed in the tenant at this point.
-
-The Exchange admin center's own Message trace, searched for that recipient, returned one row:
+**Help-Desk working, before the rule.** testuser01 sent a message to `help-desk@brindeck.com` at 11:37 AM Eastern on 9/18/2026, subject `Lab 04 Step Five - Help-Desk baseline test`.
 
 <p align="center">
   <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/22-help-desk-baseline-message-trace-admin-center.jpg" alt="22-help-desk-baseline-message-trace-admin-center" width="700">
 </p>
 
 <p align="center">
-  <em>Exchange admin center, Message trace search results: 1 item, testuser01@brindeck.com to help-desk@brindeck.com, Lab 04 Step Five - Help-Desk baseline test, Status Expanded, 9/18/2026 11:37 AM.</em>
+  <em>Exchange admin center, Message trace: the baseline message to help-desk@brindeck.com, Status Expanded.</em>
 </p>
 
-`Get-MessageTraceV2`, run against the same recipient at 11:39 AM Eastern, two minutes after the send, returned nothing at all, no rows and no error. A retry one minute later, 11:40 AM Eastern, returned the row:
+`Get-MessageTraceV2` returned nothing at 11:39 AM Eastern, two minutes after the send, and returned the row at 11:40:
 
 ```powershell
 Get-MessageTraceV2 -RecipientAddress "help-desk@brindeck.com" -StartDate (Get-Date).AddMinutes(-20) -EndDate (Get-Date)
@@ -1426,9 +1188,7 @@ Received             Sender Address          Recipient Address      Subject     
 9/18/2026 3:37:09 PM testuser01@brindeck.com help-desk@brindeck.com Lab 04 Step Five - Help-Desk baseline test Expanded
 ```
 
-Received 3:37:09 PM UTC against an 11:37 AM Eastern send matches to the minute, the same pattern Step One recorded for its own throwaway message. This is the first timed reading this lab has against the appearance-latency question Design Decisions raised: not yet queryable at two minutes post-send, queryable by three. That falls under even the tightest of the three figures Microsoft's own sources give, the Message Trace FAQ's five to ten minutes, rather than inside any of their ranges. Step One's throwaway trace established only a ceiling comfortably under the lowest figure, since the interval between sending and checking was never timed there; this is a bounded reading rather than a ceiling, and the bound it produced beat the documentation's own floor. One message is one data point, and it is recorded as that rather than as a settled figure for this tenant.
-
-Each member was traced next, to confirm the expansion actually reached them rather than stopping at the group:
+This is the lab's one timed reading of trace latency: not queryable at two minutes, queryable by three, faster than the five to ten minutes in Microsoft's Message Trace FAQ, the tightest of its three figures. It is one data point. Each member was then traced:
 
 ```powershell
 Get-MessageTraceV2 -RecipientAddress "jdoe@brindeck.com","jsmith@brindeck.onmicrosoft.com","testuser01@brindeck.com" -Subject "Help-Desk baseline" -SubjectFilterType "Contains" -StartDate (Get-Date "2026-09-18") -EndDate (Get-Date "2026-09-19")
@@ -1442,53 +1202,45 @@ Received             Sender Address          Recipient Address               Sub
 9/18/2026 3:37:09 PM testuser01@brindeck.com testuser01@brindeck.com         Lab 04 Step Five - Help-Desk baseline test Delivered
 ```
 
-All three members carry a `Delivered` row at the identical received timestamp as the `Expanded` row above, the same shape Step Three found for `IT-Support`. `Help-Desk` resolves and delivers correctly, and that is the state the rest of this step now works against.
+All three `Delivered`, at the same timestamp as the `Expanded` row.
 
-**Building the rule.** The Exchange admin center's new transport rule wizard was opened, Mail flow, Rules, Add a rule, Create a new rule. The first condition attempt reached for the obvious option, **The recipient** > **is this person**, and its Select members picker refused the object this step needed. Typing `Help-Desk` into the search box returned "No results found" under Suggested results, and the unfiltered list beneath it, 10 items, listed every mailbox-bearing recipient in the tenant, Adam Ramzi, Cloud Administrator, Alex Kim, All Company, Company Announcements, the Cloud-Only Demo Account, Facilities, Jane Doe, John Smith, and testuser01, with `Help-Desk` and `IT-Support` both absent.
-
-That condition is `SentTo` underneath, and Microsoft's own transport rule troubleshooting documentation names this exact limitation, worded around the sender side of the same condition pair rather than the recipient side used here: `SentTo` matches a mailbox, mail-enabled user, or contact, and does not work with distribution groups; the documented fix is `SentToMemberOf`, exposed in the wizard as **is a member of this group**. `Help-Desk` is a `MailUniversalDistributionGroup` with no mailbox of its own, per Step Three, so it was never going to appear in a picker that resolves against mailbox identity. Switching the condition to **is a member of this group** and searching `Help-Desk` resolved it immediately.
-
-The finished rule: name `Lab 04 Step Five - block Help-Desk`, condition **The recipient is a member of `help-desk@brindeck.com`**, action **Block the message** > **Reject the message and include an explanation**, explanation text `Blocked by Lab 04 Step Five mail flow rule test.`, no exceptions, Mode Enforce, no date range, priority 0, severity not specified, rule processing errors ignored, stop processing more rules false:
+**Building the rule.** In the Exchange admin center (Mail flow, Rules, Add a rule), the obvious condition, **The recipient** > **is this person**, could not find `Help-Desk`: its picker listed every mailbox-bearing recipient and neither distribution group. That condition is `SentTo`, which Microsoft documents as matching mailboxes, mail users, and contacts but not distribution groups; the documented alternative is `SentToMemberOf`, **is a member of this group**, which found `Help-Desk` immediately. The rule: condition **The recipient is a member of `help-desk@brindeck.com`**, action **Reject the message and include an explanation** with the text `Blocked by Lab 04 Step Five mail flow rule test.`, Mode Enforce, priority 0.
 
 <p align="center">
   <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/23-mail-flow-rule-review-and-finish.jpg" alt="23-mail-flow-rule-review-and-finish" width="700">
 </p>
 
 <p align="center">
-  <em>New transport rule, Review and finish: Lab 04 Step Five - block Help-Desk, condition "The recipient is a member of 'help-desk@brindeck.com'," action Reject the message with the explanation text, Mode Enforce, priority 0.</em>
+  <em>New transport rule, Review and finish: Lab 04 Step Five - block Help-Desk.</em>
 </p>
 
-The wizard's own Review and finish page states plainly that a new rule is turned off by default until enabled from the Rules page, which this rule was: created and confirmed through the mail-delivery-impact warning, then found on the Rules list at Status `Disabled`. It was switched on at 11:59 AM Eastern on 9/18/2026, the portal confirming with "Rule status updated successfully," and that is the timestamp the propagation reading below is measured against.
+A new rule is created disabled. It was enabled at 11:59 AM Eastern.
 
-**What Help-Desk's own membership page says about it: nothing.** Read immediately after enabling the rule, Recipients, Groups, Distribution list, `Help-Desk`, Members:
+**What Help-Desk's own page says about it: nothing.**
 
 <p align="center">
   <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/24-help-desk-members-after-rule-enabled.jpg" alt="24-help-desk-members-after-rule-enabled" width="700">
 </p>
 
 <p align="center">
-  <em>Groups, Help-Desk, Members, read with the mail flow rule already enabled: Distribution list group, 1 owner, 3 members, Cloud Administrator as owner, Jane Doe, John Smith, and testuser01 as members, no reference anywhere on the page to a rule.</em>
+  <em>Groups, Help-Desk, Members, with the rule enabled: one owner, three members, and no reference to any rule.</em>
 </p>
 
-Owner and membership are unchanged from Step Three, the same three names, and nothing on this page, or on the object's General or Settings tabs, names the rule, references Mail flow, or gives any indication that mail addressed to this group is now being rejected. This is the contrast the step was built to demonstrate: the rule's own configuration page states exactly what it does and to what, and the object it acts on states nothing about it at all.
+Neither the Members, General, nor Settings tab mentions the rule. The rule's page states exactly what it does and to what; the object it acts on states nothing.
 
-**The message the rule stops.** From `testuser01`, a message was sent to `help-desk@brindeck.com` at 12:15 PM Eastern on 9/18/2026, subject `Lab 04 Step Five - rule test`, sixteen minutes after the rule was enabled. That first attempt was already blocked, so the rule took effect somewhere inside that sixteen-minute window, comfortably under the up-to-30-minutes Microsoft documents for a new or modified mail flow rule to apply, and no further waiting or retrying was needed.
-
-What the sender received:
+**The message the rule stops.** testuser01 sent `Lab 04 Step Five - rule test` to `help-desk@brindeck.com` at 12:15 PM Eastern, sixteen minutes after enabling, and it was already blocked (Microsoft documents up to 30 minutes for a rule to apply).
 
 <p align="center">
   <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/25-help-desk-rule-test-ndr-summary.jpg" alt="25-help-desk-rule-test-ndr-summary" width="700">
 </p>
 
 <p align="center">
-  <em>Outlook on the web, testuser01's inbox: the non-delivery report for the message to help-desk@brindeck.com, "Custom mail flow rules at the recipients' domains have blocked your message," the rule's own explanation text "Blocked by Lab 04 Step Five mail flow rule test," and "Couldn't deliver to the following recipients: jdoe@brindeck.com, testuser01@brindeck.com, jsmith@brindeck.onmicrosoft.com."</em>
+  <em>testuser01's non-delivery report: "Custom mail flow rules at the recipients' domains have blocked your message," the rule's explanation text, and the three members as the undelivered recipients.</em>
 </p>
 
-The recipient list the NDR names, `jdoe@brindeck.com`, `testuser01@brindeck.com`, and `jsmith@brindeck.onmicrosoft.com`, is `Help-Desk`'s three members, not `help-desk@brindeck.com` itself. Exchange Online expanded the distribution list into its individual members first, and the rule's own condition, the recipient is a member of `Help-Desk`, still matched each expanded recipient individually, since each of the three is a member of the group regardless of which address the message is now addressed to. The rule was therefore evaluated against the expanded recipients rather than against the group address. Whether it fired once per matched recipient or once against a set of them is not something the NDR or the trace rows establish, so the evaluation point is what is recorded here rather than a count of firings.
+The NDR lists the group's three members, not the group address. Exchange expanded the list first and the rule matched each member, so it was evaluated against the expanded recipients.
 
-**Tracing it, both ways.** The Exchange admin center's Message trace, searched for `help-desk@brindeck.com`, returned one row at Status `Expanded`, with nothing in the summary row itself distinguishing this message from the working baseline traced earlier in this step. Clicking into that row for its detail view is where the two instruments diverge. The detail view's own top-line Status text describes success, exactly what the group-level `Expanded` row already implied and exactly what Design Decisions warned a configuration-level read can misstate. The Message events list beneath it is what actually shows the block: a `Drop` event follows `Expand DL`, and a `Transport rule` event follows that, naming the rule that acted, though the panel truncates the name to `Lab 0...` rather than showing it in full.
-
-`Get-MessageTraceV2`, run against the three expanded members directly, rather than against the group address, is what Step Three's own experience with `IT-Support` already anticipated: an `Expanded` status shows a group was resolved, not that anyone received anything, so the members have to be traced by their own addresses.
+**Tracing it.** In the Exchange admin center, the summary row reads `Expanded`, identical to the working baseline, and the detail view's top-line status also reads as success. Only the Message events list beneath it shows the block: `Expand DL`, then `Drop`, then `Transport rule`, with the rule name truncated to `Lab 0...`. In PowerShell, the members read `Failed`:
 
 ```powershell
 Get-MessageTraceV2 -RecipientAddress "jdoe@brindeck.com","jsmith@brindeck.onmicrosoft.com","testuser01@brindeck.com" -Subject "rule test" -SubjectFilterType "Contains" -StartDate (Get-Date "2026-09-18 12:10") -EndDate (Get-Date "2026-09-18 12:30")
@@ -1503,9 +1255,7 @@ Received               Sender Address                                           
 9/18/2026 4:15:02 PM   testuser01@brindeck.com                                                   testuser01@brindeck.com        Lab 04 Step Five - rule test               Failed
 ```
 
-All three members read `Failed` rather than `Delivered`, at the identical timestamp the `Expanded` row carries. The fourth row is the NDR itself, generated by the service's own system sender and delivered to `testuser01`, the one member who is also the original sender, a full second later. Nothing in either `Get-MessageTraceV2` call names the rule; `Failed` is a status, not a reason, matching Design Decisions' own account of what a summary-level read can and cannot say.
-
-The rule name does surface in PowerShell, one level down, using the `MessageTraceId` the Exchange admin center's detail panel supplied:
+The first row is the NDR back to testuser01. `Failed` is a status, not a reason, and names no rule. `Get-MessageTraceDetailV2`, using the trace ID from the admin center panel, names it in full:
 
 ```powershell
 Get-MessageTraceDetailV2 -MessageTraceId ca9bd7dd-77c2-4f52-c6d5-08df159ffe95 -RecipientAddress jdoe@brindeck.com
@@ -1519,11 +1269,9 @@ Date                  Event           Detail
 9/18/2026 4:15:03 PM  Transport rule  Transport rule: 'Lab 04 Step Five - block Help-Desk', ID: ('3489BE3B-483A-4340-9FA5-D423E580E1A0'), DLP policy: '', ID: (00000000-0000-0000-0000-0...
 ```
 
-This corrects what the admin center's own panel seemed to show a moment earlier. `Get-MessageTraceV2`'s summary carries no rule name, matching the expectation the admin center's truncated label suggested, but `Get-MessageTraceDetailV2` is the direct PowerShell equivalent of that same panel's Message events list, and it names the rule in full, `Lab 04 Step Five - block Help-Desk`, along with the rule's own GUID, neither of which the admin center's panel displayed without truncation. The two surfaces are not as different as the first read suggested: both carry the rule name at a detail level one step below their own summary, and the PowerShell detail cmdlet turned out to be the more complete of the two on this specific fact. The duplicate `Fail` event, identical reason text logged twice at the same timestamp, is recorded as observed rather than explained; nothing in this step's evidence says why the rejection logged twice.
+The rejection was logged twice at one timestamp, which is recorded rather than explained. The admin center calls the event `Drop` and PowerShell calls it `Fail`.
 
-The two instruments also name the event differently, which is worth recording because a reader moving between them would otherwise be looking for the wrong word. The admin center's Message events list shows a `Drop` event; `Get-MessageTraceDetailV2` shows `Fail` events and no `Drop` at all. Both describe the same rejection of the same message. Whether the difference is a naming convention between the two surfaces or a genuine difference in what each is recording is not established here.
-
-**The individual mailbox control.** A message was sent from `testuser01` to `akim@brindeck.onmicrosoft.com` (Alex Kim) at 12:06 PM Eastern on 9/18/2026, subject `Lab 04 Step Five - individual control test`, unaffected by the rule since Alex Kim is not a member of `Help-Desk`. The Exchange admin center's Message trace, searched for that recipient, returned two rows rather than one: this message at 12:06 PM, and an unrelated hit from Step Three's `IT-Support` routing test on 9/16/2026 8:37 PM, also addressed to Alex Kim as one of that group's members, both `Delivered`. `Get-MessageTraceV2` against the same recipient and a tighter window returned the current message alone:
+**The individual control.** testuser01 sent `Lab 04 Step Five - individual control test` to Alex Kim, not a `Help-Desk` member, at 12:06 PM Eastern:
 
 ```powershell
 Get-MessageTraceV2 -RecipientAddress "akim@brindeck.onmicrosoft.com" -StartDate (Get-Date "2026-09-18 12:00") -EndDate (Get-Date "2026-09-18 12:15")
@@ -1535,19 +1283,9 @@ Received              Sender Address          Recipient Address             Subj
 9/18/2026 4:06:05 PM  testuser01@brindeck.com akim@brindeck.onmicrosoft.com  Lab 04 Step Five - individual control test Delivered
 ```
 
-Received 4:06:05 PM UTC against a 12:06 PM Eastern send matches to the minute, the same pattern every timed message in this lab has shown. This is the control the other two traces are read against: a plain mailbox-to-mailbox message, no group and no rule involved, delivered normally in both instruments with nothing to reconcile between them.
+So the three traces read: the baseline `Expanded` then `Delivered` per member, the control `Delivered`, and the blocked message `Expanded` at the group then `Failed` per member, with the rule named only one level below the summary.
 
-All three traces this step set out to produce are now on record: the working baseline to `Help-Desk` (`Expanded` at the group, `Delivered` to each of its three members), this individual control (`Delivered`), and the message the rule stops (`Expanded` at the group's summary row, `Failed` at each expanded member, the rejection itself traceable to the rule one level below the summary in both instruments, named in full only by `Get-MessageTraceDetailV2` and truncated to `Lab 0...` in the admin center's own panel).
-
-**The instrument's own constraints, cited rather than rediscovered.** Per Design Decisions, message trace data is retained for 90 days with no configurable period, and results return immediately for a search spanning 10 days or less, delivered as a prepared report beyond that. Every search in this step stayed inside a single day, well under that boundary, so nothing here exercised the report path. On appearance latency, this step's one precisely timed reading is the baseline message: not yet queryable at two minutes post-send, queryable by three, which is under even the tightest of the three ranges Microsoft's sources give, the Message Trace FAQ's five to ten minutes. The rule-stopped message and the individual control were both already present, with their full detail, whenever they were checked, with no separate wait observed for either, though neither was checked against an earlier failed attempt the way the baseline was, so no comparable bound is claimed for them. One bounded reading is what this step produced, and it is recorded as that rather than generalized into a figure for the tenant or used to argue any of the three cited ranges wrong.
-
-**Help-Desk's Delivery management setting.** Step Three already read this, at creation rather than after the fact: the group's Settings screen carried "Allow people outside of my organization to send email to this Distribution group," left unchecked, matching Microsoft's documented default that new distribution groups require all senders to be authenticated. That reading is cited here rather than repeated. Changing it would open `help-desk@brindeck.com` to mail from outside the tenant, which Security Considerations already treats as the real exposure, not the default itself. Per Step One's mail-flow DNS finding, `brindeck.com` has no MX or SPF record and this lab confines itself to internal recipients, so what changing this setting would actually permit is recorded as documented behavior rather than tested live, on the same reasoning Step One gave for the external-sender premise generally.
-
-**The rule removed, mail flow restored.** The Rules list still showed `Lab 04 Step Five - block Help-Desk` at Status Enabled, Priority 0. Selecting it and choosing Delete opened a confirmation panel that read "Deleting" while the action completed; querying the Rules list afterward returned "No data available for given query," 0 items, at 12:40 PM Eastern on 9/18/2026, the point this step treats as the rule's removal.
-
-A confirmation message was sent from `testuser01` to `help-desk@brindeck.com` two minutes later, at 12:42 PM Eastern, subject `Lab 04 Step Five - post-removal confirmation`. It arrived in `testuser01`'s own inbox rather than generating a non-delivery report, the plain contrast sitting one row above it in the same inbox: the 12:15 PM message from "Microsoft Outlook," undeliverable, next to this one, sent directly and delivered.
-
-`Get-MessageTraceV2` against the group address confirms it:
+**The rule removed.** The rule was deleted at 12:40 PM Eastern. A confirmation message to `help-desk@brindeck.com` at 12:42 PM, subject `Lab 04 Step Five - post-removal confirmation`, arrived without an NDR:
 
 ```powershell
 Get-MessageTraceV2 -RecipientAddress "help-desk@brindeck.com" -StartDate (Get-Date "2026-09-18 12:40") -EndDate (Get-Date)
@@ -1558,8 +1296,6 @@ Received              Sender Address          Recipient Address      Subject    
 --------              --------------          -----------------      -------                                       ------
 9/18/2026 4:42:02 PM  testuser01@brindeck.com help-desk@brindeck.com Lab 04 Step Five - post-removal confirmation Expanded
 ```
-
-Received matches the 12:42 PM Eastern send to the minute, the same pattern every timed message in this lab has shown. `Expanded` alone says only that the group resolved, exactly as Step Three and this step's own baseline established, so the members were traced next:
 
 ```powershell
 Get-MessageTraceV2 -RecipientAddress "jdoe@brindeck.com","jsmith@brindeck.onmicrosoft.com","testuser01@brindeck.com" -Subject "post-removal" -SubjectFilterType "Contains" -StartDate (Get-Date "2026-09-18 12:40") -EndDate (Get-Date)
@@ -1572,71 +1308,37 @@ Received              Sender Address          Recipient Address       Subject   
 9/18/2026 4:42:02 PM  testuser01@brindeck.com testuser01@brindeck.com Lab 04 Step Five - post-removal confirmation Delivered
 ```
 
-Two of the three expected rows, not three. `jsmith@brindeck.onmicrosoft.com` is a member of `Help-Desk` exactly as much as the other two, and the group-level row above already shows the message expanded to all of them, but the combined query returned nothing for that one address. Queried alone rather than alongside the other two, it appeared:
+Two of the three member rows. John Smith's row appeared as `Delivered` when queried alone, and the same query rerun hours later returned all three, so every member received it and the trace had not caught up (Troubleshooting and Adjustments). The operational point: a trace run minutes after a send can return a partial set that looks exactly like non-delivery, with no error. Ask again before concluding anything from a missing row.
 
-```powershell
-Get-MessageTraceV2 -RecipientAddress "jsmith@brindeck.onmicrosoft.com" -Subject "post-removal" -SubjectFilterType "Contains" -StartDate (Get-Date "2026-09-18 12:40") -EndDate (Get-Date)
-```
+A whole-step search in the admin center for `help-desk@brindeck.com` shows all three messages, including the blocked one, as `Expanded`. Read alone, it would have missed the block entirely.
 
-```text
-Received              Sender Address          Recipient Address               Subject                                       Status
---------              --------------          -----------------               -------                                       ------
-9/18/2026 4:42:02 PM  testuser01@brindeck.com jsmith@brindeck.onmicrosoft.com Lab 04 Step Five - post-removal confirmation Delivered
-```
-
-Delivered, at the identical timestamp the other two members and the group row carry. All three members received the message; the gap was in what the trace had indexed at the moment it was asked, not in what actually happened.
-
-**Rerunning the query ruled out the reading the missing row first suggested.** Two rows from a three-address query, with each address returning its row when asked alone, reads as a property of `-RecipientAddress` taking an array. The mundane alternative had not been ruled out: this step's own baseline reading established that a row is not yet queryable two minutes after a send and is queryable by three, the message had been delivered at 12:42 PM Eastern, and the combined query ran within a few minutes of that. The single-address query for `jsmith` ran after the combined one, so the row becoming queryable in between accounts for the result equally well.
-
-The same query, byte for byte, re-run hours later over the identical window:
-
-```text
-Received              Sender Address          Recipient Address               Subject                                    Status
---------              --------------          -----------------               -------                                    ------
-9/18/2026 4:42:02 PM  testuser01@brindeck.com jdoe@brindeck.com               Lab 04 Step Five - post-removal confirmation Delivered
-9/18/2026 4:42:02 PM  testuser01@brindeck.com jsmith@brindeck.onmicrosoft.com Lab 04 Step Five - post-removal confirmation Delivered
-9/18/2026 4:42:02 PM  testuser01@brindeck.com testuser01@brindeck.com         Lab 04 Step Five - post-removal confirmation Delivered
-```
-
-Three rows. A multi-address `-RecipientAddress` query does not deterministically drop a recipient, which is what the first reading would have required. The rerun does not go further than that on its own: a transient fault would also have cleared by the time it ran, so it rules out the array-query explanation without proving any particular one in its place.
-
-The explanation most consistent with what this step saw is appearance latency operating per row rather than per message. The three member rows carry an identical `Received` timestamp of 4:42:02 PM UTC and did not all become queryable at the same moment, which would follow if rows from a single expanded message are indexed independently rather than as a unit. That is offered as the likely reading rather than as an established one, since nothing here distinguishes it from a one-off indexing delay affecting that row alone.
-
-The operational point survives either way and is the part worth carrying forward. A query run inside the appearance window can return a partial set that looks exactly like non-delivery for the missing members, with no error raised and nothing marking the result as incomplete. An administrator checking minutes after a send whether a distribution list reached everyone can be handed a wrong answer by an instrument reporting success. The remedy is the one this step arrived at by accident: ask again before concluding anything from an absent row.
-
-A Message trace search in the Exchange admin center for `help-desk@brindeck.com`, spanning the whole step, returned three items: the 12:42 PM confirmation, the 12:15 PM rule test, and the 11:37 AM baseline, each `Expanded`. The status column reads identically across all three regardless of which one the rule blocked, the same point the group-level trace has made throughout this step: `Expanded` describes the group resolving its members, not what happened to the mail afterward, and reading it alone as proof of delivery would have missed the one message this step deliberately stopped.
-
-The removal's own timing is a bounded reading worth recording. The rule was deleted at 12:40 PM Eastern and mail reached the group again at 12:42, so it was out of effect within two minutes. That is worth setting beside Step Four carefully rather than loosely: that step's Send As revocation was still honored on a message sent at most fourteen minutes after `Remove-RecipientPermission` returned, and possibly a great deal less, since the removal's own time was never logged. The two readings therefore do not establish that the mechanisms behave differently. What they do establish is narrower and still worth having: a transport rule removal confirmed in effect within two minutes here, and a permission revocation a day earlier observed still working after the directory reported it gone. One produced a measured interval, the other only a bound, and neither licenses an assumption about the next mechanism.
-
-The mail flow rule was this step's own test apparatus, built to demonstrate a point and removed once it had. `Help-Desk` itself carries forward unchanged, the same distribution list Step Three built and this step worked with at every stage, per Step Three's own disposition of the object; the rule that acted on it between 11:59 AM and 12:40 PM Eastern does not. Step Nine's reconciliation therefore has a confirmation to make against this step rather than an object to account for: that the rule is absent and mail to `Help-Desk` still flows.
+The rule was out of effect within two minutes of deletion. That does not show rules and permissions behave differently: Step Four's Send As revocation was only bounded, never measured. Step Nine confirms the rule is gone and mail to `Help-Desk` still flows.
 
 ### Step Six: Observed the Business Basic lapse
 
-Pinned to 2026-09-22 rather than sequenced. This step is read when the date arrives, from whatever step the lab is standing in, and Steps Seven through Nine do not wait behind it. The prediction is recorded in Step One and in Design Decisions above, before the date and in a commit made before the date, and is not revised afterward.
+The Business Basic (no Teams) trial was read before, on, and after its stated 2026-09-22 expiration, against the prediction committed in Step One. Step One had found its Recurring billing field reading 9/23, so both dates were covered. The four questions were whether the subscription entered an Expired stage, whether `Finance`'s group assignment survived, whether Adam Ramzi's mailbox survived losing his only license, and whether Lab 03's target-versus-seat reconciliation still held.
 
-Read the subscription's state, `Finance`'s group-level assignment, Adam Ramzi's direct assignment, the Microsoft 365 admin center's assigned count, and `Get-MgSubscribedSku`'s consumed units, on the day before the lapse and again on both 9/22 and 9/23. Reading both dates is not belt and braces: Step One found the subscription's own Recurring billing field reading 9/23 against a stated Expiration date of 9/22, so which of the two the commerce system acts on is an open question this step can answer for free. Record what changed and what did not.
-
-Four specific questions this step answers rather than assumes: whether the subscription entered an Expired state rather than disappearing, whether `Finance` still carries the assignment, whether Adam Ramzi's mailbox survives the loss of the only license he holds, and whether the target-versus-seat distinction Lab 03's Part C established still reconciles the two figures the same way. `Finance` is empty, so no user draws Business Basic through it and the group question is about the assignment surviving rather than about anyone's access. Adam Ramzi is the whole of the access question: he holds the subscription's single consumed seat by direct assignment, that assignment is his only license of any kind, and it is what carries the Exchange Online Plan 1 behind one of the tenant's seven mailboxes. Record the mailbox's state alongside the assignment's, since they can diverge.
-
-If the outcome contradicts the prediction, record both and say plainly which one the tenant supported.
-
-Then apply the result to this lab's own schedule rather than only to the record, on the three-way branch Design Decisions sets out. An Expired stage that retains access means the 2026-10-05 cliff is probably a status change, and the lab records roughly 30 days of unplanned slack without spending it. A clean removal of access at the date confirms the cliff, and anything outstanding that needs a mailbox is triaged against 2026-10-05 immediately. Anything in between keeps the conservative assumption. Record which branch the tenant put the lab on.
-
-**2026-09-21 readings.** The pre-lapse baseline for this step is partial. Only the product page and the SKU's unit breakdown were read on 2026-09-21. Adam Ramzi's mailbox already had a pre-lapse reference from Step Two.
-
-The Business Basic (no Teams) product page was read shortly before 6:40 PM Eastern (22:40 UTC) on 2026-09-21, the day before the subscription's stated 2026-09-22 lapse.
+**Before the lapse.** The product page was read shortly before 6:40 PM Eastern (22:40 UTC) on 2026-09-21 and again at 10:09 AM Eastern (14:09 UTC) on 2026-09-22.
 
 <p align="center">
   <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/26-business-basic-product-page-2026-09-21.jpg" alt="26-business-basic-product-page-2026-09-21" width="450">
 </p>
 
 <p align="center">
-  <em>Microsoft 365 admin center, Billing, Your products, Business Basic (no Teams), read shortly before 6:40 PM Eastern (22:40 UTC) on 2026-09-21: Active, Expiration date 9/22/2026, Recurring billing reading "Expires on September 23, 2026," 2 of 25 assigned, and Purchase channel reading Direct rather than Commercial direct.</em>
+  <em>Business Basic product page, 2026-09-21: Active, Expiration date 9/22/2026, Recurring billing "Expires on September 23, 2026," 2 of 25 assigned, Purchase channel Direct.</em>
 </p>
 
-Every other field on the page read as it did in Step One's own pre-lapse reading: Subscription status Active, Expiration date 9/22/2026, Recurring billing reading "Expires on September 23, 2026," and 2 of 25 licenses assigned. All three banner notices were present and read the same as well, the expiration notice naming 9/22/2026, the trial-and-service-end notice, and the cancellation notice naming September 22, 2026. One field does not match. Purchase channel now reads Direct, where Step One's reading read Commercial direct. Nothing read here explains the change, and it is recorded as an observed difference between the two readings rather than as a rename or a reclassification of the field. Step One's own text stating Commercial direct is left standing as written, since it described the page as the page read at the time.
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/27-business-basic-product-page-2026-09-22.jpg" alt="27-business-basic-product-page-2026-09-22" width="450">
+</p>
 
-The Business Basic SKU was read through Microsoft Graph in the same sitting, at 6:40:19 PM Eastern (22:40:19 UTC) on 2026-09-21:
+<p align="center">
+  <em>The same page at 10:09 AM Eastern on 2026-09-22: unchanged except the top banner, now "expires today."</em>
+</p>
+
+Everything matched Step One's reading except Purchase channel, which read Direct where Step One read Commercial direct. Business Premium's page read Direct too, which points to a portal-wide relabel rather than anything about the lapse.
+
+The SKU's unit breakdown was read at 6:40:19 PM Eastern (22:40:19 UTC) on 2026-09-21:
 
 ```powershell
 Get-MgSubscribedSku | Where-Object { $_.SkuPartNumber -like '*Business_Basic*' } |
@@ -1657,62 +1359,9 @@ Suspended        : 0
 LockedOut        : 0
 ```
 
-`CapabilityStatus` reads Enabled, `ConsumedUnits` reads 1, and the full 25-seat `Enabled` unit count carries no `Warning`, `Suspended`, or `LockedOut` units. This is the baseline the 2026-09-22 and 2026-09-23 readings are compared against.
+The same command returned identical output at 12:24 PM Eastern on 2026-09-22 and at 8:04:46 PM Eastern on 2026-09-22 (00:04:46 UTC on 2026-09-23).
 
-Adam Ramzi's license state, his mailbox object and statistics, `Finance`'s group-level assignment, and the admin center's assigned count against `Get-MgSubscribedSku`'s consumed units were not read on 2026-09-21. For the mailbox, the pre-lapse reference already exists: Step Two recorded 36 items, 7.536 MB, 0 B deleted, and a blank `LastLogonTime`, read 2026-09-16.
-
-**2026-09-22 readings.**
-
-The Business Basic (no Teams) product page was read first, before anything else that day, at 10:09 AM Eastern (14:09 UTC), a time taken from the screenshot's own save time.
-
-<p align="center">
-  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/27-business-basic-product-page-2026-09-22.jpg" alt="27-business-basic-product-page-2026-09-22" width="450">
-</p>
-
-<p align="center">
-  <em>Microsoft 365 admin center, Billing, Your products, Business Basic (no Teams), read at 10:09 AM Eastern (14:09 UTC) on 2026-09-22: Active, Expiration date 9/22/2026, Recurring billing reading "Expires on September 23, 2026," 2 of 25 assigned, Purchase channel reading Direct, and the top banner reading "Your Microsoft 365 Business Basic (no Teams) expires today" with a red warning icon.</em>
-</p>
-
-Subscription status still reads Active, with the same green check mark the pre-lapse readings carried; the subscription has not disappeared from the portal and has not changed to an Expired or Disabled state. Expiration date still reads 9/22/2026, Recurring billing still reads "Expires on September 23, 2026," Licenses assigned still reads 2 of 25, and Purchase channel still reads Direct, unchanged from the 2026-09-21 reading. One thing did change. The top banner's icon and wording changed: the pre-lapse banner read "Your Microsoft 365 Business Basic (no Teams) expires on 9/22/2026," with a blue informational icon, and this reading's banner reads "Your Microsoft 365 Business Basic (no Teams) expires today," quoted verbatim from the portal, with a red warning icon in place of the blue one. The other two banners are unchanged in wording and icon.
-
-This reading is recorded as unresolved rather than as evidence the subscription survived the date. It was taken at 10:09 AM Eastern, early on the day the lapse is stated to occur, and nothing on the page says at what time of day the lapse is processed. A field unchanged this early says only that nothing had changed by 10:09 AM Eastern, not that nothing will change before the day ends.
-
-The Business Premium product page's Purchase channel field was checked in the same sitting, without a screenshot, since only the one field was needed. It reads Direct, the same value the Business Basic page now shows and the same field Lab 03 recorded as Commercial direct. Both subscriptions' Purchase channel fields now read Direct rather than Commercial direct, which is more consistent with a portal-wide label change than with anything specific to the Business Basic subscription's lapse, though the cause remains unestablished and this reading alone does not settle it.
-
-The subscription's unit breakdown, Adam Ramzi's license state, and his mailbox were read through Microsoft Graph and Exchange Online PowerShell at 12:24 PM Eastern (16:24 UTC) on 2026-09-22, from WIN11-CLIENT01. The SKU, with the same `Get-MgSubscribedSku` command as on 2026-09-21:
-
-```text
-SkuPartNumber    : Microsoft_365_Business_Basic_(no Teams)
-CapabilityStatus : Enabled
-ConsumedUnits    : 1
-Enabled          : 25
-Warning          : 0
-Suspended        : 0
-LockedOut        : 0
-```
-
-Identical to the 2026-09-21 reading in every field. `CapabilityStatus` still reads Enabled, `ConsumedUnits` is still 1, and the unit breakdown carries no `Warning`, `Suspended`, or `LockedOut` seats.
-
-```powershell
-Get-MgUserLicenseDetail -UserId Adam@brindeck.onmicrosoft.com | Select-Object SkuPartNumber | Format-List
-```
-
-```text
-SkuPartNumber : Microsoft_365_Business_Basic_(no Teams)
-```
-
-Adam Ramzi's direct assignment still holds.
-
-```powershell
-Get-EXOMailbox -Identity Adam@brindeck.onmicrosoft.com -Properties RecipientTypeDetails,ProhibitSendReceiveQuota,WhenSoftDeleted | Format-List DisplayName,RecipientTypeDetails,ProhibitSendReceiveQuota,WhenSoftDeleted
-```
-
-```text
-DisplayName              : Adam Ramzi
-RecipientTypeDetails     : UserMailbox
-ProhibitSendReceiveQuota : 100 GB (107,374,182,400 bytes)
-WhenSoftDeleted          :
-```
+At 12:24 PM Eastern on 2026-09-22, Adam Ramzi's license detail still returned Business Basic, and his mailbox was still a `UserMailbox` with `WhenSoftDeleted` blank:
 
 ```powershell
 Get-EXOMailboxStatistics -Identity Adam@brindeck.onmicrosoft.com | Format-List DisplayName,ItemCount,TotalItemSize,TotalDeletedItemSize,LastLogonTime
@@ -1725,109 +1374,79 @@ TotalItemSize        : 7.536 MB (7,901,842 bytes)
 TotalDeletedItemSize : 0 B (0 bytes)
 ```
 
-The mailbox is still a `UserMailbox`, `WhenSoftDeleted` is still blank, and it is not in Exchange's own retention. `ItemCount` is unchanged at 36 against Step Two's baseline. `TotalItemSize` displays the same 7.536 MB Step Two recorded, but the exact byte count moved, 7,901,842 bytes against Step Two's 7,901,637 bytes, a difference of 205 bytes. Nothing in this lab put content in this mailbox between the two readings, and the unchanged item count agrees, so the increase is recorded as an unexplained small drift rather than attributed to anything. `LastLogonTime` did not print as a line at all in this reading's output, where Step Two's command printed it as a blank line (`LastLogonTime        :` with no value). The two commands were not identical, and the difference explains the output. Step Two piped through `Select-Object` before `Format-List`, and `Select-Object` creates every property it is asked for, printing one the input object does not carry as an empty value. This reading passed the property list to `Format-List` directly, which skips a property the object does not carry. Microsoft's property set reference for the Exchange Online PowerShell module lists `LastLogonTime` in `Get-EXOMailboxStatistics`'s All property set and not in the Minimum set a call without `-Properties` or `-PropertySets` returns. Neither command requested it, so neither reading retrieved `LastLogonTime` at all, and Step Two's blank value recorded the property's absence from the output rather than a mailbox that had never been signed in to. Step Two's text is left standing as written; the 2026-09-23 reading requests the property explicitly.
+Thirty-six items, as in Step Two. (`LastLogonTime` did not print; see Troubleshooting and Adjustments.)
 
-`Finance`'s group-level assignment was checked on both surfaces in the same sitting, shortly after the 12:24 PM Eastern PowerShell reading.
+`Finance`'s assignment was checked on both surfaces the same day:
 
 <p align="center">
   <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/28-finance-entra-admin-center-licenses-blade.jpg" alt="28-finance-entra-admin-center-licenses-blade" width="700">
 </p>
 
 <p align="center">
-  <em>Microsoft Entra admin center, Groups, Finance, Licenses blade, read 2026-09-22: "No license assignments found."</em>
+  <em>Entra admin center, Finance, Licenses, 2026-09-22: "No license assignments found."</em>
 </p>
-
-The Entra admin center's own Licenses blade for `Finance` reads "No license assignments found," the identical text Lab 03 recorded for this same blade before the lapse. That is not new information; it is the same directory-surface gap Lab 03's Part A already established, reproduced here on the same group rather than resolved by anything about the date.
 
 <p align="center">
   <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/29-business-basic-licenses-tab-assignment-targets.jpg" alt="29-business-basic-licenses-tab-assignment-targets" width="700">
 </p>
 
 <p align="center">
-  <em>Microsoft 365 admin center, Business Basic (no Teams), Licenses tab, read 2026-09-22: 2/25 assigned, three rows, the subscription itself at 2 assigned licenses, Finance typed Group, and Adam Ramzi typed User.</em>
+  <em>Microsoft 365 admin center, Business Basic, Licenses tab, 2026-09-22: 2/25 assigned, with Finance (Group) and Adam Ramzi (User) listed.</em>
 </p>
 
-The Business Basic product's own Licenses tab tells a different story, the one Lab 03's Part A established as the reliable surface for this relationship. It lists three rows: the subscription itself, reading 2 assigned licenses; `Finance`, typed Group; and Adam Ramzi, typed User. `Finance` still appears as an assignment target on this surface, exactly as it did before the lapse, even though the Entra admin center's own blade for the same group shows nothing. The assignment record has not disappeared; it has only ever been visible on the commerce-facing surface rather than the directory-facing one, and that split predates this lapse by a full lab. Against `ConsumedUnits` 1, that is two targets and one seat: `Finance` is empty and consumes nothing, the same target-versus-seat gap Lab 03's Part C found on Business Premium.
+The Entra blade shows nothing, as Lab 03's Part A found, while the Microsoft 365 admin center's Licenses tab lists `Finance` as a target. Against `ConsumedUnits` 1, that is two targets and one seat, since `Finance` is empty: the same gap Lab 03's Part C found on Business Premium.
 
-**2026-09-22 evening readings.** Three further readings were taken on the evening of 2026-09-22 Eastern, each after 2026-09-23 had begun in UTC.
-
-The Your products list was read at 8:03 PM Eastern (00:03 UTC on 2026-09-23).
+At 8:03 PM Eastern on 2026-09-22 (00:03 UTC on 2026-09-23), the Your products list still showed Business Basic Active:
 
 <p align="center">
   <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/30-your-products-list-2026-09-22-evening.jpg" alt="30-your-products-list-2026-09-22-evening" width="700">
 </p>
 
 <p align="center">
-  <em>Microsoft 365 admin center, Billing, Your products, read at 8:03 PM Eastern on 2026-09-22 (00:03 UTC on 2026-09-23): the billing account view reading "Products connected to Brindeck (MCA)," and three products listed, Business Basic (no Teams) Active with a Renewal or expiration date of 9/22/2026 and 2 assigned, 25 purchased, 23 available, Business Premium Active with 10/5/2026, and Microsoft Entra ID Free Active, all three reading Purchase channel Direct and Pricing model Paid.</em>
+  <em>Your products, 8:03 PM Eastern on 2026-09-22: "Products connected to Brindeck (MCA)," Business Basic Active with 23 available, all three products Purchase channel Direct.</em>
 </p>
 
-Business Basic (no Teams) still read Active on the list, with a Renewal or expiration date of 9/22/2026, 2 licenses assigned, 25 purchased, and 23 available. The list's billing account view read "Products connected to Brindeck (MCA)." That is the tenant itself naming the billing account a Microsoft Customer Agreement, where Step One's prediction could only infer it from a Purchase channel reading of Commercial direct. It confirms the premise the prediction rests on, that the lifecycle article's note about license-based subscriptions bought directly through a Microsoft Customer Agreement covers this subscription. It does not confirm the prediction, which is about what the tenant does at the date.
+The billing account view reads "Products connected to Brindeck (MCA)." That confirms the premise of the prediction, that this is a Microsoft Customer Agreement purchase, which Step One could only infer. It does not confirm the prediction itself.
 
-All three products on the list, Business Basic, Business Premium, and Microsoft Entra ID Free, read Purchase channel Direct. That adds a third product to the reading that the shift from Commercial direct is a portal-wide label change, without settling it. The Pricing model column read Paid for both trial subscriptions, while each product's own page reads Free trial in its Unit price field; the two surfaces are recorded as disagreeing, not reconciled. The Billing profile column showed a profile name rather than an identifier. The list's default filter read "Subscription status: Active, Pending, Scheduled, +2," so the list does not show every subscription status unless the filter is changed.
-
-The Business Basic SKU was read with the same `Get-MgSubscribedSku` command at 8:04:46 PM Eastern (00:04:46 UTC on 2026-09-23):
-
-```text
-SkuPartNumber    : Microsoft_365_Business_Basic_(no Teams)
-CapabilityStatus : Enabled
-ConsumedUnits    : 1
-Enabled          : 25
-Warning          : 0
-Suspended        : 0
-LockedOut        : 0
-```
-
-Identical to both earlier readings in every field. No change was visible in the SKU about four minutes after UTC midnight.
-
-The Business Basic (no Teams) product page was read again at 8:08 PM Eastern (00:08 UTC on 2026-09-23).
+At 8:08 PM Eastern (00:08 UTC on 2026-09-23) the product page was unchanged from that morning, still reading "expires today" after UTC midnight:
 
 <p align="center">
   <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/31-business-basic-product-page-2026-09-22-evening.jpg" alt="31-business-basic-product-page-2026-09-22-evening" width="450">
 </p>
 
 <p align="center">
-  <em>Microsoft 365 admin center, Billing, Your products, Business Basic (no Teams), read at 8:08 PM Eastern on 2026-09-22 (00:08 UTC on 2026-09-23): Active, Expiration date 9/22/2026, Recurring billing reading "Expires on September 23, 2026," 2 of 25 assigned, Unit price reading Free trial, Purchase channel reading Direct, and the top banner still reading "Your Microsoft 365 Business Basic (no Teams) expires today" with a red warning icon.</em>
+  <em>Business Basic product page, 8:08 PM Eastern on 2026-09-22: still Active, still "expires today."</em>
 </p>
 
-The page matched the 10:09 AM Eastern reading field for field, including the red banner reading "expires today." That banner still read "today" eight minutes into 2026-09-23 UTC. This is recorded as an observation only; nothing on the page says which time zone its "today" is counted in.
-
-**2026-09-23 readings.**
-
-The Business Basic (no Teams) product page was read first, before anything else that day, at 1:29 PM Eastern (17:29 UTC).
+**After the lapse.** At 1:29 PM Eastern (17:29 UTC) on 2026-09-23, the subscription read Disabled:
 
 <p align="center">
   <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/32-business-basic-product-page-2026-09-23.jpg" alt="32-business-basic-product-page-2026-09-23" width="450">
 </p>
 
 <p align="center">
-  <em>Microsoft 365 admin center, Billing, Your products, Business Basic (no Teams), read at 1:29 PM Eastern (17:29 UTC) on 2026-09-23: Subscription status Disabled with Reactivate and Extend trial end date unavailable, Licenses assigned 2 / 2, Expiration date 9/22/2026, Recurring billing reading "Expires on September 23, 2026," and the banners reading "Your Microsoft 365 Business Basic (no Teams) expired." and "This subscription is disabled and your data will be deleted."</em>
+  <em>Business Basic product page, 1:29 PM Eastern on 2026-09-23: Disabled, Reactivate and Extend trial end date unavailable, and "This subscription is disabled and your data will be deleted."</em>
 </p>
 
-Subscription status read Disabled, with a red icon in place of the green check mark every earlier reading carried. No reading showed an Expired status: the subscription read Active at 00:08 UTC and Disabled at 17:29 UTC, and nothing was read in the seventeen hours between. Licenses assigned read 2 / 2, where every earlier reading of this page read 2 / 25. Reactivate and Extend trial end date were both rendered unavailable, and the Edit recurring billing and Cancel subscription links were no longer on the page. The Assign licenses link in the Trial licenses panel still rendered as a link. The top banner read "Your Microsoft 365 Business Basic (no Teams) expired.", quoted verbatim, with an informational icon in place of the red warning icon it carried on 2026-09-22. The third banner, which read "This subscription will be canceled when it expires on September 22, 2026 at which point users will lose access to the service," now read "This subscription is disabled and your data will be deleted. You'll receive a final invoice for it in about 30 days, with a pro-rated refund if eligible." The second banner was unchanged. Expiration date still read 9/22/2026, Recurring billing still read "Expires on September 23, 2026," Unit price still read Free trial, and Purchase channel still read Direct. The page continues below the frame with a Custom setting section that displays the subscription identifier; the frame stops above it under this track's identifier policy.
-
-The Your products list was read in the same sitting.
+Reactivate and Extend trial end date were unavailable, and the cancellation banner had changed to "This subscription is disabled and your data will be deleted. You'll receive a final invoice for it in about 30 days, with a pro-rated refund if eligible." Nothing was read between 00:08 UTC and 17:29 UTC, so no reading showed an Expired status at any point. The Your products list agreed, and its status filter includes Expired and Disabled by default, so the evening list had not been hiding either state:
 
 <p align="center">
   <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/33-your-products-list-2026-09-23.jpg" alt="33-your-products-list-2026-09-23" width="700">
 </p>
 
 <p align="center">
-  <em>Microsoft 365 admin center, Billing, Your products, read on 2026-09-23 in the same sitting: Business Basic (no Teams) Disabled with 2 assigned, 25 purchased, 0 available, and Pricing model Trial, beside Business Premium and Microsoft Entra ID Free, both still Active and Paid.</em>
+  <em>Your products, 2026-09-23: Business Basic Disabled, 0 available.</em>
 </p>
-
-Business Basic still appeared on the list under its default filter, reading Disabled, with 2 licenses assigned, 25 purchased, and 0 available, where the 2026-09-22 evening reading showed 23 available. Its Pricing model changed from Paid to Trial, which now agrees with the product page's Free trial; Business Premium's still reads Paid. Business Premium and Microsoft Entra ID Free were unchanged.
 
 <p align="center">
   <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/34-your-products-status-filter-2026-09-23.jpg" alt="34-your-products-status-filter-2026-09-23" width="700">
 </p>
 
 <p align="center">
-  <em>The Subscription status filter on the same list, expanded: Active, Pending, Scheduled, Expired, and Disabled selected by default, and Deleted and Failed not selected.</em>
+  <em>The list's Subscription status filter: Active, Pending, Scheduled, Expired, and Disabled selected by default.</em>
 </p>
 
-The two values behind the default filter's "+2" are Expired and Disabled. The 2026-09-22 evening reading of the list therefore could not have hidden an Expired or Disabled Business Basic subscription; it read Active because it was Active.
-
-The SKU, Adam Ramzi's license, and his mailbox were read through Microsoft Graph and Exchange Online PowerShell from WIN11-CLIENT01, with times taken from each capture's own save time. The SKU was read with the same `Get-MgSubscribedSku` command at 1:34 PM Eastern (17:34 UTC):
+The same `Get-MgSubscribedSku` command at 1:34 PM Eastern (17:34 UTC):
 
 ```text
 SkuPartNumber    : Microsoft_365_Business_Basic_(no Teams)
@@ -1839,19 +1458,7 @@ Suspended        : 25
 LockedOut        : 0
 ```
 
-`CapabilityStatus` changed from Enabled to Suspended, and all 25 prepaid units moved from `Enabled` to `Suspended`. `Warning` stayed at 0. Microsoft Graph's own reference for this unit breakdown defines warning units as those of an expired subscription inside its grace period to renew, and suspended units as those of a canceled subscription, which can't be assigned but can still be reactivated before they are deleted. At this reading the SKU was past any grace period rather than in one. `ConsumedUnits` still read 1.
-
-```powershell
-Get-MgUserLicenseDetail -UserId Adam@brindeck.onmicrosoft.com | Select-Object SkuPartNumber | Format-List
-```
-
-```text
-SkuPartNumber : Microsoft_365_Business_Basic_(no Teams)
-```
-
-Adam Ramzi's direct assignment still held at 1:34 PM Eastern, pointing at a SKU with no enabled units.
-
-The mailbox was read at 1:35 PM Eastern (17:35 UTC), requesting `LastLogonTime` explicitly as the 2026-09-22 reading set out:
+All 25 units moved from `Enabled` to `Suspended`, and `Warning` stayed at 0. Microsoft Graph defines warning units as an expired subscription inside its grace period and suspended units as a canceled subscription that can still be reactivated before deletion. `ConsumedUnits` still read 1, and Adam Ramzi's license detail still returned Business Basic, an assignment pointing at a SKU with no enabled units.
 
 ```powershell
 Get-EXOMailbox -Identity Adam@brindeck.onmicrosoft.com -Properties RecipientTypeDetails,ProhibitSendReceiveQuota,WhenSoftDeleted | Format-List DisplayName,RecipientTypeDetails,ProhibitSendReceiveQuota,WhenSoftDeleted
@@ -1871,9 +1478,7 @@ TotalDeletedItemSize : 0 B (0 bytes)
 LastLogonTime        : 8/23/2026 7:13:59 PM
 ```
 
-The mailbox was still a `UserMailbox` with the 100 GB quota, and `WhenSoftDeleted` was still blank. `ItemCount` read 37 against 36 at 12:24 PM Eastern on 2026-09-22, and `TotalItemSize` read 8,035,521 bytes against 7,901,842, with nothing sent to this mailbox by this lab in between. `LastLogonTime`, retrieved for the first time in this lab, read 8/23/2026 7:13:59 PM as printed, with no time zone stated. The mailbox had been signed in to before Step Two's 2026-09-16 reading, so Step Two's reading of its blank value as a mailbox nobody had opened is not supported. Step Two's text is left standing as written.
-
-The thirty-seventh item was identified by message trace before anything else was sent to the mailbox, at 1:36 PM Eastern (17:36 UTC):
+Still a `UserMailbox`, not soft-deleted, with one new item. `LastLogonTime`, retrieved for the first time, shows the mailbox had been signed in to before Step Two, so Step Two's blank value was never evidence that nobody had. The new item was Microsoft's expiry notice:
 
 ```powershell
 Get-MessageTraceV2 -RecipientAddress Adam@brindeck.onmicrosoft.com -StartDate (Get-Date).AddDays(-2) -EndDate (Get-Date) | Format-List Received,SenderAddress,Subject,Status
@@ -1886,33 +1491,27 @@ Subject       : Your Microsoft 365 Business Basic (no Teams) subscription has ex
 Status        : Delivered
 ```
 
-One message in two days, Microsoft's own expiry notice to the account holding Global Administrator. Step One established that `Received` prints in UTC, so the notice arrived at 03:02:47 UTC on 2026-09-23, which is 11:02:47 PM Eastern on 2026-09-22, about three hours after the 00:08 UTC reading that still showed the subscription Active. It accounts for the thirty-seventh item. The mailbox accepted delivery at that point.
-
-`Finance`'s Licenses blade in the Entra admin center was read at 1:40 PM Eastern (17:40 UTC).
+`Received` is UTC, so the notice arrived at 11:02:47 PM Eastern on 2026-09-22, about three hours after the last Active reading.
 
 <p align="center">
   <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/35-finance-entra-admin-center-licenses-blade-2026-09-23.jpg" alt="35-finance-entra-admin-center-licenses-blade-2026-09-23" width="700">
 </p>
 
 <p align="center">
-  <em>Microsoft Entra admin center, Groups, Finance, Licenses blade, read at 1:40 PM Eastern (17:40 UTC) on 2026-09-23: "No license assignments found."</em>
+  <em>Entra admin center, Finance, Licenses, 2026-09-23: still "No license assignments found."</em>
 </p>
-
-Unchanged from the 2026-09-22 reading and from Lab 03's, with the same two banners directing assignment work to the Microsoft 365 admin center. As on 2026-09-22, this blade cannot answer whether the assignment survived.
-
-The Business Basic Licenses tab in the Microsoft 365 admin center was read at 1:41 PM Eastern (17:41 UTC).
 
 <p align="center">
   <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/36-business-basic-licenses-tab-2026-09-23.jpg" alt="36-business-basic-licenses-tab-2026-09-23" width="700">
 </p>
 
 <p align="center">
-  <em>Microsoft 365 admin center, Business Basic (no Teams), Licenses tab, read at 1:41 PM Eastern (17:41 UTC) on 2026-09-23: 2/25 assigned, Assign licenses unavailable, and three rows, the subscription typed Subscription (disabled) at 2 assigned licenses, Finance typed Group, and Adam Ramzi typed User.</em>
+  <em>Business Basic Licenses tab, 2026-09-23: the subscription row typed "Subscription (disabled)," Finance and Adam Ramzi still listed, Assign licenses unavailable.</em>
 </p>
 
-The subscription row's type read "Subscription (disabled)," where the 2026-09-22 reading's row carried no status. `Finance` (Group) and Adam Ramzi (User) were both still listed, so both assignment records outlived the subscription's enabled units. The toolbar's Assign licenses action was unavailable, which matches Microsoft's lifecycle article's description of the Disabled status, in which admins can reach the admin center but cannot assign licenses. The tab's header read 2/25 assigned, while the product page read 2 / 2 twelve minutes earlier; the two surfaces disagree on the denominator, and the disagreement is recorded rather than reconciled. Against `ConsumedUnits` 1, two targets and one seat reconcile exactly as they did on 2026-09-22.
+Both assignment records outlived the subscription's enabled units, and two targets against one consumed seat still reconcile as before. Assign licenses was unavailable, which matches Microsoft's description of the Disabled status: admins can reach the admin center but cannot assign licenses.
 
-**Post-lapse delivery probe.** Sent last, since it is the only reading that changes the mailbox. A message was sent from Cloud Administrator (`admin@brindeck.com`) through Outlook on the web to `Adam@brindeck.onmicrosoft.com` at 1:42 PM Eastern (17:42 UTC) on 2026-09-23, subject "Lab 04 Step Six - post-lapse delivery probe." No non-delivery report came back. The trace, run at 1:45 PM Eastern:
+**Post-lapse delivery probe.** Sent last, since it changes the mailbox: Cloud Administrator to `Adam@brindeck.onmicrosoft.com` at 1:42 PM Eastern (17:42 UTC), subject "Lab 04 Step Six - post-lapse delivery probe." No NDR came back:
 
 ```powershell
 Get-MessageTraceV2 -RecipientAddress Adam@brindeck.onmicrosoft.com -Subject "Step Six - post-lapse delivery probe" -SubjectFilterType Contains -StartDate (Get-Date).AddHours(-2) -EndDate (Get-Date) | Format-List Received,SenderAddress,RecipientAddress,Subject,Status
@@ -1926,29 +1525,15 @@ Subject          : Lab 04 Step Six - post-lapse delivery probe
 Status           : Delivered
 ```
 
-The statistics were read again at 1:47 PM Eastern:
+`ItemCount` rose to 38. Mail was delivered to a mailbox whose only license points at a fully suspended SKU.
 
-```text
-DisplayName          : Adam Ramzi
-ItemCount            : 38
-TotalItemSize        : 7.681 MB (8,054,529 bytes)
-TotalDeletedItemSize : 0 B (0 bytes)
-LastLogonTime        : 8/23/2026 7:13:59 PM
-```
+**Result.** Nothing changed through 00:08 UTC on 2026-09-23 except the banner. By 17:29 UTC the subscription was Disabled and the SKU `Suspended`, with no Expired status or `Warning` units observed. The assignments, Adam Ramzi's license detail, and his mailbox did not change, and mail kept arriving. That supports the prediction at the subscription and SKU level. No user sign-in was tested, so whether access actually ended was not observed, and mail delivery continuing is not the same as access.
 
-`Delivered` at 17:42:36 UTC, queryable within three minutes of the send, and `ItemCount` rose from 37 to 38. The mailbox received the probe. Mail was delivered to a mailbox whose only license points at a SKU with every unit suspended.
+- **The date is 9/22, not 9/23: not tested.** The last Active reading was 00:08 UTC on 9/23 (8:08 PM Eastern on 9/22), the expiry notice arrived at 03:02 UTC on 9/23 (11:02 PM Eastern on 9/22), and the first Disabled reading was 17:29 UTC on 9/23. The change falls on 9/22 in Eastern time and 9/23 in UTC, so no reading separates the two dates.
+- **The mailbox survives into Exchange's 30-day retention: not tested.** The lapse never removed the license assignment, so the mailbox never entered retention.
+- **The trial data-deletion clause does not apply: held so far.** Nothing had been deleted by 17:47 UTC on 9/23, but the page now says the data "will be deleted," with no date.
 
-**Result.** Across 2026-09-21, 2026-09-22, and the evening readings through 00:08 UTC on 2026-09-23, nothing moved except the product page banner. By 17:29 UTC on 2026-09-23, the subscription read Disabled on both billing surfaces, the SKU read `Suspended` with 0 enabled and 25 suspended units, available licenses read 0, the product page's denominator read 2 rather than 25, the list's Pricing model read Trial, reactivation and trial extension were unavailable on the product page and license assignment on the Licenses tab, and the Licenses tab typed the subscription as disabled. What did not move: `ConsumedUnits` 1, both assignment targets on the Licenses tab, Adam Ramzi's license detail, the Entra blade's empty view of `Finance`, the page's Expiration date and Recurring billing text, and the mailbox's type, quota, and live state. Mail kept arriving, Microsoft's own notice at 03:02 UTC and the probe at 17:42 UTC.
-
-The prediction was that 2026-09-22 removes access rather than deferring it, because the Expired stage no longer applies to a license-based subscription bought directly through a Microsoft Customer Agreement. The tenant supported it at the level these readings reach. No reading showed an Expired status or a `Warning` unit; the subscription went from Active to Disabled, the SKU to `Suspended`, and the billing account view had already named the account an MCA. What these readings do not reach is a user's own access. No user sign-in was tested, so the lifecycle article's statement that users in the Disabled status can't access apps is not something this step observed. The one service behavior tested, mail delivery, continued. Delivery is not access, and it was not what the prediction addressed, so it neither confirms nor contradicts it; it is recorded as what the tenant did.
-
-- **The date is 9/22, not 9/23: not tested.** The last Active reading was at 00:08 UTC on 2026-09-23, 8:08 PM Eastern on 2026-09-22. Microsoft's expiry notice arrived at 03:02:47 UTC on 2026-09-23, 11:02:47 PM Eastern on 2026-09-22. The first Disabled reading was at 17:29 UTC on 2026-09-23. The notice falls on 9/22 in Eastern time and on 9/23 in UTC, the product page's "today" banner held past UTC midnight without saying which time zone it counts in, and the Recurring billing field still read "Expires on September 23, 2026" after the subscription was disabled. No reading distinguishes the two dates.
-- **Adam Ramzi's mailbox survives into Exchange's 30-day retention: not tested.** The sub-prediction assumed the lapse would take the license away. It did not: the assignment was still present, the mailbox was still a `UserMailbox` with `WhenSoftDeleted` blank, and it was still receiving mail. The mailbox survived, but not by entering retention, and whether and when the assignment is removed is not established.
-- **The trial-data-deletion clause does not apply: held so far, not settled.** The tenant, its other two subscriptions, and the mailbox's contents were all intact. The product page's own banner, however, now reads "your data will be deleted," without a date, so this reading shows only that nothing had been deleted by 17:47 UTC on 2026-09-23.
-
-`Finance`'s group-level assignment record survived the lapse on the commerce-facing surface, and the target-versus-seat distinction Lab 03's Part C established reconciled the same way on both sides of the date.
-
-**The branch.** The tenant put the lab on the third of Design Decisions' three branches, the outcome that is neither cleanly. The first branch is ruled out: the subscription reached a Disabled, suspended state within a day of its stated expiration, with no Expired stage and no grace-period units observed, and admin-side license assignment was locked by the same reading set. The second branch is not established: its condition is that the lapse removes access at the date, no user sign-in was tested, and the one service behavior that was tested, mail delivery, continued. The third branch keeps the conservative assumption, and here the commerce-side readings point the same way. Business Premium is bought through the same billing account and reads the same Purchase channel, so the lab treats 2026-10-05 as a hard cliff and not as a status change with 30 days behind it. Steps Seven and Eight both depend on Exchange Online Plan 1 through Business Premium and are completed before 2026-10-05 rather than on it, given that this step could not establish which calendar date, in which time zone, the commerce system acts on. The Business Premium lapse itself is Step Nine's to record, read on both 2026-10-05 and 2026-10-06 as this step read both of Business Basic's dates. The mailbox question stays open and is settled by one reading taken at the start of Step Eight: `Get-MgUserLicenseDetail` and the `Get-EXOMailbox` reading above, run again for Adam Ramzi, to record whether the assignment has been removed and whether the mailbox has entered Exchange's own retention.
+**The branch.** The tenant put the lab on the third of Design Decisions' branches, neither outcome cleanly. The Expired-stage branch is ruled out: the subscription went straight to Disabled and suspended, with admin license assignment locked by the same reading set. The access-removed branch is not established, since no sign-in was tested and mail delivery continued. The third branch keeps the conservative assumption, and Business Premium sits on the same MCA billing account, so 2026-10-05 is treated as a hard cliff: Steps Seven and Eight are completed before that date, since this step could not establish which calendar date or time zone the commerce system acts on. Step Nine records the Business Premium lapse on both 2026-10-05 and 2026-10-06. The mailbox question is settled at the start of Step Eight by rereading Adam Ramzi's license detail and `Get-EXOMailbox`.
 
 ### Step Seven: Establish the tenant's mailbox compliance surface and build what it supports
 
@@ -2013,7 +1598,66 @@ Planned validation, to be replaced with observed results as the lab is implement
 
 ## Troubleshooting and Adjustments
 
-Three commands failed on the first attempt during Step One, none of them a finding about the tenant. `Install-Module ExchangeOnlineManagement -Scope CurrentUser -Force` failed on a PackageManagement/PowerShellGet version clobber ("This module 'PackageManagement' may override the existing commands"); adding `-AllowClobber` resolved it. `Get-MessageTraceV2` was first invoked with its own name accidentally truncated to `V2` by a copy-paste artifact and failed as an unrecognized command; retyped in full, it ran correctly. `Get-ADComputer -Identity AZUREADSSOACC -Properties PasswordLastSet -Server SYNC01` failed because SYNC01 is a domain member rather than a domain controller and does not run Active Directory Web Services; dropping `-Server` and letting the AD module resolve to `corp.home.arpa` normally, exactly as Lab 03 ran it, succeeded.
+### Three Step One commands failed on the first attempt
+
+None of them was a finding about the tenant. `Install-Module ExchangeOnlineManagement -Scope CurrentUser -Force` failed on a PackageManagement/PowerShellGet version clobber ("This module 'PackageManagement' may override the existing commands"); adding `-AllowClobber` resolved it. `Get-MessageTraceV2` was first invoked with its own name accidentally truncated to `V2` by a copy-paste artifact and failed as an unrecognized command; retyped in full, it ran correctly. `Get-ADComputer -Identity AZUREADSSOACC -Properties PasswordLastSet -Server SYNC01` failed because SYNC01 is a domain member rather than a domain controller and does not run Active Directory Web Services; dropping `-Server` and letting the AD module resolve to `corp.home.arpa` normally, exactly as Lab 03 ran it, succeeded.
+
+### `Enable-DistributionGroup` does not exist in Exchange Online
+
+Step Three's first attempt at mail-enabling the synchronized `IT-Admins` group reached for `Enable-DistributionGroup`, the Exchange Management Shell cmdlet that does this on premises:
+
+```powershell
+Enable-DistributionGroup -Identity "IT-Admins"
+```
+
+```text
+Enable-DistributionGroup : The term 'Enable-DistributionGroup' is not recognized as the name of a cmdlet, function,
+script file, or operable program. Check the spelling of the name, or if a path was included, verify that the path
+is correct and try again.
+At line:1 char:1
++ Enable-DistributionGroup -Identity "IT-Admins"
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (Enable-DistributionGroup:String) [], CommandNotFoundException
+    + FullyQualifiedErrorId : CommandNotFoundException
+```
+
+That cmdlet belongs to on-premises Exchange Server, and nothing in the `ExchangeOnlineManagement` module mail-enables an existing group. The attempt moved to Microsoft Graph, where the write was refused for a different reason that Step Three records.
+
+### A three-address message trace query first appeared to drop a recipient
+
+Step Five's post-removal confirmation queried `Get-MessageTraceV2` for all three `Help-Desk` members at once and returned two rows, with nothing for `jsmith@brindeck.onmicrosoft.com`. Queried alone rather than alongside the other two, his row appeared:
+
+```powershell
+Get-MessageTraceV2 -RecipientAddress "jsmith@brindeck.onmicrosoft.com" -Subject "post-removal" -SubjectFilterType "Contains" -StartDate (Get-Date "2026-09-18 12:40") -EndDate (Get-Date)
+```
+
+```text
+Received              Sender Address          Recipient Address               Subject                                       Status
+--------              --------------          -----------------               -------                                       ------
+9/18/2026 4:42:02 PM  testuser01@brindeck.com jsmith@brindeck.onmicrosoft.com Lab 04 Step Five - post-removal confirmation Delivered
+```
+
+Delivered, at the identical timestamp the other two members and the group row carry. All three members received the message; the gap was in what the trace had indexed at the moment it was asked, not in what actually happened.
+
+Two rows from a three-address query, with each address returning its row when asked alone, reads as a property of `-RecipientAddress` taking an array. The mundane alternative had not been ruled out: Step Five's own baseline reading established that a row is not yet queryable two minutes after a send and is queryable by three, the message had been delivered at 12:42 PM Eastern, and the combined query ran within a few minutes of that. The single-address query for `jsmith` ran after the combined one, so the row becoming queryable in between accounts for the result equally well.
+
+The same query, byte for byte, re-run hours later over the identical window:
+
+```text
+Received              Sender Address          Recipient Address               Subject                                    Status
+--------              --------------          -----------------               -------                                    ------
+9/18/2026 4:42:02 PM  testuser01@brindeck.com jdoe@brindeck.com               Lab 04 Step Five - post-removal confirmation Delivered
+9/18/2026 4:42:02 PM  testuser01@brindeck.com jsmith@brindeck.onmicrosoft.com Lab 04 Step Five - post-removal confirmation Delivered
+9/18/2026 4:42:02 PM  testuser01@brindeck.com testuser01@brindeck.com         Lab 04 Step Five - post-removal confirmation Delivered
+```
+
+Three rows. A multi-address `-RecipientAddress` query does not deterministically drop a recipient, which is what the first reading would have required. The rerun does not go further than that on its own: a transient fault would also have cleared by the time it ran, so it rules out the array-query explanation without proving any particular one in its place.
+
+The explanation most consistent with what Step Five saw is appearance latency operating per row rather than per message. The three member rows carry an identical `Received` timestamp of 4:42:02 PM UTC and did not all become queryable at the same moment, which would follow if rows from a single expanded message are indexed independently rather than as a unit. That is offered as the likely reading rather than as an established one, since nothing here distinguishes it from a one-off indexing delay affecting that row alone.
+
+### Step Two's `LastLogonTime` was never retrieved
+
+Step Six's 2026-09-22 mailbox reading did not print `LastLogonTime` at all, where Step Two's reading printed it as a blank line (`LastLogonTime        :` with no value). The two commands were not identical, and the difference explains the output. Step Two piped through `Select-Object` before `Format-List`, and `Select-Object` creates every property it is asked for, printing one the input object does not carry as an empty value. Step Six's reading passed the property list to `Format-List` directly, which skips a property the object does not carry. Microsoft's property set reference for the Exchange Online PowerShell module lists `LastLogonTime` in `Get-EXOMailboxStatistics`'s All property set and not in the Minimum set a call without `-Properties` or `-PropertySets` returns. Neither command requested it, so neither reading retrieved `LastLogonTime` at all, and Step Two's blank value recorded the property's absence from the output rather than a mailbox that had never been signed in to. Step Six's 2026-09-23 reading requested the property explicitly with `-Properties LastLogonTime` and retrieved a value, recorded there.
 
 ---
 
