@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress. Steps One through Six are complete and documented in past tense below. Steps Seven through Nine remain, and Seven and Eight are completed before 2026-10-05.
+In progress. Steps One through Seven are complete and documented in past tense below. Steps Eight and Nine remain, and Eight is completed before 2026-10-05.
 
 The lab runs against the Business Premium trial's expiry on 2026-10-05, which takes with it the Exchange Online Plan 1 behind the mailboxes the remaining steps depend on. Step Six observed the Business Basic trial's lapse as a preview: by 2026-09-23 the subscription read Disabled and its SKU `Suspended`, with no Expired stage observed, while both assignment records and Adam Ramzi's license and mailbox stayed intact and the mailbox kept accepting mail. Whether user access ended was not tested, so the lab keeps the conservative assumption and treats 2026-10-05 as a hard cliff.
 
@@ -1535,17 +1535,169 @@ Status           : Delivered
 
 **The branch.** The tenant put the lab on the third of Design Decisions' branches, neither outcome cleanly. The Expired-stage branch is ruled out: the subscription went straight to Disabled and suspended, with admin license assignment locked by the same reading set. The access-removed branch is not established, since no sign-in was tested and mail delivery continued. The third branch keeps the conservative assumption, and Business Premium sits on the same MCA billing account, so 2026-10-05 is treated as a hard cliff: Steps Seven and Eight are completed before that date, since this step could not establish which calendar date or time zone the commerce system acts on. Step Nine records the Business Premium lapse on both 2026-10-05 and 2026-10-06. The mailbox question is settled at the start of Step Eight by rereading Adam Ramzi's license detail and `Get-EXOMailbox`.
 
-### Step Seven: Establish the tenant's mailbox compliance surface and build what it supports
+### Step Seven: Built an archive mailbox and a litigation hold on the entitlement the tenant supported
 
-Decided by evidence rather than by citation, on the enumeration Step One produced. Two Microsoft documents disagree about whether this subscription carries archiving and hold, and this step acts on what the SKU actually holds.
+Step One's enumeration found `EXCHANGE_S_ARCHIVE_ADDON` on the Business Premium SKU with provisioning status `Success`. Of the two Microsoft documents Design Decisions set against each other, the tenant supported the Exchange Online Archiving service description, which names Business Premium among the plans that already include archiving, and not the litigation hold article, which requires Exchange Online Plan 2 or a separate Exchange Online Archiving license. The step built on that entitlement. The mailbox was `testuser01@brindeck.com`, which holds Business Premium and was signed in to as the user in Outlook on the web. All work ran from WIN11-CLIENT01 in Exchange Online PowerShell, on 2026-09-23 and 2026-09-24.
 
-Read the enumeration back first and state the entitlement plainly: which archiving and hold service plans appear on the Business Premium SKU, under their service plan names, and what provisioning state each reports. Then branch, and record which branch was taken and on what evidence.
+**Baseline.** Read at 2:38 PM Eastern (18:38 UTC) on 2026-09-23:
 
-If the entitlement is present, build it. Enable an archive mailbox on a user mailbox and record what the mailbox reports before and after, what the user sees in Outlook on the web, and how the archive's quota relates to the primary mailbox's. Place a litigation hold on a mailbox, record what the hold's configuration reports, and record the Recoverable Items quota change the hold produces, which is the property that makes a hold observable rather than declarative. Record a manual retention policy applied to a folder if the entitlement covers it. Remove the hold at the end of the step and confirm removal, because a hold left in place changes what deletion means for every later lab, including Step Eight's conversion in this one.
+```powershell
+Get-EXOMailbox -Identity testuser01@brindeck.com -Properties ArchiveStatus,ArchiveGuid,ArchiveQuota,ArchiveWarningQuota,AutoExpandingArchiveEnabled,LitigationHoldEnabled,LitigationHoldDate,LitigationHoldOwner,LitigationHoldDuration,RecoverableItemsQuota,RecoverableItemsWarningQuota,ProhibitSendReceiveQuota,RetentionPolicy,InPlaceHolds,DelayHoldApplied,SingleItemRecoveryEnabled | Format-List DisplayName,ArchiveStatus,ArchiveGuid,ArchiveQuota,ArchiveWarningQuota,AutoExpandingArchiveEnabled,LitigationHoldEnabled,LitigationHoldDate,LitigationHoldOwner,LitigationHoldDuration,RecoverableItemsQuota,RecoverableItemsWarningQuota,ProhibitSendReceiveQuota,RetentionPolicy,InPlaceHolds,DelayHoldApplied,SingleItemRecoveryEnabled
+```
 
-If the entitlement is absent, record the boundary on the SKU rather than on the article. State which service plans are and are not present, name both Microsoft documents and which one the tenant supported, and note that the capability is unavailable here for a reason now established rather than cited.
+```text
+ArchiveStatus                : None
+ArchiveQuota                 : 100 GB (107,374,182,400 bytes)
+ArchiveWarningQuota          : 90 GB (96,636,764,160 bytes)
+LitigationHoldEnabled        : False
+RecoverableItemsQuota        : 30 GB (32,212,254,720 bytes)
+RecoverableItemsWarningQuota : 20 GB (21,474,836,480 bytes)
+RetentionPolicy              : Default MRM Policy
+DelayHoldApplied             : False
+SingleItemRecoveryEnabled    : True
+[remaining properties omitted]
+```
 
-eDiscovery Premium stays out either way, on scope. Public folders stay out on the same grounds.
+`Get-Mailbox` read `DelayReleaseHoldApplied` as False as well. The mailbox held 133 items (1.703 MB), and `Get-EXOMailboxFolderStatistics -FolderScope RecoverableItems` showed every Recoverable Items subfolder empty except Calendar Logging, at 90 items and 509.4 KB, the whole of `TotalDeletedItemSize`. The Recoverable Items quotas were the 30 GB and 20 GB defaults Microsoft documents, and the archive quotas were already set on a mailbox with no archive.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/37-testuser01-owa-folder-pane-before-archive-2026-09-23.jpg" alt="37-testuser01-owa-folder-pane-before-archive-2026-09-23" width="450">
+</p>
+
+<p align="center">
+  <em>testuser01's Outlook on the web folder pane before the archive was enabled.</em>
+</p>
+
+The Archive folder in that list is the primary mailbox's default folder, not an archive mailbox.
+
+**The archive.** Enabled from PowerShell at 2:50:53 PM Eastern (18:50:53 UTC):
+
+```powershell
+Enable-Mailbox -Identity testuser01@brindeck.com -Archive
+```
+
+The same `Get-EXOMailbox` command, restricted to the archive and quota properties, at 2:55 PM:
+
+```text
+ArchiveStatus                : Active
+ArchiveGuid                  : 1d64c872-[masked]
+ArchiveName                  : {In-Place Archive -testuser01}
+[quotas unchanged and omitted]
+```
+
+The archive's 100 GB quota equals the primary mailbox's `ProhibitSendReceiveQuota`, and its 90 GB warning quota sits below the primary's 98 GB `IssueWarningQuota` recorded in Step Two. Auto-expanding archiving was left off.
+
+`Get-EXOMailboxStatistics -Archive` returned nothing at 2:55 PM and again at 2:59 PM, with no error. `Get-MailboxStatistics -Archive` at 2:59 PM gave the reason: "The user hasn't logged on to mailbox ... so there is no data to return."
+
+The archive did not appear in Outlook on the web at 2:53 PM or 3:00 PM. It was present at 12:07 PM Eastern on 2026-09-24, the next time the folder pane was read, and after it was opened both cmdlets returned the same object at 12:09 PM:
+
+```text
+DisplayName          : In-Place Archive -testuser01
+ItemCount            : 3
+TotalItemSize        : 6.865 KB (7,030 bytes)
+TotalDeletedItemSize : 0 B (0 bytes)
+```
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/38-testuser01-owa-in-place-archive-2026-09-24.jpg" alt="38-testuser01-owa-in-place-archive-2026-09-24" width="450">
+</p>
+
+<p align="center">
+  <em>The In-Place Archive -testuser01 node in Outlook on the web, expanded to its Deleted Items folder.</em>
+</p>
+
+Three items totalling 7,030 bytes were present in an archive nothing had been moved to.
+
+**The litigation hold.** Placed at 3:02:13 PM Eastern (19:02:13 UTC) on 2026-09-23, with an infinite duration and a hold note:
+
+```powershell
+Set-Mailbox -Identity testuser01@brindeck.com -LitigationHoldEnabled $true -LitigationHoldDuration Unlimited -RetentionComment "Lab 04 Step Seven: mailbox placed on litigation hold for demonstration."
+```
+
+```text
+WARNING: The hold setting may take up to 240 minutes to take effect.
+```
+
+The cmdlet's figure matches the banner Microsoft's litigation hold article describes for the Microsoft 365 admin center, not the 60 minutes the Exchange Server version of that article gives. The hold properties, read within the same minute:
+
+```powershell
+Get-EXOMailbox -Identity testuser01@brindeck.com -Properties LitigationHoldEnabled,LitigationHoldDate,LitigationHoldOwner,LitigationHoldDuration,RetentionComment,RecoverableItemsQuota,RecoverableItemsWarningQuota,InPlaceHolds | Format-List DisplayName,LitigationHoldEnabled,LitigationHoldDate,LitigationHoldOwner,LitigationHoldDuration,RetentionComment,RecoverableItemsQuota,RecoverableItemsWarningQuota,InPlaceHolds
+```
+
+```text
+LitigationHoldEnabled        : True
+LitigationHoldDate           : 9/23/2026 3:02:16 PM
+LitigationHoldOwner          : admin@brindeck.com
+LitigationHoldDuration       : Unlimited
+RetentionComment             : Lab 04 Step Seven: mailbox placed on litigation hold for demonstration.
+RecoverableItemsQuota        : 100 GB (107,374,182,400 bytes)
+RecoverableItemsWarningQuota : 90 GB (96,636,764,160 bytes)
+InPlaceHolds                 : {}
+```
+
+`LitigationHoldOwner` was not supplied and defaulted to the account that set the hold. The Recoverable Items quotas moved from 30 GB and 20 GB to 100 GB and 90 GB immediately. Microsoft gives three figures for this quota: 100 GB on hold, 105 GB (warning 95 GB) on hold with an archive enabled, in the Recoverable Items folder article, and 110 GB with auto-expanding archiving, in the litigation hold article. The same reading at 12:06 PM Eastern on 2026-09-24, 21 hours after the hold and well past the 240-minute window, still reported 100 GB and 90 GB with the archive active. The tenant reported the on-hold figure, not the archive figure, though that last on-hold reading came three minutes before the archive's first logon at 12:09 PM, and no on-hold reading was taken after it. Auto-expanding archiving was off, so the 110 GB figure was not tested.
+
+The deletion demonstration was not run. `SingleItemRecoveryEnabled` was True with the default 14-day deleted item retention, so an item purged from Recoverable Items stays in `Purges` for 14 days with or without a hold, and a deletion test inside this lab's window could not have shown the hold rather than single item recovery. The one behavior only a hold produces within that window, copy-on-write saving the original of an edited non-message item such as a calendar event to `Versions`, was not tested.
+
+**A personal retention tag.** The mailbox's `Default MRM Policy` was read for its tags:
+
+```powershell
+(Get-RetentionPolicy "Default MRM Policy").RetentionPolicyTagLinks | ForEach-Object { Get-RetentionPolicyTag $_ } | Format-Table Name,Type,RetentionAction,AgeLimitForRetention,RetentionEnabled -AutoSize
+```
+
+```text
+Name                                      Type             RetentionAction        AgeLimitForRetention RetentionEnabled
+----                                      ----             ---------------        -------------------- ----------------
+Personal 5 year move to archive           Personal         MoveToArchive          1825.00:00:00                    True
+Personal never move to archive            Personal         MoveToArchive                                          False
+Personal 1 year move to archive           Personal         MoveToArchive          365.00:00:00                     True
+Default 2 year move to archive            All              MoveToArchive          730.00:00:00                     True
+Recoverable Items 14 days move to archive RecoverableItems MoveToArchive          14.00:00:00                      True
+[seven delete tags and the Junk Email tag omitted]
+```
+
+Two of those tags act only on a mailbox with an archive: a mailbox-wide move to archive at two years, and a move of Recoverable Items content to the archive at 14 days.
+
+A folder named `Lab 04 Retention` was created in the primary mailbox at about 12:10 PM Eastern on 2026-09-24 so that `Personal 1 year move to archive` could be applied to it as the user. Microsoft's MRM troubleshooting article directs users to right-click the folder and select Assign policy. The tenant's Outlook on the web offered no such entry:
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/39-owa-folder-menu-no-assign-policy-2026-09-24.jpg" alt="39-owa-folder-menu-no-assign-policy-2026-09-24" width="450">
+</p>
+
+<p align="center">
+  <em>The Lab 04 Retention folder's context menu in Outlook on the web, with no Assign policy entry.</em>
+</p>
+
+The ribbon's Assign policy button was unavailable with the empty folder selected, and no tag was applied. `Get-MailboxFolderStatistics` at 12:16 PM reported `DeletePolicy` and `ArchivePolicy` blank on both the new folder and Inbox, so those fields show a tag applied to the folder itself and do not reflect the mailbox's default tag. The folder was deleted at 12:18 PM, which moved it to `/Deleted Items/Lab 04 Retention`, and permanently deleted from there at 12:20 PM.
+
+**Removing the hold.** Removed at 12:18:19 PM Eastern (16:18:19 UTC) on 2026-09-24, after 21 hours and 16 minutes:
+
+```powershell
+Set-Mailbox -Identity testuser01@brindeck.com -LitigationHoldEnabled $false
+```
+
+The same 240-minute warning printed. The same hold-properties command, immediately after, read `LitigationHoldEnabled` False with `LitigationHoldDate`, `LitigationHoldOwner`, and `RetentionComment` all blank, so removal cleared the hold note along with the hold. The Recoverable Items quotas still read 100 GB and 90 GB, not the 30 GB and 20 GB defaults. `Get-Mailbox` read `DelayHoldApplied` and `DelayReleaseHoldApplied` both False.
+
+**The delay hold.** Microsoft states that the Managed Folder Assistant sets `DelayHoldApplied` to True the next time it processes a mailbox whose hold was removed, and that the mailbox is then treated as on hold for 30 more days. A processing run was requested with `Start-ManagedFolderAssistant -Identity testuser01@brindeck.com` at 12:20:28 PM Eastern (16:20:28 UTC).
+
+Read at 12:40 PM and again at 1:00:17 PM Eastern (17:00:17 UTC), 42 minutes after removal, with the same result both times:
+
+```powershell
+Get-Mailbox -Identity testuser01@brindeck.com | Format-List LitigationHoldEnabled,DelayHoldApplied,DelayReleaseHoldApplied,RecoverableItemsQuota,RecoverableItemsWarningQuota,InPlaceHolds
+```
+
+```text
+LitigationHoldEnabled        : False
+DelayHoldApplied             : False
+DelayReleaseHoldApplied      : False
+RecoverableItemsQuota        : 100 GB (107,374,182,400 bytes)
+RecoverableItemsWarningQuota : 90 GB (96,636,764,160 bytes)
+InPlaceHolds                 : {}
+```
+
+Neither delay hold property had been set, and the quotas had not returned to their defaults, by the end of the step. Both are readings 42 minutes into the 240-minute window the removal warning gave, not evidence that no delay hold will be applied, and Step Nine rereads them. `-RemoveDelayHoldApplied` was not run.
+
+**The archive's disposition.** The archive was left enabled. It holds three items the lab did not put there, the Business Premium lapse on 2026-10-05 decides its future in any case, and disabling it would start a separate clock on content that had not been examined. Step Nine reconciles it.
 
 ### Step Eight: Convert a departing user's mailbox to shared and reclaim the license
 
@@ -1565,7 +1717,7 @@ Confirm that a lab conducted in two web consoles and one PowerShell module left 
 
 Run `Invoke-LabHealthReport.ps1` for the overall picture and then `Get-LabWazuhAgentStatus -AgentName DC01,WIN11-CLIENT01,UBUNTU-SERVER,SYNC01` explicitly, recording both and the reason they differ. That defect is now carried by two tracks and confirmed by two labs. `Invoke-Pester -Path C:\Scripts -Output Detailed`, expected at 174 tests and 0 failed, since this lab commits no script.
 
-Reconcile the finished state. Record every mail object that persists and every one the lab removed, including confirmation that Step Five's mail flow rule is gone and mail flows normally again, and that Step Seven's litigation hold is released if one was placed. Record the licensing state by assignment target and consumed seat for both SKUs. Re-read the Entra admin center's Licenses blade for one directly licensed account and record its enabled-services count, which Step One's reconciliation of the three service counts predicts at 53 and which is the one figure in that reconciliation still standing as a prediction. Record the state of the four objects Lab 03 left outside the Entra Overview's counts: `nolocation-demo01` and `Testgroup` retained, `duptest01` and `duptest02` purged. Record whether `cloudonly-demo01` is still license-only with no groups and no roles, which is the condition Lab 05 depends on and which nothing in this lab should have touched.
+Reconcile the finished state. Record every mail object that persists and every one the lab removed, including confirmation that Step Five's mail flow rule is gone and mail flows normally again, and that Step Seven's litigation hold is released if one was placed. Record the state of the archive mailbox Step Seven left enabled on testuser01, and reread `DelayHoldApplied` and `DelayReleaseHoldApplied` on the same mailbox, which both read False at 1:00 PM Eastern on 2026-09-24, 42 minutes after Step Seven removed the hold, along with its Recoverable Items quotas, which still read 100 GB and 90 GB at that time. Record the licensing state by assignment target and consumed seat for both SKUs. Re-read the Entra admin center's Licenses blade for one directly licensed account and record its enabled-services count, which Step One's reconciliation of the three service counts predicts at 53 and which is the one figure in that reconciliation still standing as a prediction. Record the state of the four objects Lab 03 left outside the Entra Overview's counts: `nolocation-demo01` and `Testgroup` retained, `duptest01` and `duptest02` purged. Record whether `cloudonly-demo01` is still license-only with no groups and no roles, which is the condition Lab 05 depends on and which nothing in this lab should have touched.
 
 Close the three dated carry-forward items this lab owns rather than passing them on with their dates already spent.
 
@@ -1659,6 +1811,16 @@ The explanation most consistent with what Step Five saw is appearance latency op
 
 Step Six's 2026-09-22 mailbox reading did not print `LastLogonTime` at all, where Step Two's reading printed it as a blank line (`LastLogonTime        :` with no value). The two commands were not identical, and the difference explains the output. Step Two piped through `Select-Object` before `Format-List`, and `Select-Object` creates every property it is asked for, printing one the input object does not carry as an empty value. Step Six's reading passed the property list to `Format-List` directly, which skips a property the object does not carry. Microsoft's property set reference for the Exchange Online PowerShell module lists `LastLogonTime` in `Get-EXOMailboxStatistics`'s All property set and not in the Minimum set a call without `-Properties` or `-PropertySets` returns. Neither command requested it, so neither reading retrieved `LastLogonTime` at all, and Step Two's blank value recorded the property's absence from the output rather than a mailbox that had never been signed in to. Step Six's 2026-09-23 reading requested the property explicitly with `-Properties LastLogonTime` and retrieved a value, recorded there.
 
+### `Get-EXOMailbox` does not accept `DelayReleaseHoldApplied`
+
+Step Seven's first baseline read requested `DelayReleaseHoldApplied` through `Get-EXOMailbox -Properties` alongside `DelayHoldApplied`, and the whole call failed, returning no properties at all:
+
+```text
+Get-EXOMailbox : Some of requested properties are not valid. InvalidProperties = DelayReleaseHoldApplied
+```
+
+The REST cmdlet accepts `DelayHoldApplied` and rejects `DelayReleaseHoldApplied`. The property was dropped from the `Get-EXOMailbox` call and read through `Get-Mailbox`, the form Microsoft's hold types article uses for both properties.
+
 ---
 
 ## Security Considerations
@@ -1694,7 +1856,7 @@ To be completed during implementation, with each link confirmed resolving at clo
 - [Convert a user mailbox to a shared mailbox](https://learn.microsoft.com/microsoft-365/admin/email/convert-user-mailbox-to-shared-mailbox) - the ordering constraint on the license at conversion time
 - [Exchange Online limits](https://learn.microsoft.com/office365/servicedescriptions/exchange-online-service-description/exchange-online-limits) - mailbox storage limits, and the shared mailbox associated account described as active
 - [Exchange Online Archiving service description](https://learn.microsoft.com/office365/servicedescriptions/exchange-online-archiving-service-description/exchange-online-archiving-service-description) - the plan list naming Microsoft 365 Business Premium among those that already include archiving without the add-on, and the feature table giving Exchange Online Archiving for Exchange Online both Litigation Hold and retention policies
-- [Place a mailbox on litigation hold](https://learn.microsoft.com/microsoft-365/admin/misc/create-litigation-hold-mac) - the contradicting statement that a hold requires Exchange Online Plan 2, or Plan 1 plus a separate Exchange Online Archiving license
+- [Place a mailbox on litigation hold](https://learn.microsoft.com/microsoft-365/admin/misc/create-litigation-hold-mac) - the contradicting statement that a hold requires Exchange Online Plan 2, or Plan 1 plus a separate Exchange Online Archiving license, the 240-minute banner on placing a hold, and the 110 GB Recoverable Items quota with auto-expanding archiving
 - [Manage mail-enabled security groups in Exchange Online](https://learn.microsoft.com/exchange/recipients-in-exchange-online/manage-mail-enabled-security-groups) - mail-enabled security groups created as new objects with `New-DistributionGroup -Type Security` or the Exchange admin center
 - [Manage distribution groups](https://learn.microsoft.com/exchange/recipients/distribution-groups) - that new distribution groups require all senders to be authenticated by default, which blocks external senders until Delivery management is changed
 - [Message trace in the Exchange admin center in Exchange Online](https://learn.microsoft.com/exchange/monitoring/trace-an-email-message/message-trace-modern-eac) - delivery status values including `Expanded`, and the permissions required
@@ -1710,3 +1872,7 @@ To be completed during implementation, with each link confirmed resolving at clo
 - [Send Outlook messages from another user](https://learn.microsoft.com/graph/outlook-send-mail-from-other-user) - Send on Behalf surfacing as distinct `sender` and `from` values while Send As leaves the two identical, which is the header-level distinction Step Four captured
 - [Property sets in Exchange Online PowerShell module cmdlets](https://learn.microsoft.com/powershell/exchange/cmdlet-property-sets) - `LastLogonTime` in `Get-EXOMailboxStatistics`'s All property set and absent from the Minimum set returned by default, read during Step Six.
 - [licenseUnitsDetail resource type](https://learn.microsoft.com/graph/api/resources/licenseunitsdetail?view=graph-rest-1.0) - the definitions of `warning` units as those of an expired subscription in its grace period and `suspended` units as those of a canceled subscription that can't be assigned but can be reactivated before deletion, read against Step Six's 2026-09-23 SKU reading
+- [Place a mailbox on Litigation Hold (Exchange Server)](https://learn.microsoft.com/exchange/policy-and-compliance/holds/litigation-holds) - the 60-minute figure for a hold to take effect, which Step Seven set against the Exchange Online cmdlet's 240-minute warning
+- [Recoverable Items folder in Exchange Online](https://learn.microsoft.com/exchange/security-and-compliance/recoverable-items-folder/recoverable-items-folder) - the 20 GB and 30 GB default quotas, 90 GB and 100 GB on hold, 95 GB and 105 GB on hold with an archive, and the Purges and Versions subfolders under single item recovery and hold
+- [Identify Exchange mailbox hold types in eDiscovery](https://learn.microsoft.com/purview/edisc-hold-types-mailboxes) - the delay hold the Managed Folder Assistant applies after a hold is removed, `DelayHoldApplied` and `DelayReleaseHoldApplied`, the 30-day duration, and deleted mailboxes under a delay hold becoming inactive
+- [Messaging Records management (MRM) and Retention Policies in Microsoft 365](https://learn.microsoft.com/troubleshoot/microsoft-365/purview/retention/mrm-and-retention-policy) - the direction to right-click a folder and select Assign policy, which Step Seven did not find in Outlook on the web
