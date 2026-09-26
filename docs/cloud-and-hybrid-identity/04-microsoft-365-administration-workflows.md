@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress. Steps One through Seven are complete and documented in past tense below. Steps Eight and Nine remain, and Eight is completed before 2026-10-05.
+In progress. Steps One through Eight are complete and documented in past tense below. Step Nine remains.
 
 The lab runs against the Business Premium trial's expiry on 2026-10-05, which takes with it the Exchange Online Plan 1 behind the mailboxes the remaining steps depend on. Step Six observed the Business Basic trial's lapse as a preview: by 2026-09-23 the subscription read Disabled and its SKU `Suspended`, with no Expired stage observed, while both assignment records and Adam Ramzi's license and mailbox stayed intact and the mailbox kept accepting mail. Whether user access ended was not tested, so the lab keeps the conservative assumption and treats 2026-10-05 as a hard cliff.
 
@@ -1699,15 +1699,174 @@ Neither delay hold property had been set, and the quotas had not returned to the
 
 **The archive's disposition.** The archive was left enabled. It holds three items the lab did not put there, the Business Premium lapse on 2026-10-05 decides its future in any case, and disabling it would start a separate clock on content that had not been examined. Step Nine reconciles it.
 
-### Step Eight: Convert a departing user's mailbox to shared and reclaim the license
+### Step Eight: Converted a departing user's mailbox to shared and reclaimed the license
 
-Create a purpose-built account for this, license it, let its mailbox provision, and put recognizable content in it. Do not use `cloudonly-demo01`, which Lab 05 inherits in a license-only state, and do not use any synchronized account.
+**Step Six's open mailbox question.** Adam Ramzi's license and mailbox were reread at 3:55 PM Eastern (19:55 UTC) on 2026-09-26, four days after the Business Basic lapse:
 
-Convert the mailbox to shared in the documented order and record the constraint that makes the order matter: the license must still be assigned at the moment of conversion or the option does not appear. Then remove the license and confirm the mailbox and its contents survived.
+```powershell
+Get-MgUserLicenseDetail -UserId Adam@brindeck.onmicrosoft.com | Select-Object SkuPartNumber | Format-List
+Get-EXOMailbox -Identity Adam@brindeck.onmicrosoft.com -Properties RecipientTypeDetails,ProhibitSendReceiveQuota,WhenSoftDeleted | Format-List DisplayName,RecipientTypeDetails,ProhibitSendReceiveQuota,WhenSoftDeleted
+Get-MgSubscribedSku | Where-Object { $_.SkuPartNumber -like '*Business_Basic*' -or $_.SkuPartNumber -eq 'SPB' } | Select-Object SkuPartNumber,CapabilityStatus,ConsumedUnits,@{N='Enabled';E={$_.PrepaidUnits.Enabled}},@{N='Suspended';E={$_.PrepaidUnits.Suspended}} | Format-List
+```
 
-Confirm the reclaimed seat appears in both the Microsoft 365 admin center's count and `Get-MgSubscribedSku`'s consumed units, and record whether the two move together this time or diverge the way Lab 03's Part C found for group assignments.
+```text
+SkuPartNumber            : Microsoft_365_Business_Basic_(no Teams)
 
-Remove the purpose-built account at the end of the step so the lab's own fixtures do not become Lab 05's inheritance, and record the removal.
+RecipientTypeDetails     : UserMailbox
+ProhibitSendReceiveQuota : 100 GB (107,374,182,400 bytes)
+WhenSoftDeleted          :
+
+SkuPartNumber    : Microsoft_365_Business_Basic_(no Teams)
+CapabilityStatus : Suspended
+ConsumedUnits    : 1
+Enabled          : 0
+Suspended        : 25
+[SPB omitted]
+```
+
+The mailbox was still a live `UserMailbox`, not soft-deleted, with the assignment still pointing at a fully suspended SKU. The same reading returned the Business Premium baseline, 6 units consumed of 25 enabled, and the product page read 7 of 25 assigned against 6 consumed:
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/40-business-premium-product-page-baseline-2026-09-26.jpg" alt="40-business-premium-product-page-baseline-2026-09-26" width="700">
+</p>
+
+<p align="center">
+  <em>Business Premium product page before the step: 7 / 25 licenses assigned.</em>
+</p>
+
+**The departing user.** A cloud-only account, `leaver-demo01@brindeck.com`, display name `Leaver Demo Account (Lab 04 fixture)`, was created unlicensed with `New-MgUser` at 3:58:40 PM Eastern (19:58:40 UTC), with `UsageLocation` set to US and a generated password that was never displayed. It had no license and no Exchange recipient. Business Premium was assigned directly as a separate action at 4:00:21 PM Eastern (20:00:21 UTC), and `Get-EXOMailbox` was polled every 30 seconds until it returned the mailbox at 4:00:59 PM:
+
+```powershell
+Set-MgUserLicense -UserId leaver-demo01@brindeck.com -AddLicenses @{ SkuId = $spb } -RemoveLicenses @()
+Get-EXOMailbox -Identity leaver-demo01@brindeck.com -Properties RecipientTypeDetails,ProhibitSendReceiveQuota,WhenMailboxCreated | Format-List DisplayName,RecipientTypeDetails,ProhibitSendReceiveQuota,WhenMailboxCreated
+```
+
+```text
+RecipientTypeDetails     : UserMailbox
+ProhibitSendReceiveQuota : 100 GB (107,374,182,400 bytes)
+WhenMailboxCreated       : 9/26/2026 4:00:39 PM
+```
+
+The mailbox was created 18 seconds after the license was assigned, at the 100 GB quota Step Two found on every licensed mailbox. `ConsumedUnits` read 7 at 4:02 PM, and the product page 8 of 25 at 4:06 PM.
+
+**Content.** Three messages were sent from Cloud Administrator to the account at 4:04:27 PM Eastern with `Send-MgUserMail`, subjects `Lab 04 Step Eight - leaver content 1` to `3`, so that nobody signed in as the user. `Get-MessageTraceV2` showed all three `Delivered` between 20:04:26 and 20:04:29 UTC. The figures the survival check compares against, read at 4:06 PM:
+
+```powershell
+Get-EXOMailboxStatistics -Identity leaver-demo01@brindeck.com | Format-List ItemCount,TotalItemSize
+Get-EXOMailboxFolderStatistics -Identity leaver-demo01@brindeck.com -FolderScope Inbox | Format-List Name,ItemsInFolder,FolderSize
+```
+
+```text
+ItemCount     : 6
+TotalItemSize : 69.48 KB (71,146 bytes)
+
+Name          : Inbox
+ItemsInFolder : 3
+FolderSize    : 62.39 KB (63,889 bytes)
+```
+
+**The conversion.** Microsoft's conversion article states the ordering constraint: "The user mailbox needs a license assigned to it before you convert it to a shared mailbox. Otherwise, you won't see the option to convert the mailbox." With Business Premium still assigned, the mailbox was converted in the Microsoft 365 admin center at 4:09 PM Eastern (20:09 UTC):
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/41-leaver-demo01-mail-tab-convert-option-2026-09-26.jpg" alt="41-leaver-demo01-mail-tab-convert-option-2026-09-26" width="450">
+</p>
+
+<p align="center">
+  <em>The user's Mail tab, with Convert to shared mailbox under More actions.</em>
+</p>
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/42-leaver-demo01-convert-confirmation-2026-09-26.jpg" alt="42-leaver-demo01-convert-confirmation-2026-09-26" width="450">
+</p>
+
+<p align="center">
+  <em>The Convert to shared mailbox pane and its User impact statement.</em>
+</p>
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/43-leaver-demo01-converted-2026-09-26.jpg" alt="43-leaver-demo01-converted-2026-09-26" width="450">
+</p>
+
+<p align="center">
+  <em>The Mailbox has been converted confirmation.</em>
+</p>
+
+The pane states that "Users won't sign into a shared mailbox with a username and password." The conversion article says the opposite: if the password is not reset, "the original username and password will continue to work on the shared mailbox." The same `Get-EXOMailbox` command, with `Get-MgUser -Property AccountEnabled`, at 4:11 PM:
+
+```text
+RecipientTypeDetails     : SharedMailbox
+ProhibitSendReceiveQuota : 100 GB (107,374,182,400 bytes)
+AccountEnabled           : True
+```
+
+Conversion changed the recipient type and nothing else read here: the quota stayed at the licensed 100 GB, and the account stayed enabled. An enabled account is consistent with the article and not with the pane, though a sign-in with the original password was not attempted, so the article's statement was not tested directly. Step Four's `Facilities`, created as a shared mailbox, read `AccountEnabled` False, so a converted mailbox and a created one do not arrive in the same sign-in state. Sign-in was not blocked here, since the account was deleted within the step.
+
+**Removing the license.** Business Premium was removed with `Set-MgUserLicense -RemoveLicenses` at 4:11:57 PM Eastern (20:11:57 UTC). The same `Get-EXOMailbox` and statistics commands at 4:12:59 PM:
+
+```text
+RecipientTypeDetails     : SharedMailbox
+ProhibitSendReceiveQuota : 50 GB (53,687,091,200 bytes)
+
+ItemCount     : 8
+TotalItemSize : 74.96 KB (76,762 bytes)
+
+Name          : Inbox
+ItemsInFolder : 3
+FolderSize    : 62.39 KB (63,889 bytes)
+```
+
+The quota had dropped to the 50 GB unlicensed shared mailbox limit within 62 seconds, matching `Facilities`. The Inbox matched its before figures exactly, so the delivered content survived. The mailbox-wide count rose from 6 to 8 items and 5,616 bytes. `Get-EXOMailboxFolderStatistics` without `-FolderScope` at 4:14 PM listed only Inbox (3 items) and Calendar (1 item, 1,400 bytes) as holding anything, so the other four items sit outside the folders that listing returns. No full folder reading was taken before the conversion, so where the two new items appeared is not established.
+
+`ConsumedUnits` read 6 at 4:12:59 PM, and the product page 7 of 25 at 4:13 PM:
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/44-business-premium-product-page-after-removal-2026-09-26.jpg" alt="44-business-premium-product-page-after-removal-2026-09-26" width="700">
+</p>
+
+<p align="center">
+  <em>Business Premium product page after the license was removed: 7 / 25 assigned.</em>
+</p>
+
+Both surfaces rose by one on assignment and fell by one on removal. For a direct user assignment they moved together, and the one-unit gap between assignment targets and consumed seats stayed constant throughout, unlike Lab 03 Part C's group assignment, which added a target and no seat.
+
+**Removing the fixture.** Microsoft's conversion and offboarding articles both say not to delete the account behind a shared mailbox, because it anchors the mailbox. The account was deleted anyway, because it was a lab fixture whose mailbox was meant to go with it. A mailbox under any hold becomes inactive instead, so holds were read first, at 4:15 PM:
+
+```powershell
+Get-Mailbox -Identity leaver-demo01@brindeck.com | Format-List LitigationHoldEnabled,InPlaceHolds,DelayHoldApplied,DelayReleaseHoldApplied,ComplianceTagHoldApplied
+Get-OrganizationConfig | Format-List InPlaceHolds
+```
+
+```text
+LitigationHoldEnabled    : False
+InPlaceHolds             : {}
+DelayHoldApplied         : False
+DelayReleaseHoldApplied  : False
+ComplianceTagHoldApplied : False
+```
+
+The organization's `InPlaceHolds` was also empty.
+
+The user was deleted with `Remove-MgUser` at 4:23:59 PM Eastern (20:23:59 UTC). At 4:25 PM the mailbox was no longer returned as active:
+
+```powershell
+Get-EXOMailbox -Identity leaver-demo01@brindeck.com -SoftDeletedMailbox -Properties RecipientTypeDetails,WhenSoftDeleted,IsInactiveMailbox | Format-List DisplayName,RecipientTypeDetails,WhenSoftDeleted,IsInactiveMailbox
+```
+
+```text
+RecipientTypeDetails : SharedMailbox
+WhenSoftDeleted      : 9/26/2026 4:24:03 PM
+IsInactiveMailbox    : False
+```
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/45-leaver-demo01-entra-deleted-users-2026-09-26.jpg" alt="45-leaver-demo01-entra-deleted-users-2026-09-26" width="700">
+</p>
+
+<p align="center">
+  <em>Entra admin center Deleted users: the fixture with a permanent deletion date of Oct 26, 2026, beside nolocation-demo01.</em>
+</p>
+
+Left alone, the account would have stayed in Deleted users until 2026-10-26, after this lab's deadline and inside Lab 05. Unlike `nolocation-demo01`, it carried nothing a later lab reads, and `nolocation-demo01` will show an automatic purge on its own date. It was permanently deleted with `Remove-MgDirectoryDeletedItem` at 4:28:14 PM Eastern (20:28:14 UTC). At 4:29 PM Graph returned no deleted user matching it, but the soft-deleted mailbox was still present, with `WhenSoftDeleted` re-stamped from 4:24:03 PM to 4:28:20 PM. It was still present at 4:33 PM, when `ConsumedUnits` read 6 of 25. The product page's last reading was 7 of 25, at 4:13 PM.
 
 ### Step Nine: Validate the environment is unchanged and record the finished state
 
@@ -1717,7 +1876,7 @@ Confirm that a lab conducted in two web consoles and one PowerShell module left 
 
 Run `Invoke-LabHealthReport.ps1` for the overall picture and then `Get-LabWazuhAgentStatus -AgentName DC01,WIN11-CLIENT01,UBUNTU-SERVER,SYNC01` explicitly, recording both and the reason they differ. That defect is now carried by two tracks and confirmed by two labs. `Invoke-Pester -Path C:\Scripts -Output Detailed`, expected at 174 tests and 0 failed, since this lab commits no script.
 
-Reconcile the finished state. Record every mail object that persists and every one the lab removed, including confirmation that Step Five's mail flow rule is gone and mail flows normally again, and that Step Seven's litigation hold is released if one was placed. Record the state of the archive mailbox Step Seven left enabled on testuser01, and reread `DelayHoldApplied` and `DelayReleaseHoldApplied` on the same mailbox, which both read False at 1:00 PM Eastern on 2026-09-24, 42 minutes after Step Seven removed the hold, along with its Recoverable Items quotas, which still read 100 GB and 90 GB at that time. Record the licensing state by assignment target and consumed seat for both SKUs. Re-read the Entra admin center's Licenses blade for one directly licensed account and record its enabled-services count, which Step One's reconciliation of the three service counts predicts at 53 and which is the one figure in that reconciliation still standing as a prediction. Record the state of the four objects Lab 03 left outside the Entra Overview's counts: `nolocation-demo01` and `Testgroup` retained, `duptest01` and `duptest02` purged. Record whether `cloudonly-demo01` is still license-only with no groups and no roles, which is the condition Lab 05 depends on and which nothing in this lab should have touched.
+Reconcile the finished state. Record every mail object that persists and every one the lab removed, including confirmation that Step Five's mail flow rule is gone and mail flows normally again, and that Step Seven's litigation hold is released if one was placed. Record the state of the archive mailbox Step Seven left enabled on testuser01, and reread `DelayHoldApplied` and `DelayReleaseHoldApplied` on the same mailbox, which both read False at 1:00 PM Eastern on 2026-09-24, 42 minutes after Step Seven removed the hold, along with its Recoverable Items quotas, which still read 100 GB and 90 GB at that time. Record the licensing state by assignment target and consumed seat for both SKUs. Business Premium closed Step Eight at 6 consumed seats of 25 (4:33 PM Eastern on 2026-09-26) and 7 assignment targets (4:13 PM). Confirm that `leaver-demo01` is absent from Deleted users, since Step Eight purged it at 4:28 PM Eastern on 2026-09-26 rather than leaving it to its 2026-10-26 permanent deletion date, and record whether its soft-deleted shared mailbox, still returned by `Get-EXOMailbox -SoftDeletedMailbox` at 4:33 PM that day, has gone. Re-read the Entra admin center's Licenses blade for one directly licensed account and record its enabled-services count, which Step One's reconciliation of the three service counts predicts at 53 and which is the one figure in that reconciliation still standing as a prediction. Record the state of the four objects Lab 03 left outside the Entra Overview's counts: `nolocation-demo01` and `Testgroup` retained, `duptest01` and `duptest02` purged. Record whether `cloudonly-demo01` is still license-only with no groups and no roles, which is the condition Lab 05 depends on and which nothing in this lab should have touched.
 
 Close the three dated carry-forward items this lab owns rather than passing them on with their dates already spent.
 
@@ -1821,6 +1980,10 @@ Get-EXOMailbox : Some of requested properties are not valid. InvalidProperties =
 
 The REST cmdlet accepts `DelayHoldApplied` and rejects `DelayReleaseHoldApplied`. The property was dropped from the `Get-EXOMailbox` call and read through `Get-Mailbox`, the form Microsoft's hold types article uses for both properties.
 
+### `Get-MgUserLicenseDetail` returned nothing immediately after an assignment
+
+Step Eight read `leaver-demo01`'s license detail in the same block as the `Set-MgUserLicense` call that assigned Business Premium, at 4:00 PM Eastern on 2026-09-26, and it printed nothing, as though no license were assigned. The mailbox was created 18 seconds after the assignment, and the same command at 4:02:05 PM returned `SPB`. The second reading supersedes the first, and an empty license readback taken in the same block as the assignment was not evidence that the assignment had failed.
+
 ---
 
 ## Security Considerations
@@ -1853,7 +2016,7 @@ To be completed during implementation, with each link confirmed resolving at clo
 - [What happens to my data and access when my Microsoft 365 for business subscription ends?](https://learn.microsoft.com/microsoft-365/commerce/subscriptions/what-if-my-subscription-expires) - the Active, Expired, Disabled, Deleted lifecycle and the access retained at each stage
 - [Data retention, deletion, and destruction in Microsoft 365](https://learn.microsoft.com/compliance/assurance/assurance-data-retention-deletion-and-destruction-overview) - subscription retention periods, and the separate 30-day grace status described for free trials
 - [About shared mailboxes in Microsoft 365](https://learn.microsoft.com/microsoft-365/admin/email/about-shared-mailboxes) - the 50 GB unlicensed limit and the scenarios that require a license
-- [Convert a user mailbox to a shared mailbox](https://learn.microsoft.com/microsoft-365/admin/email/convert-user-mailbox-to-shared-mailbox) - the ordering constraint on the license at conversion time
+- [Convert a user mailbox to a shared mailbox](https://learn.microsoft.com/microsoft-365/admin/email/convert-user-mailbox-to-shared-mailbox) - the ordering constraint on the license at conversion time, quoted in Step Eight, the statement that the original username and password continue to work on the shared mailbox unless the password is reset, and the instruction not to delete the account that anchors the shared mailbox
 - [Exchange Online limits](https://learn.microsoft.com/office365/servicedescriptions/exchange-online-service-description/exchange-online-limits) - mailbox storage limits, and the shared mailbox associated account described as active
 - [Exchange Online Archiving service description](https://learn.microsoft.com/office365/servicedescriptions/exchange-online-archiving-service-description/exchange-online-archiving-service-description) - the plan list naming Microsoft 365 Business Premium among those that already include archiving without the add-on, and the feature table giving Exchange Online Archiving for Exchange Online both Litigation Hold and retention policies
 - [Place a mailbox on litigation hold](https://learn.microsoft.com/microsoft-365/admin/misc/create-litigation-hold-mac) - the contradicting statement that a hold requires Exchange Online Plan 2, or Plan 1 plus a separate Exchange Online Archiving license, the 240-minute banner on placing a hold, and the 110 GB Recoverable Items quota with auto-expanding archiving
@@ -1876,3 +2039,5 @@ To be completed during implementation, with each link confirmed resolving at clo
 - [Recoverable Items folder in Exchange Online](https://learn.microsoft.com/exchange/security-and-compliance/recoverable-items-folder/recoverable-items-folder) - the 20 GB and 30 GB default quotas, 90 GB and 100 GB on hold, 95 GB and 105 GB on hold with an archive, and the Purges and Versions subfolders under single item recovery and hold
 - [Identify Exchange mailbox hold types in eDiscovery](https://learn.microsoft.com/purview/edisc-hold-types-mailboxes) - the delay hold the Managed Folder Assistant applies after a hold is removed, `DelayHoldApplied` and `DelayReleaseHoldApplied`, the 30-day duration, and deleted mailboxes under a delay hold becoming inactive
 - [Messaging Records management (MRM) and Retention Policies in Microsoft 365](https://learn.microsoft.com/troubleshoot/microsoft-365/purview/retention/mrm-and-retention-policy) - the direction to right-click a folder and select Assign policy, which Step Seven did not find in Outlook on the web
+- [Overview: Remove a former employee and secure data](https://learn.microsoft.com/microsoft-365/admin/add-users/remove-former-employee) - the offboarding sequence in which the mailbox is converted to shared before the license is removed and the account deleted
+- [Step 7 - Delete a former employee's user account](https://learn.microsoft.com/microsoft-365/admin/add-users/remove-former-employee-step-7) - the instruction not to delete an account converted to a shared mailbox, since the account anchors it, and the approximately 30 days before a deleted account is permanently deleted
