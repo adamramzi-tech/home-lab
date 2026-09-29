@@ -1886,6 +1886,138 @@ Take the decision on `Testgroup` and `nolocation-demo01`, whose permanent deleti
 
 Record the entitlement position plainly, and record the discrepancy rather than resolving it silently. Business Premium expires 2026-10-05 by the subscription's stated end date, while the portal's own Recurring billing field reads 2026-10-06, which Lab 03 recorded and left open. This lab plans against the earlier of the two. State both, state which one this lab used, and state whether anything observed here settled it. With the subscription goes Exchange Online Plan 1, Microsoft Entra ID P1, and Microsoft Intune Plan 1, and Lab 05 needs the last two. Whether that decision is a renewal, a purchase, or a deliberate lapse is Lab 05's to take, and this lab's job is to hand it an accurate picture of what is about to end, including whatever Step Six established about the Expired stage.
 
+**Licensing.** The readings began at 6:49 PM Eastern (22:49 UTC) on 2026-09-28. The same `Get-MgSubscribedSku` command as Step Six, widened to include `SPB`, read Business Basic unchanged from 2026-09-23 (`Suspended`, 25 units suspended, 1 consumed) and Business Premium unchanged from Step Eight's close (`Enabled`, 6 consumed of 25). Both product pages were read between 6:49 PM and 6:56 PM:
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/46-business-premium-product-page-2026-09-28.jpg" alt="46-business-premium-product-page-2026-09-28" width="700">
+</p>
+
+<p align="center">
+  <em>Business Premium product page, 2026-09-28: Active, 7 / 25 assigned, Expiration date 10/5/2026, Recurring billing "Expires on October 6, 2026."</em>
+</p>
+
+The page read seven assignment targets against six consumed seats, the same one-unit gap. It still carried both dates Lab 03 recorded, and its third banner read "This subscription will be canceled when it expires on October 5, 2026 at which point users will lose access to the service." The Business Basic page read exactly as screenshot 32 did on 2026-09-23: Disabled, 2 / 2 assigned, Reactivate and Extend trial end date unavailable, and still "This subscription is disabled and your data will be deleted" six days later.
+
+**testuser01's hold state.** Read at 7:04:47 PM Eastern (23:04:47 UTC):
+
+```powershell
+Get-Mailbox -Identity testuser01@brindeck.com | Format-List LitigationHoldEnabled,DelayHoldApplied,DelayReleaseHoldApplied,InPlaceHolds,RecoverableItemsQuota,RecoverableItemsWarningQuota,ArchiveStatus,ArchiveQuota
+```
+
+```text
+LitigationHoldEnabled        : False
+DelayHoldApplied             : False
+DelayReleaseHoldApplied      : True
+InPlaceHolds                 : {}
+RecoverableItemsQuota        : 100 GB (107,374,182,400 bytes)
+RecoverableItemsWarningQuota : 90 GB (96,636,764,160 bytes)
+ArchiveStatus                : Active
+ArchiveQuota                 : 100 GB (107,374,182,400 bytes)
+```
+
+A delay hold had been applied since Step Seven's last reading, but only one of the two. Microsoft's hold types article assigns `DelayHoldApplied` to email content created in Outlook and Outlook on the web, and `DelayReleaseHoldApplied` to content created by other apps, such as Teams, Forms, and Viva Engage, which is kept in a hidden mailbox folder. The same article states that with only `DelayReleaseHoldApplied` True, Outlook items marked for removal are still purged. The mailbox counted as on hold, consistent with the Recoverable Items quotas still reading 100 GB and 90 GB, while its mail was not under the delay hold.
+
+When it was set was not established. `Export-MailboxDiagnosticLogs -ComponentName HoldTracking` returned an empty array, and the mailbox's extended properties named no delay hold. They gave `ELCLastSuccessTimestamp` as 9/24/2026 4:20:46 PM with no time zone printed; read as UTC, that is 18 seconds after Step Seven's `Start-ManagedFolderAssistant` request, and both properties still read False 20 and 40 minutes later. The set time therefore falls between 1:00:17 PM Eastern on 2026-09-24 and 7:04:47 PM Eastern on 2026-09-28, which puts Microsoft's 30-day expiry between 2026-10-24 and 2026-10-28, inside Lab 05. Until then, Microsoft's article states that deleting the mailbox or its account would make it an inactive mailbox rather than removing it. Neither delay hold removal parameter was run.
+
+`Get-EXOMailboxStatistics -Archive` read 3 items and 24.05 KB (24,632 bytes), against 3 items and 7,030 bytes on 2026-09-24, with `TotalDeletedItemSize` 0. Nothing read argued for disabling the archive, and it was left enabled.
+
+**Deleted objects.** At 7:13:53 PM Eastern, `leaver-demo01` was absent from Deleted users, and `Get-EXOMailbox -SoftDeletedMailbox` still returned its shared mailbox two days after Step Eight's purge, carrying the re-stamped 4:28:20 PM. Of the four objects Lab 03 left outside the Entra Overview's counts, `Get-MgDirectoryDeletedItemAsUser` and `Get-MgDirectoryDeletedItemAsGroup` returned `nolocation-demo01` and `Testgroup`, at the deletion times Lab 03 recorded, and `duptest01` and `duptest02` were gone.
+
+**`nolocation-demo01`, read without a restore.** The deleted object's properties were requested directly at 7:24:08 PM Eastern:
+
+```powershell
+$r = Invoke-MgGraphRequest -Method GET -Uri 'https://graph.microsoft.com/v1.0/directory/deletedItems/<object id>?$select=displayName,assignedLicenses'
+$r.assignedLicenses | ForEach-Object { [pscustomobject]@{ SkuId = $_.skuId; DisabledPlans = ($_.disabledPlans -join ',') } } | Format-Table -AutoSize
+```
+
+```text
+SkuId             DisabledPlans
+-----             -------------
+cbdc14ab-[masked]
+21502a13-[masked]
+```
+
+`Get-MgSubscribedSku -All` at 7:25 PM matched the two to `SPB` and `Microsoft_365_Business_Basic_(no Teams)`, the tenant's only two SKUs. Lab 03 Part C recorded the object carrying SPB. It carried both, which is what Lab 03's Step Eight gave it by assigning Business Basic to `Finance` while it was a member. Neither SKU counted it: Business Basic's one consumed unit was Adam Ramzi's, and Business Premium's six were live users. Lab 03's finding held on a second SKU, including one whose units were all suspended.
+
+**The two deletion windows.** Restoring `nolocation-demo01` to read the property one last time was unnecessary once the deleted object answered directly, and a restore would have started a new 30-day clock inside Lab 05. It was left to its permanent deletion on 2026-10-07. `Testgroup` was left to 2026-10-06. Nothing in this lab added to what Lab 03 knew about its origin, so there was still no basis for a restore, and purging it early would have reached the same end state with one more irreversible action.
+
+**`cloudonly-demo01`.** At 7:27:08 PM, `Get-MgUserLicenseDetail` returned `SPB` only, `Get-MgUserMemberOf` returned nothing, and `Get-MgRoleManagementDirectoryRoleAssignment` filtered on its object ID returned no assignments. It was still license-only with no groups and no roles.
+
+**The last service count.** Alex Kim's Licenses blade, read between 7:27 PM and 7:33 PM:
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/47-alex-kim-entra-licenses-blade-2026-09-28.jpg" alt="47-alex-kim-entra-licenses-blade-2026-09-28" width="700">
+</p>
+
+<p align="center">
+  <em>Alex Kim's Licenses blade in the Entra admin center: Microsoft 365 Business Premium, Active, 53/53 enabled services, assigned Direct.</em>
+</p>
+
+The blade read 53, as Step One's reconciliation predicted, so all three service counts now rest on readings.
+
+**Mail flow and the teardown.** `Get-TransportRule` returned nothing at 7:33:55 PM. A message from testuser01 to `help-desk@brindeck.com`, sent from Outlook on the web at 7:35 PM with the subject `Lab 04 Step Nine - pre-teardown probe`, was traced five minutes later with `Get-MessageTraceV2`. The group row read `Expanded` and all three member rows `Delivered`, at 23:35:39 UTC, on the first query. `Facilities`'s holds were read at 7:42:09 PM, before anything was removed: `LitigationHoldEnabled`, `DelayHoldApplied`, `DelayReleaseHoldApplied`, and `ComplianceTagHoldApplied` all False, and `InPlaceHolds` empty on the mailbox and the organization. The three objects were then removed, each without output:
+
+```powershell
+Remove-DistributionGroup -Identity help-desk@brindeck.com -Confirm:$false    # 7:42:54 PM Eastern (23:42:54 UTC)
+Remove-DistributionGroup -Identity it-support@brindeck.com -Confirm:$false   # 7:42:56 PM
+Remove-Mailbox -Identity facilities@brindeck.com -Confirm:$false             # 7:42:57 PM
+```
+
+At 7:43:43 PM none of the three addresses resolved through `Get-Recipient`, and the soft-deleted mailboxes read:
+
+```powershell
+Get-EXOMailbox -SoftDeletedMailbox -Properties RecipientTypeDetails,WhenSoftDeleted,IsInactiveMailbox | Format-Table DisplayName,RecipientTypeDetails,WhenSoftDeleted,IsInactiveMailbox -AutoSize
+```
+
+```text
+DisplayName                          RecipientTypeDetails WhenSoftDeleted      IsInactiveMailbox
+-----------                          -------------------- ---------------      -----------------
+Leaver Demo Account (Lab 04 fixture) SharedMailbox        9/26/2026 4:28:20 PM             False
+nolocation-demo01                    UserMailbox          9/7/2026 4:02:19 PM              False
+Facilities                           SharedMailbox        9/28/2026 7:42:57 PM             False
+```
+
+`Facilities` was soft-deleted rather than made inactive. The listing also returned `nolocation-demo01`'s own mailbox, soft-deleted 24 seconds after its account on 2026-09-07. `Facilities`'s account appeared in Deleted users at 23:42:57 UTC, and Deleted groups still held only `Testgroup`. Microsoft's recover-from-deletions article gives soft delete to Microsoft 365 groups and cloud security groups, and its group restore article excludes distribution groups. `IT-Support`, a mail-enabled security group, was treated like `Help-Desk`: neither reached Deleted groups.
+
+Left alone, `Facilities`'s account would have stayed in Deleted users until 2026-10-28, inside Lab 05, the case Step Eight decided for `leaver-demo01`. It was permanently deleted with `Remove-MgDirectoryDeletedItem` at 7:48:28 PM Eastern (23:48:28 UTC). At 7:49:29 PM Deleted users held only `nolocation-demo01`, and the soft-deleted mailbox's `WhenSoftDeleted` read 7:48:36 PM, re-stamped 8 seconds after the purge, as `leaver-demo01`'s was.
+
+`Get-Recipient -ResultSize Unlimited` at 8:25:07 PM returned the seven user mailboxes Step Two found, the `All Company` and `Company Announcements` group mailboxes Step Three started from, and the system Discovery Search Mailbox, and nothing else. Every mail object the lab created, `Help-Desk`, `IT-Support`, `Facilities`, and `leaver-demo01`'s mailbox, had been removed, and Step Seven's litigation hold had been released.
+
+**On-premises.** DC01, WIN11-CLIENT01, and SYNC01 had been left running since their last use. Ubuntu Server, a physical machine, had been asleep. On WIN11-CLIENT01, in an elevated session as `CORP\labadmin` at 7:58:12 PM, `Test-ComputerSecureChannel` returned `True`, and `gpresult /r` listed `IT-Admin-Environment` under User Settings, applied from DC01 at 7:17:27 PM.
+
+On Ubuntu Server at 8:00:55 PM, `sssd` had been `active (running)` since 2026-09-11 and the cached ticket had expired on 2026-09-12. A fresh `kinit testuser01@CORP.HOME.ARPA` failed with `kinit: Cannot find KDC for realm "CORP.HOME.ARPA" while getting initial credentials`. The resolver had moved off DC01:
+
+```bash
+resolvectl status eno2
+dig SRV _kerberos._tcp.corp.home.arpa | grep -E 'status:|SERVER:'
+dig @192.168.1.10 +short SRV _kerberos._tcp.corp.home.arpa
+```
+
+```text
+Current DNS Server: 192.168.1.1
+       DNS Servers: 192.168.1.10 192.168.1.1 [redacted]
+;; ->>HEADER<<- opcode: QUERY, status: NXDOMAIN, id: 3159
+;; SERVER: 127.0.0.53#53(127.0.0.53) (UDP)
+0 100 88 dc01.corp.home.arpa.
+[resolvectl output trimmed to the two DNS lines; the third candidate is a public IPv6 address]
+```
+
+The current server was the router, which returned `NXDOMAIN` for the domain's Kerberos record, while DC01 answered the same query directly and replied to ping. This is the failure Cloud Lab 02 diagnosed on this host, and the router and an IPv6 address were still in the candidate list that lab recorded and left unresolved. `sudo systemctl restart systemd-resolved` at 8:03:57 PM, which changes no configuration, brought the same lookup back as `NOERROR`, and a fresh `kinit` issued a ticket valid from 20:04:06 to 06:04:06. The Netplan file still named only `192.168.1.10`. The candidate list was not changed, so the host can fail over to the router again. That is a Linux track configuration item, carried forward rather than fixed in this lab.
+
+On SYNC01, `Get-ADSyncScheduler` was read first, at 8:05:42 PM Eastern (00:05:42 UTC): `SyncCycleEnabled` True, `SchedulerSuspended` False, and `NextSyncCycleStartTimeInUTC` 12:26:38 AM, 21 minutes ahead on the 30-minute interval, so the timer was live and Lab 03's restart was not needed. `miiserver.exe` reported version 2.6.84.0, and `Get-ADSyncGlobalSettings` gave `Microsoft.SynchronizationOption.AnchorAttribute` as `mS-DS-ConsistencyGuid`, both unchanged since Cloud Lab 02. No cycle was forced.
+
+**Scripts.** From `C:\Scripts` on WIN11-CLIENT01, `Invoke-LabHealthReport.ps1`, its report generated at 8:14:44 PM, returned every check and the overall status `Healthy`:
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/48-lab-health-report-2026-09-28.jpg" alt="48-lab-health-report-2026-09-28" width="450">
+</p>
+
+<p align="center">
+  <em>The health report's HTML output: Overall Healthy, with the Wazuh check listing DC01, WIN11-CLIENT01, and UBUNTU-SERVER.</em>
+</p>
+
+`Get-LabWazuhAgentStatus.ps1 -AgentName DC01,WIN11-CLIENT01,UBUNTU-SERVER,SYNC01` then returned all four `active` and `Healthy`. The difference is the one Cloud Lab 02 and Lab 03 recorded: the script's default `-AgentName` list predates SYNC01, so the report's `Healthy` did not include it, and SYNC01's agent being active was something only the explicit call could show. `Invoke-Pester -Path C:\Scripts -Output Detailed` passed 174 of 174 at 8:22 PM, with 0 failed and 0 skipped.
+
 ---
 
 ## Validation
@@ -1984,6 +2116,10 @@ The REST cmdlet accepts `DelayHoldApplied` and rejects `DelayReleaseHoldApplied`
 
 Step Eight read `leaver-demo01`'s license detail in the same block as the `Set-MgUserLicense` call that assigned Business Premium, at 4:00 PM Eastern on 2026-09-26, and it printed nothing, as though no license were assigned. The mailbox was created 18 seconds after the assignment, and the same command at 4:02:05 PM returned `SPB`. The second reading supersedes the first, and an empty license readback taken in the same block as the assignment was not evidence that the assignment had failed.
 
+### Two SYNC01 reads returned nothing on the first attempt
+
+Step Nine's first read of the Entra Connect version and source anchor printed two empty results. `(Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Azure AD Connect').Version` returned nothing, and the version was taken from `miiserver.exe`'s `ProductVersion` instead. `Get-ADSyncGlobalSettings` filtered on a parameter name matching `SourceAnchor` also returned nothing, because the parameter is named `Microsoft.SynchronizationOption.AnchorAttribute`. Matching on `Anchor` in the name, or `ConsistencyGuid` in the value, returned it.
+
 ---
 
 ## Security Considerations
@@ -2037,7 +2173,9 @@ To be completed during implementation, with each link confirmed resolving at clo
 - [licenseUnitsDetail resource type](https://learn.microsoft.com/graph/api/resources/licenseunitsdetail?view=graph-rest-1.0) - the definitions of `warning` units as those of an expired subscription in its grace period and `suspended` units as those of a canceled subscription that can't be assigned but can be reactivated before deletion, read against Step Six's 2026-09-23 SKU reading
 - [Place a mailbox on Litigation Hold (Exchange Server)](https://learn.microsoft.com/exchange/policy-and-compliance/holds/litigation-holds) - the 60-minute figure for a hold to take effect, which Step Seven set against the Exchange Online cmdlet's 240-minute warning
 - [Recoverable Items folder in Exchange Online](https://learn.microsoft.com/exchange/security-and-compliance/recoverable-items-folder/recoverable-items-folder) - the 20 GB and 30 GB default quotas, 90 GB and 100 GB on hold, 95 GB and 105 GB on hold with an archive, and the Purges and Versions subfolders under single item recovery and hold
-- [Identify Exchange mailbox hold types in eDiscovery](https://learn.microsoft.com/purview/edisc-hold-types-mailboxes) - the delay hold the Managed Folder Assistant applies after a hold is removed, `DelayHoldApplied` and `DelayReleaseHoldApplied`, the 30-day duration, and deleted mailboxes under a delay hold becoming inactive
+- [Identify Exchange mailbox hold types in eDiscovery](https://learn.microsoft.com/purview/edisc-hold-types-mailboxes) - the delay hold the Managed Folder Assistant applies after a hold is removed, `DelayHoldApplied` for Outlook content and `DelayReleaseHoldApplied` for content from other apps, which Step Nine found set one without the other, the 30-day duration, and deleted mailboxes under a delay hold becoming inactive
 - [Messaging Records management (MRM) and Retention Policies in Microsoft 365](https://learn.microsoft.com/troubleshoot/microsoft-365/purview/retention/mrm-and-retention-policy) - the direction to right-click a folder and select Assign policy, which Step Seven did not find in Outlook on the web
 - [Overview: Remove a former employee and secure data](https://learn.microsoft.com/microsoft-365/admin/add-users/remove-former-employee) - the offboarding sequence in which the mailbox is converted to shared before the license is removed and the account deleted
 - [Step 7 - Delete a former employee's user account](https://learn.microsoft.com/microsoft-365/admin/add-users/remove-former-employee-step-7) - the instruction not to delete an account converted to a shared mailbox, since the account anchors it, and the approximately 30 days before a deleted account is permanently deleted
+- [Recover from deletions](https://learn.microsoft.com/entra/architecture/recover-from-deletions) - the object types that support soft delete, Microsoft 365 groups and cloud security groups among them, and that all others are hard deleted, which Step Nine observed for `Help-Desk` and `IT-Support`
+- [Restore a deleted Microsoft 365 group or cloud security group in Microsoft Entra ID](https://learn.microsoft.com/entra/identity/users/groups-restore-deleted) - that group restoration is not available for distribution groups
