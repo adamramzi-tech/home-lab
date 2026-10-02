@@ -2018,6 +2018,20 @@ On SYNC01, `Get-ADSyncScheduler` was read first, at 8:05:42 PM Eastern (00:05:42
 
 `Get-LabWazuhAgentStatus.ps1 -AgentName DC01,WIN11-CLIENT01,UBUNTU-SERVER,SYNC01` then returned all four `active` and `Healthy`. The difference is the one Cloud Lab 02 and Lab 03 recorded: the script's default `-AgentName` list predates SYNC01, so the report's `Healthy` did not include it, and SYNC01's agent being active was something only the explicit call could show. `Invoke-Pester -Path C:\Scripts -Output Detailed` passed 174 of 174 at 8:22 PM, with 0 failed and 0 skipped.
 
+**The seamless single sign-on interval.** `AZUREADSSOACC` was read again at about 2:00 PM Eastern on 2026-10-02, after its thirty-day interval had ended at 8:07 PM on 2026-09-30:
+
+```powershell
+Get-ADComputer -Identity AZUREADSSOACC -Properties PasswordLastSet,whenChanged | Format-List Name,PasswordLastSet,whenChanged
+```
+
+```text
+Name            : AZUREADSSOACC
+PasswordLastSet : 8/31/2026 8:07:44 PM
+whenChanged     : 8/31/2026 8:09:19 PM
+```
+
+Both values were unchanged from Step One and from Lab 03, 31 days and 18 hours after the key was last set. A fully elapsed interval produced nothing observable on the object: Microsoft's thirty-day roll is a recommendation the administrator acts on, not an expiry the platform enforces. It was not rolled. Whether to automate the roll remains Lab 06's decision.
+
 ---
 
 ## Validation
