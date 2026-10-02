@@ -57,15 +57,15 @@ This separation strategy is considered foundational to maintaining infrastructur
 
 # Current State
 
-Labs 01 through 07 are complete. The Active Directory domain is fully deployed, WIN11-CLIENT01 is domain-joined and validated, Group Policy is deployed and validated across all three target OUs, Ubuntu Server is joined to the domain with SSSD providing AD-backed authentication, and Wazuh SIEM is deployed with agents enrolled on all three monitored systems and event collection validated across Windows and Linux endpoints.
+Labs 01 through 07 are complete. The Active Directory domain is fully deployed, WIN11-CLIENT01 is domain-joined and validated, Group Policy is deployed and validated across all three target OUs, Ubuntu Server is joined to the domain with SSSD providing AD-backed authentication, and Wazuh SIEM is deployed with agents enrolled on the three systems the track monitored and event collection validated across Windows and Linux endpoints. `SYNC01`, added by the Cloud and Hybrid Identity track, is the third virtual machine and the fourth Wazuh agent, and is described under Virtual Machine Inventory below.
 
 Current state of the enterprise infrastructure environment:
 
 - VMware Workstation Pro is deployed and operational on the Windows 11 workstation
 - DC01 is provisioned with Windows Server 2022 Standard Evaluation (Desktop Experience)
 - WIN11-CLIENT01 is provisioned with Windows 11 Enterprise Evaluation
-- VMware Tools is installed and operational on both virtual machines
-- both VMs are configured on bridged networking with direct LAN presence
+- VMware Tools is installed and operational on all three virtual machines (DC01, WIN11-CLIENT01, and SYNC01)
+- all three VMs are configured on bridged networking with direct LAN presence
 - DC01 static IP: `192.168.1.10`, hostname: `DC01`
 - WIN11-CLIENT01 static IP: `192.168.1.20`
 - Windows updates applied, DC01 OS Build 20348.5139 (Version 21H2), WIN11-CLIENT01 OS Build 26200.8457 (Version 25H2)

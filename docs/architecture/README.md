@@ -105,6 +105,7 @@ Documents:
 - Docker recovery workflows
 - infrastructure rollback planning
 - operational recovery expectations
+- Active Directory, hybrid identity, and tenant recovery considerations
 - recoverability philosophy
 
 ---

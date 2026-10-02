@@ -10,18 +10,18 @@ All five steps are complete: install and baseline, resolve `PSAvoidUsingWriteHos
 
 ## Overview
 
-This lab hardens the automation layer the track has produced rather than adding another administrative workflow. Labs 01 and 02 produced five PowerShell scripts, each validated once against the live `corp.home.arpa` environment and cross-checked against an independent Active Directory query. That proves each script works, but it is manual, performed once per lab, and not repeatable without re-running the whole lab against a live domain.
+This lab hardened the automation layer the track had produced rather than adding another administrative workflow. Labs 01 and 02 had produced five PowerShell scripts, each validated once against the live `corp.home.arpa` environment and cross-checked against an independent Active Directory query. That proved each script worked, but it was manual, performed once per lab, and not repeatable without re-running the whole lab against a live domain.
 
-It introduces the two quality tools standard in professional PowerShell work but so far absent from the track, PSScriptAnalyzer for static analysis and Pester for unit testing, applies both to the existing library, and establishes them as the standard every later lab is written against. It adds no new infrastructure, and it is the first lab in the track that does not touch DC01 at runtime: static analysis reads the script files, and the Pester tests replace the AD cmdlets with mocks, so the whole suite runs on the workstation without a live domain.
+It introduced the two quality tools standard in professional PowerShell work but until then absent from the track, PSScriptAnalyzer for static analysis and Pester for unit testing, applied both to the existing library, and established them as the standard every later lab was written against. It added no new infrastructure, and it was the first lab in the track that did not touch DC01 at runtime: static analysis reads the script files, and the Pester tests replace the AD cmdlets with mocks, so the whole suite runs on the workstation without a live domain.
 
 ---
 
 ## Objectives
 
-The primary goals of this lab are to:
+The primary goals of this lab were to:
 
 - run PSScriptAnalyzer across every script in `infrastructure/automation-and-scripting/` and bring the library to a clean pass against an agreed rule set
-- decide, and document the reasoning for, how to handle the `PSAvoidUsingWriteHost` rule, which flags the colored PASS/FAIL status output every script in the library currently relies on
+- decide, and document the reasoning for, how to handle the `PSAvoidUsingWriteHost` rule, which flags the colored PASS/FAIL status output every script in the library relied on
 - author Pester unit tests asserting each script's decision logic (pre-flight validation, OU and group placement, the partial-success batch model, primary-group exclusion, the query-back pattern) against mocked Active Directory cmdlets, so they run without a live domain
 - capture the rule set and the test suite in the repository so both are reproducible and become the standard the later labs are written against
 - document which behaviors these mocked tests cover and which remain covered only by Labs 01 and 02's live validation, so that boundary is explicit rather than implied
@@ -30,11 +30,11 @@ The primary goals of this lab are to:
 
 ## Project Context
 
-The track has grown its script library faster than its quality tooling. Five scripts exist, each documented and validated to a high standard, but that validation is entirely manual and entirely dependent on a live domain. There is no linting pass that catches a bad construct before a script runs, and no repeatable test that would catch a regression in a reused pattern. Lab 02 already reused `Remove-LabUser.ps1`'s primary-group exclusion logic, and the reporting labs still to come will reuse the console-table convention; a regression in either would today surface only by manually re-running a lab.
+The track had grown its script library faster than its quality tooling. Five scripts existed, each documented and validated to a high standard, but that validation was entirely manual and entirely dependent on a live domain. There was no linting pass that caught a bad construct before a script ran, and no repeatable test that would catch a regression in a reused pattern. Lab 02 had already reused `Remove-LabUser.ps1`'s primary-group exclusion logic, and the reporting labs still to come were set to reuse the console-table convention; a regression in either would at that point have surfaced only by manually re-running a lab.
 
-ADR-017 records the decision to close that gap by adopting PSScriptAnalyzer and Pester, and to do it now, as the next lab, rather than after the remaining administrative labs. The reasoning is sequencing: the library is still small enough that retrofitting five scripts is cheap, and establishing the standard before Labs 04 through 06 are written means those labs are authored against it from the start and gain test coverage as they are built, instead of accumulating an untested backlog to retrofit later. This lab is the implementation of that decision.
+ADR-017 records the decision to close that gap by adopting PSScriptAnalyzer and Pester, and to do it then, as the next lab, rather than after the remaining administrative labs. The reasoning was sequencing: the library was still small enough that retrofitting five scripts was cheap, and establishing the standard before the remaining labs were written meant those labs were authored against it from the start and gained test coverage as they were built, instead of accumulating an untested backlog to retrofit later. This lab was the implementation of that decision.
 
-It also fills a gap in the track's demonstrated skill set: a track about automation that relied only on manual validation would be conspicuously missing the two tools any professional PowerShell practice uses to enforce quality automatically.
+It also filled a gap in the track's demonstrated skill set: a track about automation that relied only on manual validation would have been conspicuously missing the two tools any professional PowerShell practice uses to enforce quality automatically.
 
 ---
 
@@ -42,31 +42,31 @@ It also fills a gap in the track's demonstrated skill set: a track about automat
 
 ### Mocked unit tests, not live-integration tests, for the repeatable suite
 
-**Decision:** The Pester tests will replace the Active Directory cmdlets each script calls (`Get-ADUser`, `Get-ADGroup`, `New-ADUser`, `Add-ADGroupMember`, `Get-ADGroupMember`, `Get-ADPrincipalGroupMembership`, `Get-ADOrganizationalUnit`, `Get-ADComputer`) with Pester mocks, so the suite asserts each script's decision logic without contacting DC01.
+**Decision:** The Pester tests replaced the Active Directory cmdlets each script calls (`Get-ADUser`, `Get-ADGroup`, `New-ADUser`, `Add-ADGroupMember`, `Get-ADGroupMember`, `Get-ADPrincipalGroupMembership`, `Get-ADOrganizationalUnit`, `Get-ADComputer`) with Pester mocks, so the suite asserted each script's decision logic without contacting DC01.
 
-The value of these scripts is in their decision logic: pre-flight checks, partial-success batch handling, primary-group exclusion, query-back validation. That logic can be exercised deterministically with mocked cmdlets returning controlled results, including the error and empty-result cases that are awkward to produce against a live domain on demand, and mocking makes the suite fast, repeatable, and safe to run without credentials. The tradeoff is that mocked tests validate logic against test doubles, not live AD behavior; they do not replace the live cross-checks Labs 01 and 02 performed, and this lab states that boundary explicitly rather than implying otherwise.
+The value of these scripts is in their decision logic: pre-flight checks, partial-success batch handling, primary-group exclusion, query-back validation. That logic can be exercised deterministically with mocked cmdlets returning controlled results, including the error and empty-result cases that are awkward to produce against a live domain on demand, and mocking makes the suite fast, repeatable, and safe to run without credentials. The tradeoff is that mocked tests validate logic against test doubles, not live AD behavior; they do not replace the live cross-checks Labs 01 and 02 performed, and this lab stated that boundary explicitly rather than implying otherwise.
 
 ### Handle PSAvoidUsingWriteHost deliberately, and document the choice
 
-**Decision:** The lab will make an explicit, documented decision about the `PSAvoidUsingWriteHost` rule rather than silently suppressing it or silently letting it fail.
+**Decision:** The lab made an explicit, documented decision about the `PSAvoidUsingWriteHost` rule rather than silently suppressing it or silently letting it fail: a suppression in `PSScriptAnalyzerSettings.psd1` with a written justification, rather than a migration to `Write-Information`.
 
-Every script uses `Write-Host` with `-ForegroundColor` to print colored PASS, FAIL, and ABORT status lines. PSScriptAnalyzer flags this with `PSAvoidUsingWriteHost` (a Warning, always enabled) because `Write-Host` writes to the host rather than the pipeline; the rule's `Show`-verb exception does not apply to `New-`, `Remove-`, `Add-`, and `Get-` scripts. Two resolutions are defensible: suppress the rule with a documented justification, on the grounds that the colored output is intentional console-facing display rather than pipeline data, or migrate to `Write-Information`, which is analyzer-clean and available in PowerShell 5.1. The migration is the cleaner long-term path but changes output behavior; the suppression is lower-effort but leaves a rule off. This is the lab's central implementation decision and was resolved in Step Two against the analyzer's actual output.
+Every script uses `Write-Host` with `-ForegroundColor` to print colored PASS, FAIL, and ABORT status lines. PSScriptAnalyzer flags this with `PSAvoidUsingWriteHost` (a Warning, always enabled) because `Write-Host` writes to the host rather than the pipeline; the rule's `Show`-verb exception does not apply to `New-`, `Remove-`, `Add-`, and `Get-` scripts. Two resolutions were defensible: suppress the rule with a documented justification, on the grounds that the colored output is intentional console-facing display rather than pipeline data, or migrate to `Write-Information`, which is analyzer-clean and available in PowerShell 5.1. The migration was the cleaner long-term path but would have changed output behavior, since `Write-Information` is silent by default and carries no `-ForegroundColor`; the suppression was lower-effort but leaves a rule off. This was the lab's central implementation decision, resolved in Step Two against the analyzer's actual output in favor of the documented suppression, on the further ground that Windows PowerShell 5.1's `Write-Host` writes to the capturable information stream, which removes the rule's underlying objection.
 
 ### Capture the agreed rule set in a settings file
 
-**Decision:** The agreed PSScriptAnalyzer rule set will be captured in a `PSScriptAnalyzerSettings.psd1` committed to the repository, rather than relying on whichever default rules a given machine happens to run.
+**Decision:** The agreed PSScriptAnalyzer rule set was captured in a `PSScriptAnalyzerSettings.psd1` committed to the repository, rather than relying on whichever default rules a given machine happens to run.
 
 Pinning the rule set makes the standard explicit and reproducible: anyone running `Invoke-ScriptAnalyzer -Settings <file>` gets the same result, and any deviation from the defaults is visible in one reviewed file rather than buried in per-run parameters.
 
 ### On-demand execution, no CI pipeline yet
 
-**Decision:** The analyzer and the Pester suite will be run on demand from WIN11-CLIENT01, not wired into a continuous integration pipeline in this lab.
+**Decision:** The analyzer and the Pester suite were run on demand from WIN11-CLIENT01, not wired into a continuous integration pipeline in this lab.
 
-ADR-017 deferred CI as a larger step than the track currently needs and named it a future reassessment trigger once the mocked tests and analyzer settings exist. This lab produces exactly those artifacts; automating their execution on push is the natural follow-on rather than introducing build infrastructure in the same lab that first creates the tests.
+ADR-017 deferred CI as a larger step than the track currently needs and named it a future reassessment trigger once the mocked tests and analyzer settings exist. This lab produced exactly those artifacts; automating their execution on push was left as the natural follow-on rather than introducing build infrastructure in the same lab that first created the tests.
 
 ### Script and folder naming
 
-**Decision:** Pester tests follow the framework's `*.Tests.ps1` convention, and the analyzer settings and test files live alongside the script library under `infrastructure/automation-and-scripting/`, with the exact layout, a shared `tests/` subfolder versus per-script colocation, settled in Step Three.
+**Decision:** Pester tests follow the framework's `*.Tests.ps1` convention, and the analyzer settings and test files live alongside the script library under `infrastructure/automation-and-scripting/`. The exact layout, a shared `tests/` subfolder versus per-script colocation, was settled in Step Three in favor of colocation: each `*.Tests.ps1` file sits directly beside the script it tests.
 
 ---
 
@@ -99,7 +99,7 @@ WIN11-CLIENT01 (PowerShell, PSScriptAnalyzer + Pester)
   this suite. This lab documents that boundary rather than blurring it.
 ```
 
-Unlike every prior lab in the track, this lab does not query or modify DC01 when it runs. That is a deliberate property of unit testing with mocks, and it is what makes the suite safe to run repeatedly.
+Unlike every prior lab in the track, this lab did not query or modify DC01 when it ran. That is a deliberate property of unit testing with mocks, and it is what makes the suite safe to run repeatedly.
 
 ---
 
