@@ -279,7 +279,7 @@ Four on-premises changes were made, all in Lab 02. A third virtual machine, `SYN
 
 Lab 02 is complete. Synchronization is operational, and both password hash synchronization and seamless single sign-on are proven from a client rather than asserted. The synchronization scheduler was found disabled since installation and corrected, a deliberately induced user principal name collision was quarantined and diagnosed, and DC01, WIN11-CLIENT01, and Ubuntu Server were confirmed to behave exactly as the earlier tracks documented.
 
-Labs 03 and 04 changed no topology. Lab 03 administered the directory Lab 02 built. Lab 04, in progress, administers Exchange Online as a service layer inside the tenant from the Exchange admin center and Exchange Online PowerShell. No mail-flow DNS records exist for `brindeck.com`, so its mail flow stays between mailboxes inside the tenant and nothing new is exposed.
+Labs 03 and 04 changed no topology. Lab 03 administered the directory Lab 02 built. Lab 04 administered Exchange Online as a service layer inside the tenant from the Exchange admin center and Exchange Online PowerShell. No mail-flow DNS records exist for `brindeck.com`, so its mail flow stayed between mailboxes inside the tenant and nothing new was exposed.
 
 Connectivity is outbound only. Password hash synchronization is the chosen authentication method precisely because it requires no publicly reachable on-premises endpoint, so `SYNC01` reaches Microsoft Entra ID outbound and nothing new is exposed inbound.
 
