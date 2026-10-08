@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress. Steps One through Eight are complete and documented in past tense below. Step Nine remains.
+In progress. All nine steps are complete and documented in past tense below.
 
 The lab runs against the Business Premium trial's expiry on 2026-10-05, which takes with it the Exchange Online Plan 1 behind the mailboxes the remaining steps depend on. Step Six observed the Business Basic trial's lapse as a preview: by 2026-09-23 the subscription read Disabled and its SKU `Suspended`, with no Expired stage observed, while both assignment records and Adam Ramzi's license and mailbox stayed intact and the mailbox kept accepting mail. Whether user access ended was not tested, so the lab keeps the conservative assumption and treats 2026-10-05 as a hard cliff.
 
@@ -1868,23 +1868,9 @@ IsInactiveMailbox    : False
 
 Left alone, the account would have stayed in Deleted users until 2026-10-26, after this lab's deadline and inside Lab 05. Unlike `nolocation-demo01`, it carried nothing a later lab reads, and `nolocation-demo01` will show an automatic purge on its own date. It was permanently deleted with `Remove-MgDirectoryDeletedItem` at 4:28:14 PM Eastern (20:28:14 UTC). At 4:29 PM Graph returned no deleted user matching it, but the soft-deleted mailbox was still present, with `WhenSoftDeleted` re-stamped from 4:24:03 PM to 4:28:20 PM. It was still present at 4:33 PM, when `ConsumedUnits` read 6 of 25. The product page's last reading was 7 of 25, at 4:13 PM.
 
-### Step Nine: Validate the environment is unchanged and record the finished state
+### Step Nine: Validated the environment and recorded the finished state
 
-Confirm that a lab conducted in two web consoles and one PowerShell module left everything else as it found it, and record what Lab 05 starts from.
-
-`Test-ComputerSecureChannel` from WIN11-CLIENT01, a Group Policy result confirming `IT-Admin-Environment` still applies, taken at user scope since Lab 03 established that a computer-scoped result structurally cannot show it. `sssd` active on Ubuntu Server with a freshly issued Kerberos ticket rather than a cached one. On `SYNC01`, the Entra Connect version and source anchor unchanged, and `Get-ADSyncScheduler` read before anything that could force a cycle, with the suspended-VM behavior Lab 03 recorded applied rather than rediscovered.
-
-Run `Invoke-LabHealthReport.ps1` for the overall picture and then `Get-LabWazuhAgentStatus -AgentName DC01,WIN11-CLIENT01,UBUNTU-SERVER,SYNC01` explicitly, recording both and the reason they differ. That defect is now carried by two tracks and confirmed by two labs. `Invoke-Pester -Path C:\Scripts -Output Detailed`, expected at 174 tests and 0 failed, since this lab commits no script.
-
-Reconcile the finished state. Record every mail object that persists and every one the lab removed, including confirmation that Step Five's mail flow rule is gone and mail flows normally again, and that Step Seven's litigation hold is released if one was placed. Record the state of the archive mailbox Step Seven left enabled on testuser01, and reread `DelayHoldApplied` and `DelayReleaseHoldApplied` on the same mailbox, which both read False at 1:00 PM Eastern on 2026-09-24, 42 minutes after Step Seven removed the hold, along with its Recoverable Items quotas, which still read 100 GB and 90 GB at that time. Record the licensing state by assignment target and consumed seat for both SKUs. Business Premium closed Step Eight at 6 consumed seats of 25 (4:33 PM Eastern on 2026-09-26) and 7 assignment targets (4:13 PM). Confirm that `leaver-demo01` is absent from Deleted users, since Step Eight purged it at 4:28 PM Eastern on 2026-09-26 rather than leaving it to its 2026-10-26 permanent deletion date, and record whether its soft-deleted shared mailbox, still returned by `Get-EXOMailbox -SoftDeletedMailbox` at 4:33 PM that day, has gone. Re-read the Entra admin center's Licenses blade for one directly licensed account and record its enabled-services count, which Step One's reconciliation of the three service counts predicts at 53 and which is the one figure in that reconciliation still standing as a prediction. Record the state of the four objects Lab 03 left outside the Entra Overview's counts: `nolocation-demo01` and `Testgroup` retained, `duptest01` and `duptest02` purged. Record whether `cloudonly-demo01` is still license-only with no groups and no roles, which is the condition Lab 05 depends on and which nothing in this lab should have touched.
-
-Close the three dated carry-forward items this lab owns rather than passing them on with their dates already spent.
-
-Read `AZUREADSSOACC`'s key age again, against the 2026-09-30 interval Step One recorded. Lab 03 left the key unrolled at eleven days elapsed specifically so a later lab could watch a full thirty-day interval pass against a recommendation it had established as hygiene rather than a deadline. This is that lab. Record what a fully elapsed interval produced, which is most likely nothing observable, since that is the finding either way. Whether to automate the roll remains Lab 06's.
-
-Take the decision on `Testgroup` and `nolocation-demo01`, whose permanent deletion dates of 2026-10-06 and 2026-10-07 both fall after this lab's own deadline. That makes this the last lab that can decide anything about either. `nolocation-demo01` is the artifact behind Lab 03's finding that a soft-deleted object keeps its `assignedLicenses` while consuming no seat, so record the case for letting it reach permanent deletion on its own against the case for restoring it first to read the property one last time, and take the decision rather than letting the date take it.
-
-Record the entitlement position plainly, and record the discrepancy rather than resolving it silently. Business Premium expires 2026-10-05 by the subscription's stated end date, while the portal's own Recurring billing field reads 2026-10-06, which Lab 03 recorded and left open. This lab plans against the earlier of the two. State both, state which one this lab used, and state whether anything observed here settled it. With the subscription goes Exchange Online Plan 1, Microsoft Entra ID P1, and Microsoft Intune Plan 1, and Lab 05 needs the last two. Whether that decision is a renewal, a purchase, or a deliberate lapse is Lab 05's to take, and this lab's job is to hand it an accurate picture of what is about to end, including whatever Step Six established about the Expired stage.
+Step Nine confirmed that a lab conducted in two web consoles and one PowerShell module had left the on-premises hosts and `SYNC01` as it found them, reconciled every mail object and both SKUs into a finished state, and closed the three dated carry-forward items the lab owned: the `AZUREADSSOACC` interval, the `Testgroup` and `nolocation-demo01` deletion windows, and the Business Premium expiry. That subscription's Expiration date read 2026-10-05 and its Recurring billing field 2026-10-06. The lab planned against the earlier date and read the subscription on both sides of it.
 
 **Licensing.** The readings began at 6:49 PM Eastern (22:49 UTC) on 2026-09-28. The same `Get-MgSubscribedSku` command as Step Six, widened to include `SPB`, read Business Basic unchanged from 2026-09-23 (`Suspended`, 25 units suspended, 1 consumed) and Business Premium unchanged from Step Eight's close (`Enabled`, 6 consumed of 25). Both product pages were read between 6:49 PM and 6:56 PM:
 
@@ -2031,6 +2017,109 @@ whenChanged     : 8/31/2026 8:09:19 PM
 ```
 
 Both values were unchanged from Step One and from Lab 03, 31 days and 18 hours after the key was last set. A fully elapsed interval produced nothing observable on the object: Microsoft's thirty-day roll is a recommendation the administrator acts on, not an expiry the platform enforces. It was not rolled. Whether to automate the roll remains Lab 06's decision.
+
+**The Business Premium lapse.** The subscription was read at midday on 2026-10-05, its stated Expiration date, then on the evening of 2026-10-06 and on 2026-10-08. Nothing was read between 1:59 PM Eastern (17:59 UTC) on 2026-10-05 and 9:31 PM Eastern on 2026-10-06 (01:31 UTC on 2026-10-07), or on 2026-10-07.
+
+At 1:53 PM Eastern (17:53 UTC) on 2026-10-05 the product page still read Active:
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/49-business-premium-product-page-2026-10-05.jpg" alt="49-business-premium-product-page-2026-10-05" width="700">
+</p>
+
+<p align="center">
+  <em>Business Premium product page, 1:53 PM Eastern on 2026-10-05: Active, 7 / 25 assigned, "expires today."</em>
+</p>
+
+Two banners were new: "Your Microsoft 365 Business Premium expires today." and "Your free trial will expire on 10/5/2026 and your service will end. To buy a paid subscription when this trial ends, turn on recurring billing." The cancellation banner was unchanged from 2026-09-28, and Recurring billing still read "Expires on October 6, 2026."
+
+The Your products list a minute later agreed, with 18 available: 25 less the 7 assignment targets, not the 6 consumed seats. The same `Get-MgSubscribedSku` command at 1:56:02 PM Eastern (17:56:02 UTC) read `SPB` `Enabled`, 6 consumed, 25 enabled, and 0 warning, suspended, and locked out. At 1:57 PM, testuser01 and `cloudonly-demo01` both returned `SPB`, and both mailboxes were `UserMailbox` with `WhenSoftDeleted` blank.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/50-entra-overview-license-tier-2026-10-05.jpg" alt="50-entra-overview-license-tier-2026-10-05" width="450">
+</p>
+
+<p align="center">
+  <em>Entra admin center Overview, 1:59 PM Eastern on 2026-10-05: License, Microsoft Entra ID P1.</em>
+</p>
+
+**After the lapse.** At 9:31 PM Eastern on 2026-10-06 the Your products list read Business Premium Disabled with 0 available, still against 10/5/2026, and the product page a minute later agreed:
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/51-business-premium-product-page-2026-10-06.jpg" alt="51-business-premium-product-page-2026-10-06" width="700">
+</p>
+
+<p align="center">
+  <em>Business Premium product page, 9:32 PM Eastern on 2026-10-06: Disabled, 7 / 7 assigned, "expired."</em>
+</p>
+
+The top banner now read "Your Microsoft 365 Business Premium expired.", and the cancellation banner had become the text Business Basic showed in Step Six: "This subscription is disabled and your data will be deleted." The trial banner still named 10/5/2026, Recurring billing still read "Expires on October 6, 2026," and Reactivate and Extend trial end date were unavailable. The same command, at 9:43:47 PM Eastern (01:43:47 UTC on 2026-10-07):
+
+```text
+SkuPartNumber    : Microsoft_365_Business_Basic_(no Teams)
+CapabilityStatus : Suspended
+ConsumedUnits    : 1
+Enabled          : 0
+Warning          : 0
+Suspended        : 25
+LockedOut        : 0
+
+SkuPartNumber    : SPB
+CapabilityStatus : Suspended
+ConsumedUnits    : 6
+Enabled          : 0
+Warning          : 0
+Suspended        : 25
+LockedOut        : 0
+```
+
+All 25 units had moved from `Enabled` to `Suspended` with `Warning` at 0, and neither SKU held an enabled unit. At 9:44:27 PM, testuser01 and `cloudonly-demo01` still returned `SPB`, and both mailboxes were still `UserMailbox` with `WhenSoftDeleted` blank, read over Exchange Online PowerShell as Cloud Administrator.
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/52-entra-overview-license-tier-2026-10-06.jpg" alt="52-entra-overview-license-tier-2026-10-06" width="450">
+</p>
+
+<p align="center">
+  <em>Entra admin center Overview, 9:46 PM Eastern on 2026-10-06: License, Microsoft Entra ID Free.</em>
+</p>
+
+Groups read 10 where it had read 9; `Get-MgGroup` gave the addition as "Group for Answers in Viva Engage – DO NOT DELETE 1521576349843456", created at 12:50:07 UTC on 2026-10-06 by no step of this lab.
+
+**The expiry notice.** No tenant mailbox received one. At 9:47:32 PM Eastern, `Get-MessageTraceV2 -SenderAddress microsoft-noreply@microsoft.com` over four days returned nothing, the same window for `admin@brindeck.com` and `Adam@brindeck.onmicrosoft.com` returned only a Connect Health alert, and at 9:53:51 PM `-Subject "Business Premium" -SubjectFilterType Contains` over ten days and all recipients returned nothing. The notice went to the billing account's contact address, an outlook.com mailbox outside the tenant, from `microsoft-noreply@microsoft.com`, with the subject "Your Microsoft 365 Business Premium subscription has expired," at 11:43 AM Eastern (15:43 UTC) on 2026-10-06. Its body read "Your organization's subscription expired on October 6, 2026." Step Six's Business Basic notice had arrived in Adam Ramzi's tenant mailbox.
+
+**Outlook on the web.** At 9:56 PM Eastern, Cloud Administrator's Outlook on the web failed to load:
+
+<p align="center">
+  <img src="../../images/cloud-and-hybrid-identity/04-microsoft-365-administration-workflows/53-cloud-administrator-owa-tenant-access-blocked-2026-10-06.jpg" alt="53-cloud-administrator-owa-tenant-access-blocked-2026-10-06" width="700">
+</p>
+
+<p align="center">
+  <em>Outlook on the web as Cloud Administrator, 01:56:33 UTC on 2026-10-07: "Something went wrong."</em>
+</p>
+
+```text
+UTC Date: 2026-10-07T01:56:33.962Z
+BootResult: configuration
+err: Microsoft.Exchange.Data.Storage.TenantAccessBlockedException
+st: 500
+efe: BN9PR03CA0625
+reqid: 77eb9231-9aee-a412-3b97-a16683d5a1dd
+```
+
+A refresh at 01:57:33 UTC returned the same exception from a different front end, `MN2PR22CA0005`, request ID `5c3c84f3-9696-c9e1-ea6d-9d5e23bb23b6`. Exchange Online PowerShell under the same account had connected and returned results between 01:44 and 01:53 UTC, and connected again on 2026-10-08.
+
+**The delivery probe.** With Outlook on the web unavailable to Cloud Administrator, the probe was sent from the billing contact's outlook.com mailbox to `testuser01@brindeck.com` at 9:59 PM Eastern (01:59 UTC on 2026-10-07), subject "Lab 04 Step Nine - post-lapse delivery probe." It could not test the lapse. Step One established that `brindeck.com` publishes no MX record, so mail from outside the tenant has no route to Exchange Online at all. No non-delivery report came back, and `Get-MessageTraceV2 -RecipientAddress testuser01@brindeck.com` returned no row at 10:01 PM or 10:06 PM, with or without a subject filter, or over two days at 12:50:22 PM Eastern (16:50:22 UTC) on 2026-10-08, consistent with the message never reaching the tenant. Delivery within the tenant after this lapse was not tested.
+
+**2026-10-08.** At 12:04 PM Eastern (16:04 UTC) the product page read as it had on 2026-10-06, and the same SKU command at 12:49:35 PM (16:49:35 UTC) returned both SKUs unchanged.
+
+**The two deletion windows, closed.** `Testgroup` fell due at 5:08:17 PM Eastern (21:08:17 UTC) on 2026-10-06. At 9:54:37 PM Eastern that evening, 4 hours 46 minutes later, `Get-MgDirectoryDeletedItemAsGroup` still returned it. At 12:49:35 PM Eastern on 2026-10-08 Deleted groups were empty, so its permanent deletion came between those two readings. `nolocation-demo01` fell due at 4:01:55 PM Eastern (20:01:55 UTC) on 2026-10-07. At the same 2026-10-08 reading, 20 hours 48 minutes later, `Get-MgDirectoryDeletedItemAsUser` still returned it, as `f8b70f2e[masked]nolocation-demo01@brindeck.com` with `DeletedDateTime` 9/7/2026 8:01:55 PM. Neither object was gone at its stated time.
+
+**The entitlement position.** Business Premium carried two end dates to the last reading: Expiration date 10/5/2026, and Recurring billing "Expires on October 6, 2026." The lab planned against 10/5. It read Active at 17:56 UTC on 10/5 and Disabled by 01:31 UTC on 10/7, and Microsoft's notice at 15:43 UTC on 10/6 named October 6. No reading fell between 17:59 UTC on 10/5 and 01:31 UTC on 10/7, a window that spans both dates in both time zones, so when the status changed was not observed. The notice agrees with the Recurring billing date, but it is Microsoft's statement of the date, not an observation of the change. The readings do not settle which date the commerce system acted on.
+
+Business Premium went the way Business Basic did at the subscription and SKU level. It went straight to Disabled and `Suspended` with no Expired status or `Warning` units observed, though the gap could have hidden a short Expired status, as Step Six's could. All 7 targets and 6 consumed seats remained, and both users' license detail and mailboxes were intact. It differed in one observed way: Outlook on the web refused Cloud Administrator with a tenant-level access block. After Business Basic's lapse, mail had still been delivered to Adam Ramzi's mailbox, at a time when Business Premium still held enabled Exchange Online units; whether mail still reached a mailbox inside the tenant after Business Premium's lapse was not tested.
+
+That confirms the part of Step Six's branch the Basic lapse could rule on: the Expired-stage branch is ruled out on a second subscription. It adds what Step Six could not establish. User access to Exchange Online ended for at least one account and one client by 01:56 UTC on 10/7, while administration over PowerShell continued. Treating 10/5 as a hard cliff cost nothing, since Steps Seven and Eight were complete before it, but whether the cliff fell on 10/5 or 10/6 remains undetermined.
+
+With the subscription went Exchange Online Plan 1, Microsoft Entra ID P1, and Microsoft Intune Plan 1. The SKU that carried all three read `Suspended`, and the Entra Overview read Free. Intune was not read separately. Lab 05 needs Entra ID P1 and Intune Plan 1, and whether to renew, buy, or let them lapse is Lab 05's decision.
 
 ---
 
